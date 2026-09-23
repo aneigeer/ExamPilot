@@ -1,0 +1,40 @@
+# ============================================================
+# 统一换行符策略
+# 仓库内一律存为 LF；检出时按平台自动转换
+# ============================================================
+* text=auto eol=lf
+
+# ---------- Windows 专用脚本保持 CRLF ----------
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# ---------- 构建脚本：wrapper 在 Linux 构建时必须为 LF ----------
+gradlew      text eol=lf
+gradlew.bat  text eol=crlf
+mvnw         text eol=lf
+mvnw.cmd     text eol=crlf
+*.sh         text eol=lf
+
+# ---------- 二进制文件不做换行处理 ----------
+*.jar      binary
+*.war      binary
+*.apk      binary
+*.aab      binary
+*.dex      binary
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.webp     binary
+*.ico      binary
+*.ttf      binary
+*.otf      binary
+*.woff     binary
+*.woff2    binary
+*.keystore binary
+*.jks      binary
+*.xlsx     binary
+*.docx     binary
+*.pptx     binary
+*.pdf      binary
