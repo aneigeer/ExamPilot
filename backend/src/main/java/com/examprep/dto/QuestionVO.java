@@ -51,6 +51,9 @@ public class QuestionVO {
     @Schema(description = "是否客观题（可自动判分）")
     private Boolean objective;
 
+    @Schema(description = "审核状态：DRAFT / PENDING / APPROVED / REJECTED / OFFLINE")
+    private String auditStatus;
+
     @Schema(description = "选项列表（客观题）")
     private List<OptionVO> options;
 
@@ -99,6 +102,7 @@ public class QuestionVO {
         vo.setTags(q.getTags());
         vo.setScore(q.getScore());
         vo.setObjective(QuestionType.isObjective(q.getType()));
+        vo.setAuditStatus(q.getAuditStatus());
         return vo;
     }
 }

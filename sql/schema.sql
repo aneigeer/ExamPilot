@@ -444,6 +444,49 @@ CREATE TABLE `favorite` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '收藏表（题目/资料通用）';
 
 -- ============================================================
+-- 七·补充、评论 / 点赞 / 评分（P0-B）
+-- ============================================================
+
+DROP TABLE IF EXISTS `comment`;
+CREATE TABLE `comment` (
+    `id`          BIGINT        NOT NULL AUTO_INCREMENT,
+    `target_type` VARCHAR(20)   NOT NULL COMMENT '对象类型：RESOURCE / QUESTION',
+    `target_id`   BIGINT        NOT NULL COMMENT '对象 ID',
+    `user_id`     BIGINT        NOT NULL COMMENT '评论人',
+    `content`     VARCHAR(1000) NOT NULL COMMENT '内容',
+    `parent_id`   BIGINT        NOT NULL DEFAULT 0 COMMENT '父评论，0 为顶层',
+    `like_count`  INT           NOT NULL DEFAULT 0 COMMENT '点赞数（冗余统计）',
+    `created_at`  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `is_deleted`  TINYINT       NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_comment_target` (`target_type`, `target_id`),
+    KEY `idx_comment_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '评论表';
+
+DROP TABLE IF EXISTS `comment_like`;
+CREATE TABLE `comment_like` (
+    `id`         BIGINT   NOT NULL AUTO_INCREMENT,
+    `comment_id` BIGINT   NOT NULL,
+    `user_id`    BIGINT   NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_like_comment_user` (`comment_id`, `user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '评论点赞表（唯一索引防重复点赞）';
+
+DROP TABLE IF EXISTS `resource_rating`;
+CREATE TABLE `resource_rating` (
+    `id`          BIGINT   NOT NULL AUTO_INCREMENT,
+    `resource_id` BIGINT   NOT NULL,
+    `user_id`     BIGINT   NOT NULL,
+    `score`       TINYINT  NOT NULL COMMENT '评分 1-5',
+    `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_rating_resource_user` (`resource_id`, `user_id`),
+    KEY `idx_rating_resource` (`resource_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '资料评分表（一人一评）';
+
+-- ============================================================
 -- 八、通知 / 公告 / 日志
 -- ============================================================
 
@@ -500,6 +543,6 @@ CREATE TABLE `operation_log` (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
--- 建表完成：共 28 张 P0 核心表
+-- 建表完成：共 31 张 P0 核心表
 -- 已按 v2 大纲移除：积分账户表、积分流水表、签到记录表
 -- ============================================================
