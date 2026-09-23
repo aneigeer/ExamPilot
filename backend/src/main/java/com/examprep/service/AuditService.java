@@ -1,0 +1,279 @@
+package com.examprep.service;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.examprep.common.BizException;
+import com.examprep.common.PageResult;
+import com.examprep.common.ResultCode;
+import com.examprep.dto.ReportHandleRequest;
+import com.examprep.dto.ResourceVO;
+import com.examprep.entity.AuditRecord;
+import com.examprep.entity.ExamCategory;
+import com.examprep.entity.Report;
+import com.examprep.entity.Resource;
+import com.examprep.entity.Subject;
+import com.examprep.entity.User;
+import com.examprep.mapper.AuditRecordMapper;
+import com.examprep.mapper.ExamCategoryMapper;
+import com.examprep.mapper.ReportMapper;
+import com.examprep.mapper.ResourceMapper;
+import com.examprep.mapper.SubjectMapper;
+import com.examprep.mapper.UserMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 审核与举报处理服务
+ *
+ * 状态机：DRAFT → PENDING → APPROVED / REJECTED → OFFLINE
+ * 硬性约束：审核员不可审核自己上传的内容。
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AuditService {
+
+    private static final String PENDING = "PENDING";
+    private static final String APPROVED = "APPROVED";
+    private static final String REJECTED = "REJECTED";
+    private static final String OFFLINE = "OFFLINE";
+
+    private final ResourceMapper resourceMapper;
+    private final ReportMapper reportMapper;
+    private final AuditRecordMapper auditRecordMapper;
+    private final SubjectMapper subjectMapper;
+    private final ExamCategoryMapper examCategoryMapper;
+    private final UserMapper userMapper;
+    private final NoticeService noticeService;
+    private final OperationLogService logService;
+
+    // ==================================================================
+    // 待审核列表
+    // ==================================================================
+
+    /** 待审核资料列表 */
+    public PageResult<ResourceVO> pagePendingResources(long page, long size, String type, String keyword) {
+        IPage<Resource> p = new Page<>(page, size);
+        IPage<Resource> result = resourceMapper.selectPage(p, Wrappers.<Resource>lambdaQuery()
+                .eq(Resource::getAuditStatus, PENDING)
+                .eq(StringUtils.hasText(type), Resource::getType, type)
+                .like(StringUtils.hasText(keyword), Resource::getTitle, keyword)
+                .orderByAsc(Resource::getCreatedAt));
+        return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(),
+                enrich(result.getRecords()));
+    }
+
+    /** 已审核资料（可按状态过滤） */
+    public PageResult<ResourceVO> pageAuditedResources(long page, long size, String status) {
+        IPage<Resource> p = new Page<>(page, size);
+        IPage<Resource> result = resourceMapper.selectPage(p, Wrappers.<Resource>lambdaQuery()
+                .ne(StringUtils.hasText(status), Resource::getAuditStatus, PENDING)
+                .eq(StringUtils.hasText(status), Resource::getAuditStatus, status)
+                .orderByDesc(Resource::getUpdatedAt));
+        return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(),
+                enrich(result.getRecords()));
+    }
+
+    // ==================================================================
+    // 审核操作
+    // ==================================================================
+
+    @Transactional(rollbackFor = Exception.class)
+    public void approveResource(Long resourceId, Long auditorId, String reason) {
+        Resource resource = requireAuditable(resourceId, auditorId, PENDING);
+        changeStatus(resource, APPROVED);
+        writeAuditRecord("RESOURCE", resourceId, auditorId, APPROVED, reason);
+        noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
+                "资料审核通过",
+                "你上传的《" + resource.getTitle() + "》已通过审核，现在其他同学可以搜索并下载了。",
+                "RESOURCE", resourceId);
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "RESOURCE", resourceId,
+                "审核通过：" + resource.getTitle());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectResource(Long resourceId, Long auditorId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new BizException("驳回必须填写原因，便于上传人修改");
+        }
+        Resource resource = requireAuditable(resourceId, auditorId, PENDING);
+        changeStatus(resource, REJECTED);
+        writeAuditRecord("RESOURCE", resourceId, auditorId, REJECTED, reason);
+        noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
+                "资料审核未通过",
+                "你上传的《" + resource.getTitle() + "》未通过审核。原因：" + reason + "。修改后可以重新提交。",
+                "RESOURCE", resourceId);
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "RESOURCE", resourceId,
+                "驳回：" + resource.getTitle() + "，原因：" + reason);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void offlineResource(Long resourceId, Long auditorId, String reason) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        if (OFFLINE.equals(resource.getAuditStatus())) {
+            throw new BizException(ResultCode.AUDIT_STATUS_ILLEGAL, "该资料已下架");
+        }
+        changeStatus(resource, OFFLINE);
+        writeAuditRecord("RESOURCE", resourceId, auditorId, OFFLINE, reason);
+        noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
+                "资料已下架",
+                "你上传的《" + resource.getTitle() + "》已被下架。"
+                        + (StringUtils.hasText(reason) ? "原因：" + reason : ""),
+                "RESOURCE", resourceId);
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "RESOURCE", resourceId,
+                "下架：" + resource.getTitle());
+    }
+
+    private Resource requireAuditable(Long resourceId, Long auditorId, String expectedStatus) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        // 硬性约束：审核员不可审核自己上传的内容
+        if (resource.getUploaderId() != null && resource.getUploaderId().equals(auditorId)) {
+            throw new BizException(ResultCode.AUDIT_SELF_FORBIDDEN);
+        }
+        if (!expectedStatus.equals(resource.getAuditStatus())) {
+            throw new BizException(ResultCode.AUDIT_STATUS_ILLEGAL,
+                    "该资料当前状态为 " + resource.getAuditStatus() + "，不可执行此操作");
+        }
+        return resource;
+    }
+
+    private void changeStatus(Resource resource, String status) {
+        Resource update = new Resource();
+        update.setId(resource.getId());
+        update.setAuditStatus(status);
+        resourceMapper.updateById(update);
+        resource.setAuditStatus(status);
+    }
+
+    private void writeAuditRecord(String targetType, Long targetId, Long auditorId,
+                                  String result, String reason) {
+        AuditRecord record = new AuditRecord();
+        record.setTargetType(targetType);
+        record.setTargetId(targetId);
+        record.setAuditorId(auditorId);
+        record.setResult(result);
+        record.setReason(reason);
+        auditRecordMapper.insert(record);
+    }
+
+    // ==================================================================
+    // 举报处理
+    // ==================================================================
+
+    public PageResult<Report> pageReports(long page, long size, String status) {
+        IPage<Report> p = new Page<>(page, size);
+        IPage<Report> result = reportMapper.selectPage(p, Wrappers.<Report>lambdaQuery()
+                .eq(StringUtils.hasText(status), Report::getStatus, status)
+                .orderByAsc(Report::getStatus)
+                .orderByDesc(Report::getCreatedAt));
+        return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void handleReport(Long reportId, Long handlerId, ReportHandleRequest req) {
+        Report report = reportMapper.selectById(reportId);
+        if (report == null) {
+            throw new BizException(ResultCode.NOT_FOUND, "举报记录不存在");
+        }
+        if (!"PENDING".equals(report.getStatus())) {
+            throw new BizException(ResultCode.REPORT_ALREADY_HANDLED);
+        }
+
+        String status = req.getStatus().toUpperCase();
+        if (!"VALID".equals(status) && !"INVALID".equals(status)) {
+            throw new BizException("处理结论只能是 VALID 或 INVALID");
+        }
+
+        Report update = new Report();
+        update.setId(reportId);
+        update.setStatus(status);
+        update.setHandlerId(handlerId);
+        update.setHandleNote(req.getNote());
+        update.setHandledAt(LocalDateTime.now());
+        reportMapper.updateById(update);
+
+        boolean valid = "VALID".equals(status);
+
+        // 举报成立且指定下架目标
+        if (valid && Boolean.TRUE.equals(req.getOfflineTarget())) {
+            if ("RESOURCE".equals(report.getTargetType())) {
+                Resource resource = resourceMapper.selectById(report.getTargetId());
+                if (resource != null && !OFFLINE.equals(resource.getAuditStatus())) {
+                    changeStatus(resource, OFFLINE);
+                    writeAuditRecord("RESOURCE", resource.getId(), handlerId, OFFLINE,
+                            "举报成立下架：" + req.getNote());
+                    noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
+                            "资料已下架",
+                            "你上传的《" + resource.getTitle() + "》因举报成立已被下架。"
+                                    + (StringUtils.hasText(req.getNote()) ? "说明：" + req.getNote() : ""),
+                            "RESOURCE", resource.getId());
+                }
+            }
+        }
+
+        // 通知举报人
+        noticeService.send(report.getReporterId(), NoticeService.TYPE_REPORT,
+                valid ? "举报已核实" : "举报未成立",
+                valid ? "你提交的举报已核实，感谢你帮助维护资料质量。"
+                        + (StringUtils.hasText(req.getNote()) ? "处理说明：" + req.getNote() : "")
+                        : "你提交的举报经核验未成立。"
+                        + (StringUtils.hasText(req.getNote()) ? "说明：" + req.getNote() : ""),
+                report.getTargetType(), report.getTargetId());
+
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT",
+                report.getTargetType(), report.getTargetId(),
+                "处理举报 #" + reportId + "：" + status);
+    }
+
+    // ==================================================================
+    // 辅助
+    // ==================================================================
+
+    private List<ResourceVO> enrich(List<Resource> resources) {
+        if (resources.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> subjectNames = subjectMapper.selectList(null).stream()
+                .collect(Collectors.toMap(Subject::getId, Subject::getName, (a, b) -> a));
+        Map<Long, String> examNames = examCategoryMapper.selectList(null).stream()
+                .collect(Collectors.toMap(ExamCategory::getId, ExamCategory::getName, (a, b) -> a));
+        Map<Long, String> userNames = userMapper.selectList(null).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname, (a, b) -> a));
+
+        return resources.stream().map(r -> {
+            ResourceVO vo = ResourceVO.from(r);
+            vo.setSubjectName(subjectNames.get(r.getSubjectId()));
+            vo.setExamCategoryName(examNames.get(r.getExamCategoryId()));
+            vo.setUploaderName(userNames.get(r.getUploaderId()));
+            return vo;
+        }).toList();
+    }
+
+    /** 资料类型分布统计（管理端图表用） */
+    public Map<String, Long> resourceTypeDistribution() {
+        List<Resource> all = resourceMapper.selectList(Wrappers.<Resource>lambdaQuery()
+                .eq(Resource::getAuditStatus, APPROVED));
+        Map<String, Long> result = new LinkedHashMap<>();
+        all.stream()
+                .collect(Collectors.groupingBy(r -> r.getType() == null ? "UNKNOWN" : r.getType(),
+                        Collectors.counting()))
+                .forEach((k, v) -> result.put(com.examprep.common.ResourceType.labelOf(k), v));
+        return result;
+    }
+}

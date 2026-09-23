@@ -41,13 +41,32 @@ public class SecurityConfig {
 
     /** 匿名可读白名单（PUBLIC）：只读的 GET 接口 */
     private static final String[] PUBLIC_GET = {
+            // 考试知识体系
             "/exams/**",
             "/subjects/**",
             "/knowledge/**",
+            // 题库
             "/questions/**",
+            // 资料库
             "/resources/**",
+            "/files/preview/**",
+            // 课程库（校内课程维度）
+            "/colleges/**",
+            "/majors/**",
+            "/teachers/**",
+            "/semesters/**",
+            "/courses/**",
+            // 其他
             "/announcements/**",
             "/search/**"
+    };
+
+    /**
+     * 虽在 PUBLIC_GET 前缀内、但实际需要登录的接口
+     * （必须声明在 PUBLIC_GET 之前才会生效）
+     */
+    private static final String[] AUTH_REQUIRED_GET = {
+            "/resources/mine"
     };
 
     /** 完全放行（无需登录，含 POST） */
@@ -75,8 +94,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 认证与文档
                         .requestMatchers(PUBLIC_ALL).permitAll()
-                        // 资料预览图（游客可看前 3 页，页数控制在业务层）
-                        .requestMatchers(HttpMethod.GET, "/files/preview/**").permitAll()
+                        // 下载：凭短时效签名访问（签名在业务层用 HMAC 校验），因此不需登录态
+                        .requestMatchers(HttpMethod.GET, "/files/download/**").permitAll()
+                        // 需要登录的 GET：必须声明在 PUBLIC_GET 之前，否则会被前缀规则误放行
+                        .requestMatchers(HttpMethod.GET, AUTH_REQUIRED_GET).authenticated()
                         // 匿名可读接口
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
                         // 管理端：超管专属
