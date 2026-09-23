@@ -58,7 +58,8 @@ public class SecurityConfig {
             "/courses/**",
             // 其他
             "/announcements/**",
-            "/search/**"
+            "/search/**",
+            "/home"
     };
 
     /**
@@ -66,7 +67,9 @@ public class SecurityConfig {
      * （必须声明在 PUBLIC_GET 之前才会生效）
      */
     private static final String[] AUTH_REQUIRED_GET = {
-            "/resources/mine"
+            "/resources/mine",
+            "/favorites/**",
+            "/me/**"
     };
 
     /** 完全放行（无需登录，含 POST） */

@@ -10,12 +10,16 @@ import com.examprep.dto.ReportHandleRequest;
 import com.examprep.dto.ResourceVO;
 import com.examprep.entity.AuditRecord;
 import com.examprep.entity.ExamCategory;
+import com.examprep.common.QuestionType;
+import com.examprep.dto.QuestionVO;
+import com.examprep.entity.Question;
 import com.examprep.entity.Report;
 import com.examprep.entity.Resource;
 import com.examprep.entity.Subject;
 import com.examprep.entity.User;
 import com.examprep.mapper.AuditRecordMapper;
 import com.examprep.mapper.ExamCategoryMapper;
+import com.examprep.mapper.QuestionMapper;
 import com.examprep.mapper.ReportMapper;
 import com.examprep.mapper.ResourceMapper;
 import com.examprep.mapper.SubjectMapper;
@@ -49,6 +53,7 @@ public class AuditService {
     private static final String OFFLINE = "OFFLINE";
 
     private final ResourceMapper resourceMapper;
+    private final QuestionMapper questionMapper;
     private final ReportMapper reportMapper;
     private final AuditRecordMapper auditRecordMapper;
     private final SubjectMapper subjectMapper;
@@ -239,6 +244,68 @@ public class AuditService {
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT",
                 report.getTargetType(), report.getTargetId(),
                 "处理举报 #" + reportId + "：" + status);
+    }
+
+    // ==================================================================
+    // 题目审核
+    // ==================================================================
+
+    /** 待审核题目列表 */
+    public PageResult<QuestionVO> pagePendingQuestions(long page, long size, String type, String keyword) {
+        IPage<Question> p = new Page<>(page, size);
+        IPage<Question> result = questionMapper.selectPage(p, Wrappers.<Question>lambdaQuery()
+                .eq(Question::getAuditStatus, PENDING)
+                .eq(Question::getParentId, 0L)
+                .eq(StringUtils.hasText(type), Question::getType, type)
+                .like(StringUtils.hasText(keyword), Question::getStem, keyword)
+                .orderByAsc(Question::getCreatedAt));
+        return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(),
+                result.getRecords().stream().map(QuestionVO::base).toList());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void approveQuestion(Long questionId, Long auditorId, String reason) {
+        Question question = requireAuditableQuestion(questionId, auditorId, PENDING);
+        updateQuestionStatus(question, APPROVED);
+        writeAuditRecord("QUESTION", questionId, auditorId, APPROVED, reason);
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "QUESTION", questionId,
+                "题目审核通过 #" + questionId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectQuestion(Long questionId, Long auditorId, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new BizException("驳回必须填写原因");
+        }
+        Question question = requireAuditableQuestion(questionId, auditorId, PENDING);
+        updateQuestionStatus(question, REJECTED);
+        writeAuditRecord("QUESTION", questionId, auditorId, REJECTED, reason);
+        logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "QUESTION", questionId,
+                "题目驳回 #" + questionId + "：" + reason);
+    }
+
+    /** 题目同样适用「审核员回避自身内容」 */
+    private Question requireAuditableQuestion(Long questionId, Long auditorId, String expectedStatus) {
+        Question question = questionMapper.selectById(questionId);
+        if (question == null) {
+            throw new BizException(ResultCode.QUESTION_NOT_FOUND);
+        }
+        if (question.getCreatedBy() != null && question.getCreatedBy().equals(auditorId)) {
+            throw new BizException(ResultCode.AUDIT_SELF_FORBIDDEN);
+        }
+        if (!expectedStatus.equals(question.getAuditStatus())) {
+            throw new BizException(ResultCode.AUDIT_STATUS_ILLEGAL,
+                    "该题目当前状态为 " + question.getAuditStatus() + "，不可执行此操作");
+        }
+        return question;
+    }
+
+    private void updateQuestionStatus(Question question, String status) {
+        Question update = new Question();
+        update.setId(question.getId());
+        update.setAuditStatus(status);
+        questionMapper.updateById(update);
+        question.setAuditStatus(status);
     }
 
     // ==================================================================

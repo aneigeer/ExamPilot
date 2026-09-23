@@ -4,6 +4,7 @@ import com.examprep.common.PageResult;
 import com.examprep.common.Result;
 import com.examprep.dto.AuditRequest;
 import com.examprep.dto.DashboardVO;
+import com.examprep.dto.QuestionVO;
 import com.examprep.dto.ReportHandleRequest;
 import com.examprep.dto.ResourceVO;
 import com.examprep.dto.UserVO;
@@ -126,6 +127,43 @@ public class AdminController {
         Long auditorId = SecurityUtils.requireUserId();
         auditService.offlineResource(id, auditorId, request == null ? null : request.getReason());
         return Result.success("已下架", null);
+    }
+
+    // ==================================================================
+    // 题目审核
+    // ==================================================================
+
+    @Operation(summary = "待审核题目列表",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。可按题型与关键词筛选。")
+    @GetMapping("/audits/questions")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<PageResult<QuestionVO>> pendingQuestions(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size,
+            @Parameter(description = "题型，如 SINGLE_CHOICE") @RequestParam(required = false) String type,
+            @Parameter(description = "题干关键词") @RequestParam(required = false) String keyword) {
+        return Result.success(auditService.pagePendingQuestions(page, size, type, keyword));
+    }
+
+    @Operation(summary = "题目审核通过",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。审核员不能审核自己创建的题目（返回 4001）。")
+    @PostMapping("/audits/questions/{id}/approve")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<Void> approveQuestion(@PathVariable Long id,
+                                        @RequestBody(required = false) AuditRequest request) {
+        auditService.approveQuestion(id, SecurityUtils.requireUserId(),
+                request == null ? null : request.getReason());
+        return Result.success("已通过审核", null);
+    }
+
+    @Operation(summary = "题目审核驳回",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。必须填写原因。")
+    @PostMapping("/audits/questions/{id}/reject")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<Void> rejectQuestion(@PathVariable Long id,
+                                       @Valid @RequestBody AuditRequest request) {
+        auditService.rejectQuestion(id, SecurityUtils.requireUserId(), request.getReason());
+        return Result.success("已驳回", null);
     }
 
     // ==================================================================
