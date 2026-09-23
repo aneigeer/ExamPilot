@@ -1,0 +1,99 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: exam-prep-backend
+
+  # 本地敏感配置（数据库口令等）放 application-local.yml
+  # 该文件已被 .gitignore 排除，不会进 Git
+  # 参考模板见 application-local.yml.example
+  profiles:
+    active: local
+
+  # ========== 数据源 ==========
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/exam_prep?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ========== JSON 序列化 ==========
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  # ========== 文件上传 ==========
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# ========== MyBatis-Plus ==========
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.examprep.**.entity
+
+# ========== 接口文档（Swagger UI）==========
+# 访问地址：http://localhost:8080/api/swagger-ui.html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+  default-produces-media-type: application/json
+
+# ========== 业务自定义配置 ==========
+app:
+  jwt:
+    # 生产环境请通过环境变量 JWT_SECRET 覆盖
+    secret: ${JWT_SECRET:exam-prep-dev-secret-key-please-change-in-production-2026}
+    # 令牌有效期（分钟），默认 7 天
+    expire-minutes: 10080
+    header: Authorization
+    prefix: "Bearer "
+  upload:
+    # 文件存储目录（相对项目根目录）
+    dir: ./uploads
+    image-max-size: 10485760
+    allowed-image-types: jpg,jpeg,png,webp,gif
+  preview:
+    # 游客可预览页数
+    guest-pages: 3
+
+logging:
+  level:
+    root: info
+    com.examprep: debug
+    org.springframework.security: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
