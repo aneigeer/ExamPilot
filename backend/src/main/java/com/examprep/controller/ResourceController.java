@@ -55,8 +55,10 @@ public class ResourceController {
             @Parameter(description = "科目 ID") @RequestParam(required = false) Long subjectId,
             @Parameter(description = "课程 ID") @RequestParam(required = false) Long courseId,
             @Parameter(description = "资料类型") @RequestParam(required = false) String type,
+            @Parameter(description = "标签（精确匹配其中一个）：重点必考/含答案/无答案/近年高频")
+            @RequestParam(required = false) String tags,
             @Parameter(description = "标题关键词") @RequestParam(required = false) String keyword) {
-        return Result.success(resourceService.pageResources(page, size, examCategoryId, subjectId, courseId, type, keyword));
+        return Result.success(resourceService.pageResources(page, size, examCategoryId, subjectId, courseId, type, tags, keyword));
     }
 
     @Operation(summary = "我的上传", description = "**访问级别：AUTH**。含未通过审核的资料。")
@@ -127,6 +129,22 @@ public class ResourceController {
         Long userId = SecurityUtils.requireUserId();
         resourceService.report(userId, "RESOURCE", id, reason, description);
         return Result.success("举报已提交，我们会尽快核验", null);
+    }
+
+    @Operation(summary = "资料点赞 / 取消点赞",
+            description = "**访问级别：AUTH**。切换式接口，返回 `liked` 为操作后的状态。")
+    @PostMapping("/resources/{id}/like")
+    public Result<java.util.Map<String, Object>> like(@PathVariable Long id) {
+        Long userId = SecurityUtils.requireUserId();
+        boolean liked = resourceService.toggleLike(userId, id);
+        return Result.success(liked ? "已点赞" : "已取消点赞", java.util.Map.of("liked", liked));
+    }
+
+    @Operation(summary = "是否已点赞该资料", description = "**访问级别：PUBLIC**（未登录恒为 false）。详情页回显用。")
+    @GetMapping("/resources/{id}/like/check")
+    public Result<java.util.Map<String, Object>> likeCheck(@PathVariable Long id) {
+        Long userId = SecurityUtils.currentUserIdOrNull();
+        return Result.success(java.util.Map.of("liked", resourceService.isLiked(userId, id)));
     }
 
     @Schema(description = "资料类型项")

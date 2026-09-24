@@ -16,6 +16,7 @@ import com.examprep.entity.ExamCategory;
 import com.examprep.entity.FileRecord;
 import com.examprep.entity.Report;
 import com.examprep.entity.Resource;
+import com.examprep.entity.ResourceLike;
 import com.examprep.entity.ResourcePage;
 import com.examprep.entity.Subject;
 import com.examprep.entity.User;
@@ -23,6 +24,7 @@ import com.examprep.mapper.DownloadRecordMapper;
 import com.examprep.mapper.ExamCategoryMapper;
 import com.examprep.mapper.FileRecordMapper;
 import com.examprep.mapper.ReportMapper;
+import com.examprep.mapper.ResourceLikeMapper;
 import com.examprep.mapper.ResourceMapper;
 import com.examprep.mapper.ResourcePageMapper;
 import com.examprep.mapper.SubjectMapper;
@@ -58,6 +60,7 @@ public class ResourceService {
     private final FileRecordMapper fileRecordMapper;
     private final DownloadRecordMapper downloadRecordMapper;
     private final ReportMapper reportMapper;
+    private final ResourceLikeMapper resourceLikeMapper;
     private final SubjectMapper subjectMapper;
     private final ExamCategoryMapper examCategoryMapper;
     private final UserMapper userMapper;
@@ -72,7 +75,7 @@ public class ResourceService {
 
     public PageResult<ResourceVO> pageResources(long page, long size,
                                                 Long examCategoryId, Long subjectId,
-                                                Long courseId, String type, String keyword) {
+                                                Long courseId, String type, String tags, String keyword) {
         IPage<Resource> p = new Page<>(page, size);
         IPage<Resource> result = resourceMapper.selectPage(p,
                 Wrappers.<Resource>lambdaQuery()
@@ -81,6 +84,7 @@ public class ResourceService {
                         .eq(subjectId != null, Resource::getSubjectId, subjectId)
                         .eq(courseId != null, Resource::getCourseId, courseId)
                         .eq(StringUtils.hasText(type), Resource::getType, type)
+                        .apply(StringUtils.hasText(tags), "FIND_IN_SET({0}, tags) > 0", tags)
                         .like(StringUtils.hasText(keyword), Resource::getTitle, keyword)
                         .orderByDesc(Resource::getCreatedAt));
 
@@ -260,6 +264,7 @@ public class ResourceService {
         resource.setCourseId(req.getCourseId());
         resource.setType(req.getType());
         resource.setDescription(req.getDescription());
+        resource.setTags(req.getTags());
         resource.setCurrentFileId(file.getId());
         resource.setPageCount(0);
         resource.setDownloadCount(0);
@@ -343,5 +348,41 @@ public class ResourceService {
         report.setStatus("PENDING");
         reportMapper.insert(report);
         log.info("用户 {} 举报 {}#{}：{}", userId, targetType, targetId, reason);
+    }
+
+    // ==================================================================
+    // 资料点赞（P0-B，切换式）
+    // ==================================================================
+
+    @Transactional(rollbackFor = Exception.class)
+    public boolean toggleLike(Long userId, Long resourceId) {
+        if (resourceMapper.selectById(resourceId) == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        ResourceLike exist = resourceLikeMapper.selectOne(Wrappers.<ResourceLike>lambdaQuery()
+                .eq(ResourceLike::getResourceId, resourceId)
+                .eq(ResourceLike::getUserId, userId));
+        if (exist != null) {
+            resourceLikeMapper.deleteById(exist.getId());
+            return false;
+        }
+        ResourceLike like = new ResourceLike();
+        like.setResourceId(resourceId);
+        like.setUserId(userId);
+        try {
+            resourceLikeMapper.insert(like);
+        } catch (DuplicateKeyException e) {
+            log.debug("并发重复点赞，忽略");
+        }
+        return true;
+    }
+
+    public boolean isLiked(Long userId, Long resourceId) {
+        if (userId == null) {
+            return false;
+        }
+        return resourceLikeMapper.selectCount(Wrappers.<ResourceLike>lambdaQuery()
+                .eq(ResourceLike::getResourceId, resourceId)
+                .eq(ResourceLike::getUserId, userId)) > 0;
     }
 }

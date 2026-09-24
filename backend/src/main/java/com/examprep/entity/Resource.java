@@ -35,6 +35,9 @@ public class Resource {
     @Schema(description = "简介")
     private String description;
 
+    @Schema(description = "资料标签，逗号分隔：重点必考/含答案/无答案/近年高频")
+    private String tags;
+
     @Schema(description = "当前版本文件 ID")
     private Long currentFileId;
 

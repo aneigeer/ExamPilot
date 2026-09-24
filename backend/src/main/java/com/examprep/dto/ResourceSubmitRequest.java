@@ -33,6 +33,9 @@ public class ResourceSubmitRequest {
     @Schema(description = "简介")
     private String description;
 
+    @Schema(description = "资料标签，逗号分隔：重点必考/含答案/无答案/近年高频", example = "重点必考,含答案")
+    private String tags;
+
     @NotNull(message = "请先上传文件")
     @Schema(description = "已上传文件的 ID（由 /files/image 或 /files/document 返回）",
             requiredMode = Schema.RequiredMode.REQUIRED)

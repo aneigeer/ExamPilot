@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +139,19 @@ public class PracticeService {
                 .eq(req.getDifficulty() != null, Question::getDifficulty, req.getDifficulty())
                 .eq(MODE_BY_TYPE.equals(mode) && StringUtils.hasText(req.getQuestionType()),
                         Question::getType, req.getQuestionType());
+
+        // 只刷客观题 / 只刷主观题 / 混合（大纲 6.3）
+        String objFilter = req.getObjectiveFilter() == null ? "MIXED" : req.getObjectiveFilter().toUpperCase();
+        if ("ONLY_OBJECTIVE".equals(objFilter)) {
+            wrapper.in(Question::getType, QuestionType.OPEN_TYPES.stream()
+                    .filter(QuestionType::isObjective)
+                    .toList());
+        } else if ("ONLY_SUBJECTIVE".equals(objFilter)) {
+            wrapper.in(Question::getType, Arrays.stream(QuestionType.values())
+                    .filter(t -> t.isOpen() && !QuestionType.isObjective(t.name()))
+                    .map(Enum::name)
+                    .toList());
+        }
 
         if (req.getKnowledgeId() != null) {
             List<Long> byKnowledge = questionMapper.selectQuestionIdsByKnowledgeId(req.getKnowledgeId());

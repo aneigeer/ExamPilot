@@ -7,6 +7,7 @@ import com.examprep.common.BizException;
 import com.examprep.common.PageResult;
 import com.examprep.common.QuestionType;
 import com.examprep.common.ResultCode;
+import com.examprep.dto.QuestionImportResultVO;
 import com.examprep.dto.QuestionSaveRequest;
 import com.examprep.dto.QuestionVO;
 import com.examprep.entity.Question;
@@ -22,7 +23,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 题目管理（管理端新增 / 编辑 / 删除）
@@ -123,6 +128,88 @@ public class QuestionAdminService {
         jdbcTemplate.update("DELETE FROM question_answer WHERE question_id = ?", id);
         jdbcTemplate.update("DELETE FROM question_knowledge WHERE question_id = ?", id);
         logService.record(OperationLogService.MODULE_EXAM, "DELETE", "QUESTION", id, "删除题目");
+    }
+
+    /** 导出题目（JSON 结构，含选项 / 答案 / 知识点关联，可直接回灌 import） */
+    public List<Map<String, Object>> export(Long subjectId, String type) {
+        List<Question> questions = questionMapper.selectList(Wrappers.<Question>lambdaQuery()
+                .eq(Question::getParentId, 0L)
+                .eq(subjectId != null, Question::getSubjectId, subjectId)
+                .eq(StringUtils.hasText(type), Question::getType, type)
+                .orderByAsc(Question::getId));
+        if (questions.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = questions.stream().map(Question::getId).toList();
+
+        Map<Long, List<QuestionOption>> optionMap = questionOptionMapper.selectList(
+                        Wrappers.<QuestionOption>lambdaQuery()
+                                .in(QuestionOption::getQuestionId, ids)
+                                .orderByAsc(QuestionOption::getSort))
+                .stream().collect(Collectors.groupingBy(QuestionOption::getQuestionId));
+        Map<Long, QuestionAnswer> answerMap = questionAnswerMapper.selectList(
+                        Wrappers.<QuestionAnswer>lambdaQuery().in(QuestionAnswer::getQuestionId, ids))
+                .stream().collect(Collectors.toMap(QuestionAnswer::getQuestionId,
+                        java.util.function.Function.identity(), (a, b) -> a));
+
+        Map<Long, List<Long>> knowledgeMap = new LinkedHashMap<>();
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        jdbcTemplate.query(
+                "SELECT question_id, knowledge_id FROM question_knowledge WHERE question_id IN (" + placeholders + ")",
+                rs -> {
+                    knowledgeMap.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getLong(2));
+                }, ids.toArray());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Question q : questions) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("subjectId", q.getSubjectId());
+            m.put("type", q.getType());
+            m.put("stem", q.getStem());
+            m.put("material", q.getMaterial());
+            m.put("difficulty", q.getDifficulty());
+            m.put("source", q.getSource());
+            m.put("tags", q.getTags());
+            m.put("analysis", q.getAnalysis());
+            m.put("score", q.getScore());
+            m.put("options", optionMap.getOrDefault(q.getId(), List.of()).stream()
+                    .map(o -> Map.of("key", o.getOptionKey(), "content", o.getContent(),
+                            "isAnswer", Integer.valueOf(1).equals(o.getIsAnswer())))
+                    .toList());
+            QuestionAnswer ans = answerMap.get(q.getId());
+            m.put("answerContent", ans == null ? null : ans.getAnswerContent());
+            m.put("gradingPoints", ans == null ? null : ans.getGradingPoints());
+            m.put("caseSensitive", ans != null && Integer.valueOf(1).equals(ans.getCaseSensitive()));
+            m.put("knowledgeIds", knowledgeMap.getOrDefault(q.getId(), List.of()));
+            result.add(m);
+        }
+        return result;
+    }
+
+    /**
+     * 批量导入：逐条走 create 的完整校验，单条失败不影响其他条。
+     * 注意：本方法刻意不加事务 —— 每条独立提交，失败明细返回给调用方。
+     */
+    public QuestionImportResultVO importQuestions(Long creatorId, List<QuestionSaveRequest> list) {
+        QuestionImportResultVO vo = new QuestionImportResultVO();
+        int total = list == null ? 0 : list.size();
+        vo.setTotal(total);
+        List<String> errors = new ArrayList<>();
+        int ok = 0;
+        for (int i = 0; i < total; i++) {
+            try {
+                create(creatorId, list.get(i));
+                ok++;
+            } catch (Exception e) {
+                errors.add("第 " + (i + 1) + " 条：" + e.getMessage());
+            }
+        }
+        vo.setSuccess(ok);
+        vo.setFailed(errors.size());
+        vo.setErrors(errors);
+        logService.record(OperationLogService.MODULE_EXAM, "CREATE", "QUESTION", null,
+                "批量导入题目 " + ok + "/" + total);
+        return vo;
     }
 
     // ==================================================================

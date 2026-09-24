@@ -31,6 +31,9 @@ public class ResourceVO {
     @Schema(description = "简介")
     private String description;
 
+    @Schema(description = "资料标签，逗号分隔")
+    private String tags;
+
     @Schema(description = "总页数")
     private Integer pageCount;
 
@@ -63,6 +66,7 @@ public class ResourceVO {
         vo.setExamCategoryId(r.getExamCategoryId());
         vo.setSubjectId(r.getSubjectId());
         vo.setDescription(r.getDescription());
+        vo.setTags(r.getTags());
         vo.setPageCount(r.getPageCount());
         vo.setDownloadCount(r.getDownloadCount());
         vo.setViewCount(r.getViewCount());

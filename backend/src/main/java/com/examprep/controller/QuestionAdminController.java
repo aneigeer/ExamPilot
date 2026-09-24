@@ -2,6 +2,7 @@ package com.examprep.controller;
 
 import com.examprep.common.PageResult;
 import com.examprep.common.Result;
+import com.examprep.dto.QuestionImportResultVO;
 import com.examprep.dto.QuestionSaveRequest;
 import com.examprep.dto.QuestionVO;
 import com.examprep.security.SecurityUtils;
@@ -21,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 管理端题目管理（新增 / 编辑 / 删除）
@@ -78,5 +82,25 @@ public class QuestionAdminController {
     public Result<Void> delete(@PathVariable Long id) {
         questionAdminService.delete(id);
         return Result.success("已删除", null);
+    }
+
+    @Operation(summary = "导出题目（JSON）",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。返回 JSON 数组（含选项、答案、知识点关联），可直接回灌导入接口，用于题库备份与批量迁移。")
+    @GetMapping("/export")
+    public Result<List<Map<String, Object>>> export(
+            @Parameter(description = "科目 ID") @RequestParam(required = false) Long subjectId,
+            @Parameter(description = "题型") @RequestParam(required = false) String type) {
+        return Result.success(questionAdminService.export(subjectId, type));
+    }
+
+    @Operation(summary = "批量导入题目（JSON）",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。请求体为 QuestionSaveRequest 数组（结构同导出）。逐条完整校验，**单条失败不影响其他条**，返回成功/失败明细。新题默认待审核。")
+    @PostMapping("/import")
+    public Result<QuestionImportResultVO> importQuestions(
+            @org.springframework.web.bind.annotation.RequestBody
+            List<QuestionSaveRequest> questions) {
+        Long creatorId = SecurityUtils.requireUserId();
+        return Result.success("导入完成",
+                questionAdminService.importQuestions(creatorId, questions));
     }
 }

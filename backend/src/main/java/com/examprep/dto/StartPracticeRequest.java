@@ -29,6 +29,10 @@ public class StartPracticeRequest {
     @Schema(description = "按难度筛选（1-5），不传则不限", example = "3")
     private Integer difficulty;
 
+    @Schema(description = "客观/主观筛选：MIXED 混合（默认）/ ONLY_OBJECTIVE 只刷客观 / ONLY_SUBJECTIVE 只刷主观",
+            allowableValues = {"MIXED", "ONLY_OBJECTIVE", "ONLY_SUBJECTIVE"}, example = "MIXED")
+    private String objectiveFilter;
+
     @Min(value = 1, message = "题数至少 1")
     @Max(value = 50, message = "单次练习最多 50 题")
     @Schema(description = "本次题数，默认 10，上限 50", example = "5")

@@ -271,6 +271,7 @@ CREATE TABLE `resource` (
     `course_id`        BIGINT       DEFAULT NULL COMMENT '关联课程（校内）',
     `type`             VARCHAR(30)  NOT NULL COMMENT '类型：COURSEWARE课件/NOTE笔记/SUMMARY总结/MOCK模拟卷/RECALL回忆题型/ORIGINAL原创题',
     `description`      VARCHAR(500) DEFAULT NULL COMMENT '简介',
+    `tags`             VARCHAR(200) DEFAULT NULL COMMENT '资料标签，逗号分隔：重点必考/含答案/无答案/近年高频',
     `current_file_id`  BIGINT       NOT NULL COMMENT '当前版本文件ID',
     `page_count`       INT          NOT NULL DEFAULT 0 COMMENT '总页数（PDF转图片后）',
     `download_count`   INT          NOT NULL DEFAULT 0 COMMENT '下载量',
@@ -485,6 +486,35 @@ CREATE TABLE `resource_rating` (
     UNIQUE KEY `uk_rating_resource_user` (`resource_id`, `user_id`),
     KEY `idx_rating_resource` (`resource_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '资料评分表（一人一评）';
+
+-- ============================================================
+-- 七·补充 2、题目笔记 / 资料点赞（P0-B）
+-- ============================================================
+
+DROP TABLE IF EXISTS `question_note`;
+CREATE TABLE `question_note` (
+    `id`         BIGINT        NOT NULL AUTO_INCREMENT,
+    `user_id`    BIGINT        NOT NULL COMMENT '所属用户',
+    `question_id` BIGINT       NOT NULL COMMENT '题目',
+    `content`    VARCHAR(2000) NOT NULL COMMENT '笔记内容',
+    `created_at` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_deleted` TINYINT       NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_note_user_question` (`user_id`, `question_id`),
+    KEY `idx_note_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '题目笔记（一人一题一篇，P0-B）';
+
+DROP TABLE IF EXISTS `resource_like`;
+CREATE TABLE `resource_like` (
+    `id`         BIGINT   NOT NULL AUTO_INCREMENT,
+    `resource_id` BIGINT  NOT NULL,
+    `user_id`    BIGINT   NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_rlike_resource_user` (`resource_id`, `user_id`),
+    KEY `idx_rlike_resource` (`resource_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '资料点赞表（唯一索引防重复点赞）';
 
 -- ============================================================
 -- 八、通知 / 公告 / 日志

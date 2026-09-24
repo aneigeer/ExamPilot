@@ -22,12 +22,12 @@ public enum QuestionType {
     FILL_BLANK("填空题", true),
     SHORT_ANSWER("简答题", true),
 
-    // ===== P0-B：自评类主观题 =====
-    TERM_EXPLAIN("名词解释", false),
-    CALCULATION("计算题", false),
-    APPLICATION("应用题", false),
-    WRITING("作文题", false),
-    TRANSLATION("翻译题", false),
+    // ===== P0-B：自评类主观题（已开放，与简答同为自评闭环）=====
+    TERM_EXPLAIN("名词解释", true),
+    CALCULATION("计算题", true),
+    APPLICATION("应用题", true),
+    WRITING("作文题", true),
+    TRANSLATION("翻译题", true),
 
     // ===== P1：复杂交互题型 =====
     MATCHING("匹配题", false),
