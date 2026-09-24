@@ -215,6 +215,20 @@ public class AdminController {
         return Result.success(status == 1 ? "已启用" : "已禁用", null);
     }
 
+    @Operation(summary = "修改用户角色",
+            description = """
+                    **访问级别：ROLE:ADMIN**。角色只能是 `STUDENT` / `AUDITOR` / `ADMIN`。
+
+                    系统会阻止降级**最后一个管理员**，避免把自己锁在门外。
+                    """)
+    @PutMapping("/users/{id}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Void> updateUserRole(@PathVariable Long id,
+                                       @Parameter(description = "STUDENT / AUDITOR / ADMIN") @RequestParam String role) {
+        adminService.updateUserRole(id, role);
+        return Result.success("角色已修改", null);
+    }
+
     @Operation(summary = "角色分布", description = "**访问级别：ROLE:ADMIN**。统计图用。")
     @GetMapping("/stats/roles")
     @PreAuthorize("hasRole('ADMIN')")

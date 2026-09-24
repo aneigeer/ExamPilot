@@ -104,6 +104,21 @@ public class ResourceController {
         return Result.success("已提交，等待审核", resourceService.submit(userId, request));
     }
 
+    @Operation(summary = "重新提交被驳回的资料",
+            description = """
+                    **访问级别：AUTH**。仅**被驳回（REJECTED）**的资料可调用，状态回到 `PENDING` 待审核。
+
+                    可同时替换文件（传 `fileId`），服务端会重新生成预览图；也可只改简介后重新提交。
+                    """)
+    @PostMapping("/resources/{id}/resubmit")
+    public Result<ResourceVO> resubmit(
+            @PathVariable Long id,
+            @Parameter(description = "新的文件 ID（换了文件才传）") @RequestParam(required = false) Long fileId,
+            @Parameter(description = "修改后的简介") @RequestParam(required = false) String description) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success("已重新提交，等待审核", resourceService.resubmit(userId, id, fileId, description));
+    }
+
     @Operation(summary = "举报资料", description = "**访问级别：AUTH**。审核员核验后处理。")
     @PostMapping("/resources/{id}/report")
     public Result<Void> report(@PathVariable Long id,

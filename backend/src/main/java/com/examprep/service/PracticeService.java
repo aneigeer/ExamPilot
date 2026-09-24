@@ -134,6 +134,7 @@ public class PracticeService {
                 .eq(Question::getAuditStatus, AUDIT_APPROVED)
                 .eq(Question::getParentId, 0L)
                 .eq(req.getSubjectId() != null, Question::getSubjectId, req.getSubjectId())
+                .eq(req.getDifficulty() != null, Question::getDifficulty, req.getDifficulty())
                 .eq(MODE_BY_TYPE.equals(mode) && StringUtils.hasText(req.getQuestionType()),
                         Question::getType, req.getQuestionType());
 

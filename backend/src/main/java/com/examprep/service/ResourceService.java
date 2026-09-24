@@ -282,6 +282,53 @@ public class ResourceService {
         return enrich(List.of(resource)).get(0);
     }
 
+    /**
+     * 驳回后重新提交
+     *
+     * 仅 REJECTED 状态可调用；可同时替换文件（重新生成预览图），提交后状态回到 PENDING。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ResourceVO resubmit(Long userId, Long resourceId, Long newFileId, String description) {
+        Resource resource = resourceMapper.selectById(resourceId);
+        if (resource == null) {
+            throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
+        }
+        if (!resource.getUploaderId().equals(userId)) {
+            throw new BizException(ResultCode.FORBIDDEN, "只能重新提交自己上传的资料");
+        }
+        if (!"REJECTED".equals(resource.getAuditStatus())) {
+            throw new BizException(ResultCode.AUDIT_STATUS_ILLEGAL,
+                    "只有被驳回的资料才能重新提交（当前状态：" + resource.getAuditStatus() + "）");
+        }
+
+        Long fileId = resource.getCurrentFileId();
+        int pageCount = resource.getPageCount() == null ? 0 : resource.getPageCount();
+
+        // 若换了文件，重新生成预览图
+        if (newFileId != null && !newFileId.equals(resource.getCurrentFileId())) {
+            FileRecord file = fileRecordMapper.selectById(newFileId);
+            if (file == null) {
+                throw new BizException("换绑的文件不存在");
+            }
+            fileId = file.getId();
+            pageCount = fileStorageService.buildPreviewPages(file, resourceId);
+        }
+
+        Resource update = new Resource();
+        update.setId(resourceId);
+        update.setCurrentFileId(fileId);
+        update.setPageCount(pageCount);
+        update.setAuditStatus(STATUS_PENDING);
+        if (StringUtils.hasText(description)) {
+            update.setDescription(description);
+        }
+        resourceMapper.updateById(update);
+
+        log.info("用户 {} 重新提交资料 {}，待审核", userId, resourceId);
+        Resource latest = resourceMapper.selectById(resourceId);
+        return enrich(List.of(latest)).get(0);
+    }
+
     // ==================================================================
     // 举报
     // ==================================================================

@@ -103,6 +103,38 @@ public class AdminService {
                 (status == 1 ? "启用" : "禁用") + "用户 " + user.getStudentNo());
     }
 
+    /** 修改用户角色（仅超管） */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateUserRole(Long userId, String role) {
+        String target = role == null ? "" : role.toUpperCase();
+        java.util.Set<String> allowed = java.util.Set.of("STUDENT", "AUDITOR", "ADMIN");
+        if (!allowed.contains(target)) {
+            throw new BizException("角色只能是 STUDENT / AUDITOR / ADMIN");
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        if (target.equals(user.getRole())) {
+            throw new BizException("该用户当前已是 " + target + " 角色");
+        }
+        // 防止把最后一个管理员降级，导致系统没人能管
+        if ("ADMIN".equals(user.getRole()) && !"ADMIN".equals(target)) {
+            long adminCount = userMapper.selectCount(Wrappers.<User>lambdaQuery()
+                    .eq(User::getRole, "ADMIN"));
+            if (adminCount <= 1) {
+                throw new BizException("系统必须保留至少一个管理员，不能降级最后一个管理员");
+            }
+        }
+
+        User update = new User();
+        update.setId(userId);
+        update.setRole(target);
+        userMapper.updateById(update);
+        logService.record(OperationLogService.MODULE_USER, "UPDATE", "USER", userId,
+                "角色变更：" + user.getRole() + " → " + target);
+    }
+
     /** 用户角色分布（统计图用） */
     public java.util.Map<String, Long> roleDistribution() {
         return userMapper.selectList(Wrappers.<User>lambdaQuery()).stream()

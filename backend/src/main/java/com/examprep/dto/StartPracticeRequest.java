@@ -24,6 +24,11 @@ public class StartPracticeRequest {
     @Schema(description = "按题型练习时的题型（mode=BY_TYPE 时必填）", example = "SINGLE_CHOICE")
     private String questionType;
 
+    @Min(value = 1, message = "难度最小为 1")
+    @Max(value = 5, message = "难度最大为 5")
+    @Schema(description = "按难度筛选（1-5），不传则不限", example = "3")
+    private Integer difficulty;
+
     @Min(value = 1, message = "题数至少 1")
     @Max(value = 50, message = "单次练习最多 50 题")
     @Schema(description = "本次题数，默认 10，上限 50", example = "5")
