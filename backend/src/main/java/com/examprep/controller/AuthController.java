@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 认证接口
  */
@@ -31,6 +34,21 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return Result.success("登录成功", authService.login(request));
+    }
+
+    @Operation(summary = "游客入口",
+            description = """
+                    **访问级别：PUBLIC**。游客模式**无需令牌**：直接调用带 PUBLIC 标记的接口即可。
+
+                    此接口返回游客的能力边界，供 App 在未登录时展示引导页。
+                    """)
+    @PostMapping("/guest")
+    public Result<Map<String, Object>> guest() {
+        return Result.success(Map.of(
+                "mode", "GUEST",
+                "abilities", List.of("浏览考试体系", "浏览题库", "预览资料前 3 页", "搜索"),
+                "restricted", List.of("下载资料", "上传资料", "刷题", "评论评分", "收藏"),
+                "loginHint", "调用 POST /auth/login 获取令牌"));
     }
 
     @Operation(summary = "登出", description = "**访问级别：AUTH**。JWT 无状态，客户端删除本地令牌即可。")

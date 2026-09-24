@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.examprep.common.BizException;
 import com.examprep.common.QuestionType;
 import com.examprep.common.ResultCode;
+import com.examprep.dto.AnswerCardVO;
 import com.examprep.dto.AnswerResultVO;
 import com.examprep.dto.AnswerSubmitRequest;
 import com.examprep.dto.PracticeQuestionVO;
@@ -413,6 +414,53 @@ public class PracticeService {
                         .divide(BigDecimal.valueOf(answered), 1, RoundingMode.HALF_UP));
 
         vo.setDetails(buildDetails(record));
+        return vo;
+    }
+
+    /** 练习答题卡：每题状态总览 */
+    public AnswerCardVO getAnswerCard(Long userId, Long practiceId) {
+        PracticeRecord record = requireRecord(userId, practiceId);
+        List<AnswerDetail> details = answerDetailMapper.selectList(
+                Wrappers.<AnswerDetail>lambdaQuery()
+                        .eq(AnswerDetail::getPracticeRecordId, practiceId)
+                        .orderByAsc(AnswerDetail::getId));
+
+        AnswerCardVO vo = new AnswerCardVO();
+        vo.setPracticeId(record.getId());
+        vo.setTotalCount(record.getTotalCount());
+        vo.setAnsweredCount(record.getAnsweredCount());
+        vo.setCorrectCount(record.getCorrectCount());
+        vo.setStatus(record.getStatus());
+
+        Map<Long, Question> questionMap = details.isEmpty() ? Map.of()
+                : questionMapper.selectBatchIds(details.stream()
+                        .map(AnswerDetail::getQuestionId).toList()).stream()
+                        .collect(Collectors.toMap(Question::getId, Function.identity()));
+
+        List<AnswerCardVO.Item> items = new ArrayList<>();
+        boolean currentAssigned = false;
+        for (AnswerDetail d : details) {
+            Question q = questionMap.get(d.getQuestionId());
+            if (q == null) {
+                continue;
+            }
+            boolean answered = d.getUserAnswer() != null;
+            AnswerCardVO.Item item = new AnswerCardVO.Item();
+            item.setIndex(items.size() + 1);
+            item.setQuestionId(q.getId());
+            item.setTypeName(QuestionType.labelOf(q.getType()));
+            item.setStem(q.getStem() == null ? null
+                    : (q.getStem().length() <= 50 ? q.getStem() : q.getStem().substring(0, 50) + "..."));
+            item.setAnswered(answered);
+            item.setCorrect(d.getIsCorrect() == null ? null : d.getIsCorrect() == 1);
+            item.setSelfEval(d.getSelfEval());
+            item.setCurrent(!answered && !currentAssigned);
+            if (!answered) {
+                currentAssigned = true;
+            }
+            items.add(item);
+        }
+        vo.setItems(items);
         return vo;
     }
 

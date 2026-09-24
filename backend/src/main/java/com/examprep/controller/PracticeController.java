@@ -1,6 +1,7 @@
 package com.examprep.controller;
 
 import com.examprep.common.Result;
+import com.examprep.dto.AnswerCardVO;
 import com.examprep.dto.AnswerResultVO;
 import com.examprep.dto.AnswerSubmitRequest;
 import com.examprep.dto.PracticeQuestionVO;
@@ -89,6 +90,15 @@ public class PracticeController {
             @Parameter(description = "练习 ID") @PathVariable Long practiceId) {
         Long userId = SecurityUtils.requireUserId();
         return Result.success(practiceService.finish(userId, practiceId));
+    }
+
+    @Operation(summary = "练习答题卡",
+            description = "**访问级别：AUTH**。返回本次练习每道题的状态（未答/正确/错误/自评/当前待答），App 端渲染答题卡网格用。")
+    @GetMapping("/practice/{practiceId}/card")
+    public Result<AnswerCardVO> answerCard(
+            @Parameter(description = "练习 ID") @PathVariable Long practiceId) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(practiceService.getAnswerCard(userId, practiceId));
     }
 
     @Operation(summary = "练习报告", description = "**访问级别：AUTH**。含正确率与逐题明细。")

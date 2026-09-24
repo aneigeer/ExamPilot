@@ -3,9 +3,11 @@ package com.examprep.controller;
 import com.examprep.common.Result;
 import com.examprep.entity.FileRecord;
 import com.examprep.entity.ResourcePage;
+import com.examprep.security.LoginUser;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.FileStorageService;
 import com.examprep.service.ResourceService;
+import com.examprep.service.WatermarkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +26,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -39,6 +43,7 @@ public class FileController {
 
     private final FileStorageService fileStorageService;
     private final ResourceService resourceService;
+    private final WatermarkService watermarkService;
 
     @Operation(summary = "上传图片",
             description = "**访问级别：AUTH**。**这是 App 端唯一的上传入口**。仅接受 jpg/jpeg/png/webp/gif，单张不超过 10MB。返回 `fileId` 用于提交资料。")
@@ -79,9 +84,28 @@ public class FileController {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "预览图文件缺失");
             return;
         }
+        // 访问者水印标识：脱敏学号 / 游客 —— 截图传播可追溯来源
+        LoginUser loginUser = SecurityUtils.getLoginUserOrNull();
+        String visitorLabel = loginUser == null ? null
+                : WatermarkService.maskStudentNo(loginUser.getStudentNo());
+
+        BufferedImage image = ImageIO.read(path.toFile());
+        log.info("[preview] pageId={} file={} image={}", pageId, path.getFileName(),
+                image == null ? "NULL" : image.getWidth() + "x" + image.getHeight() + " type=" + image.getType());
+        if (image == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "预览图文件损坏");
+            return;
+        }
+        BufferedImage watermarked = watermarkService.apply(image, visitorLabel);
+        log.info("[preview] watermarked={}x{} type={}",
+                watermarked.getWidth(), watermarked.getHeight(), watermarked.getType());
+
         response.setContentType(MediaType.IMAGE_JPEG_VALUE);
-        response.setHeader("Cache-Control", "public, max-age=3600");
-        Files.copy(path, response.getOutputStream());
+        // 水印因人而异，禁止缓存，避免不同用户串图
+        response.setHeader("Cache-Control", "no-store");
+        boolean written = ImageIO.write(watermarked, "jpg", response.getOutputStream());
+        log.info("[preview] ImageIO.write = {}", written);
+        response.flushBuffer();
     }
 
     @Operation(summary = "签名下载",
