@@ -68,6 +68,30 @@ public class QuestionSaveRequest {
     @Schema(description = "关联知识点 ID 列表", example = "[2,3]")
     private List<Long> knowledgeIds;
 
+    @Schema(description = "音频文件 ID（听力题必填，先调 /files/audio 上传）")
+    private Long audioFileId;
+
+    @Schema(description = "子题列表（阅读/完形/听力/组合题必填）")
+    private List<SubQuestionItem> subQuestions;
+
+    @Data
+    @Schema(description = "组合题子题")
+    public static class SubQuestionItem {
+
+        @NotBlank(message = "子题题干不能为空")
+        @Schema(description = "子题题干", requiredMode = Schema.RequiredMode.REQUIRED)
+        private String stem;
+
+        @Schema(description = "子题型：SINGLE_CHOICE / MULTI_CHOICE / TRUE_FALSE", example = "SINGLE_CHOICE")
+        private String type;
+
+        @Schema(description = "子题分值", example = "1")
+        private Integer score;
+
+        @Schema(description = "子题选项（客观子题必填）")
+        private List<OptionItem> options;
+    }
+
     @Data
     @Schema(description = "选项")
     public static class OptionItem {

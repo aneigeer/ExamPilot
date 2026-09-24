@@ -10,11 +10,13 @@ import com.examprep.common.ResultCode;
 import com.examprep.dto.QuestionImportResultVO;
 import com.examprep.dto.QuestionSaveRequest;
 import com.examprep.dto.QuestionVO;
+import com.examprep.entity.ListeningAudio;
 import com.examprep.entity.Question;
 import com.examprep.entity.QuestionAnswer;
 import com.examprep.entity.QuestionOption;
 import com.examprep.mapper.QuestionAnswerMapper;
 import com.examprep.mapper.QuestionMapper;
+import com.examprep.mapper.ListeningAudioMapper;
 import com.examprep.mapper.QuestionOptionMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,6 +47,7 @@ public class QuestionAdminService {
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final QuestionAnswerMapper questionAnswerMapper;
+    private final ListeningAudioMapper listeningAudioMapper;
     private final QuestionService questionService;
     private final OperationLogService logService;
     private final JdbcTemplate jdbcTemplate;
@@ -76,8 +80,13 @@ public class QuestionAdminService {
         question.setSort(0);
         questionMapper.insert(question);
 
-        saveOptions(question.getId(), req);
-        saveAnswer(question.getId(), req);
+        if (QuestionType.isComposite(req.getType())) {
+            createSubQuestions(question.getId(), req, creatorId);
+        } else {
+            saveOptions(question.getId(), req);
+            saveAnswer(question.getId(), req);
+        }
+        saveListeningAudio(question.getId(), req);
         saveKnowledgeRel(question.getId(), req.getKnowledgeIds());
 
         logService.record(OperationLogService.MODULE_EXAM, "CREATE", "QUESTION", question.getId(),
@@ -107,8 +116,14 @@ public class QuestionAdminService {
                 .eq(QuestionOption::getQuestionId, id));
         questionAnswerMapper.delete(Wrappers.<QuestionAnswer>lambdaQuery()
                 .eq(QuestionAnswer::getQuestionId, id));
-        saveOptions(id, req);
-        saveAnswer(id, req);
+        if (QuestionType.isComposite(req.getType())) {
+            deleteSubQuestions(id);
+            createSubQuestions(id, req, null);
+        } else {
+            saveOptions(id, req);
+            saveAnswer(id, req);
+        }
+        saveListeningAudio(id, req);
         saveKnowledgeRel(id, req.getKnowledgeIds());
 
         logService.record(OperationLogService.MODULE_EXAM, "UPDATE", "QUESTION", id,
@@ -128,6 +143,68 @@ public class QuestionAdminService {
         jdbcTemplate.update("DELETE FROM question_answer WHERE question_id = ?", id);
         jdbcTemplate.update("DELETE FROM question_knowledge WHERE question_id = ?", id);
         logService.record(OperationLogService.MODULE_EXAM, "DELETE", "QUESTION", id, "删除题目");
+    }
+
+    /** 创建组合类大题的子题（P1） */
+    private void createSubQuestions(Long parentId, QuestionSaveRequest req, Long creatorId) {
+        if (req.getSubQuestions() == null || req.getSubQuestions().isEmpty()) {
+            throw new BizException("组合类大题必须提供子题（subQuestions）");
+        }
+        for (QuestionSaveRequest.SubQuestionItem sub : req.getSubQuestions()) {
+            if (!StringUtils.hasText(sub.getStem())) {
+                throw new BizException("子题题干不能为空");
+            }
+            Question child = new Question();
+            child.setParentId(parentId);
+            child.setSubjectId(req.getSubjectId());
+            child.setType(StringUtils.hasText(sub.getType()) ? sub.getType() : "SINGLE_CHOICE");
+            child.setStem(sub.getStem());
+            child.setDifficulty(req.getDifficulty() == null ? 3 : req.getDifficulty());
+            child.setScore(sub.getScore() == null ? 1 : sub.getScore());
+            child.setAuditStatus("PENDING");
+            child.setCreatedBy(creatorId);
+            child.setSort(0);
+            questionMapper.insert(child);
+
+            int sort = 1;
+            for (QuestionSaveRequest.OptionItem o : sub.getOptions() == null
+                    ? List.<QuestionSaveRequest.OptionItem>of() : sub.getOptions()) {
+                QuestionOption option = new QuestionOption();
+                option.setQuestionId(child.getId());
+                option.setOptionKey(o.getKey());
+                option.setContent(o.getContent());
+                option.setSort(sort++);
+                option.setIsAnswer(Boolean.TRUE.equals(o.getIsAnswer()) ? 1 : 0);
+                questionOptionMapper.insert(option);
+            }
+        }
+    }
+
+    /** 物理删除组合大题的子题（编辑重建用） */
+    private void deleteSubQuestions(Long parentId) {
+        List<Question> children = questionMapper.selectList(Wrappers.<Question>lambdaQuery()
+                .eq(Question::getParentId, parentId));
+        for (Question child : children) {
+            jdbcTemplate.update("DELETE FROM question_option WHERE question_id = ?", child.getId());
+            jdbcTemplate.update("DELETE FROM question_answer WHERE question_id = ?", child.getId());
+        }
+        jdbcTemplate.update("DELETE FROM question WHERE parent_id = ?", parentId);
+    }
+
+    /** 听力题音频关联（P1） */
+    private void saveListeningAudio(Long questionId, QuestionSaveRequest req) {
+        if (!"LISTENING".equals(req.getType())) {
+            return;
+        }
+        if (req.getAudioFileId() == null) {
+            throw new BizException("听力题必须上传音频（audioFileId，先调 /files/audio）");
+        }
+        listeningAudioMapper.delete(Wrappers.<ListeningAudio>lambdaQuery()
+                .eq(ListeningAudio::getQuestionId, questionId));
+        ListeningAudio audio = new ListeningAudio();
+        audio.setQuestionId(questionId);
+        audio.setFileId(req.getAudioFileId());
+        listeningAudioMapper.insert(audio);
     }
 
     /** 导出题目（JSON 结构，含选项 / 答案 / 知识点关联，可直接回灌 import） */
@@ -266,8 +343,8 @@ public class QuestionAdminService {
                     throw new BizException("填空题必须在 answerContent.blanks 中提供答案列表");
                 }
             }
-        } else {
-            // 主观题必须有参考答案
+        } else if (!QuestionType.isComposite(type) && !"PROGRAMMING".equals(type)) {
+            // 主观题必须有参考答案（组合类大题答案在子题里、编程题答案为测试用例，均跳过该校验）
             Object reference = req.getAnswerContent() == null ? null : req.getAnswerContent().get("reference");
             if (!(reference instanceof String s) || !StringUtils.hasText(s)) {
                 throw new BizException("主观题必须在 answerContent.reference 中提供参考答案");

@@ -301,7 +301,7 @@ public class MockExamService {
             if (q == null) {
                 continue;
             }
-            JudgeService.Result r = judgeService.judge(q.getType(),
+            JudgeService.Result r = judgeService.judge(q,
                     optionMap.getOrDefault(q.getId(), List.of()),
                     answerMap.get(q.getId()), d.getUserAnswer());
             boolean ok = r != null && r.correct();

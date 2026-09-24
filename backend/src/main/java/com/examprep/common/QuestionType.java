@@ -29,19 +29,19 @@ public enum QuestionType {
     WRITING("作文题", true),
     TRANSLATION("翻译题", true),
 
-    // ===== P1：复杂交互题型 =====
-    MATCHING("匹配题", false),
-    ORDERING("排序题", false),
-    CLOZE("完形填空", false),
-    READING("阅读理解", false),
-    LISTENING("听力选择题", false),
+    // ===== P1：复杂交互题型（已开放：匹配/排序/完形/阅读/听力/组合/编程；其余预留）=====
+    MATCHING("匹配题", true),
+    ORDERING("排序题", true),
+    CLOZE("完形填空", true),
+    READING("阅读理解", true),
+    LISTENING("听力选择题", true),
     WORD_FILL("选词填空", false),
     ESSAY("论述题", false),
-    PROGRAMMING("编程题", false),
+    PROGRAMMING("编程题", true),
     CASE_ANALYSIS("案例分析题", false),
     ERROR_CORRECTION("改错题", false),
     PROOF("证明题", false),
-    COMPOSITE("组合题", false);
+    COMPOSITE("组合题", true);
 
     private final String label;
     /** 是否已在 P0 开放 */
@@ -79,7 +79,16 @@ public enum QuestionType {
     /** 是否客观题（后端可自动判分） */
     public static boolean isObjective(String name) {
         return switch (name == null ? "" : name) {
-            case "SINGLE_CHOICE", "MULTI_CHOICE", "TRUE_FALSE", "FILL_BLANK" -> true;
+            case "SINGLE_CHOICE", "MULTI_CHOICE", "TRUE_FALSE", "FILL_BLANK",
+                 "MATCHING", "ORDERING" -> true;
+            default -> false;
+        };
+    }
+
+    /** 是否组合类大题（材料 + 子题） */
+    public static boolean isComposite(String name) {
+        return switch (name == null ? "" : name) {
+            case "READING", "CLOZE", "LISTENING", "COMPOSITE" -> true;
             default -> false;
         };
     }

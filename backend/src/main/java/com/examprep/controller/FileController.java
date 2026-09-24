@@ -73,6 +73,34 @@ public class FileController {
         ));
     }
 
+    @Operation(summary = "上传音频（听力题）",
+            description = "**访问级别：AUTH**。支持 mp3/wav/m4a/aac/ogg，单个不超过 50MB。返回 fileId 供创建听力题使用。")
+    @PostMapping(value = "/files/audio", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<Map<String, Object>> uploadAudio(@RequestPart("file") MultipartFile file) {
+        Long userId = SecurityUtils.requireUserId();
+        FileRecord record = fileStorageService.storeAudio(file, userId);
+        return Result.success(Map.of(
+                "fileId", record.getId(),
+                "fileName", record.getOriginalName(),
+                "size", record.getFileSize()
+        ));
+    }
+
+    @Operation(summary = "访问听力音频", description = "**访问级别：AUTH**。返回音频流，播放器直接播放。")
+    @GetMapping("/files/audio/{fileId}")
+    public void audio(@Parameter(description = "音频文件 ID") @PathVariable Long fileId,
+                      HttpServletResponse response) throws IOException {
+        FileRecord file = fileStorageService.getFile(fileId);
+        Path path = fileStorageService.getUploadRoot().resolve(file.getStoredPath()).normalize();
+        if (!Files.exists(path)) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "音频缺失");
+            return;
+        }
+        response.setContentType(file.getMimeType() == null ? "application/octet-stream" : file.getMimeType());
+        response.setHeader("Accept-Ranges", "bytes");
+        Files.copy(path, response.getOutputStream());
+    }
+
     @Operation(summary = "访问预览图",
             description = "**访问级别：PUBLIC**。返回图片流。页数限制在 `/resources/{id}/preview` 已做控制。")
     @GetMapping("/files/preview/{pageId}")

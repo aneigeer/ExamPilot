@@ -273,7 +273,7 @@ public class PracticeService {
         vo.setType(question.getType());
 
         JudgeService.Result judgeResult =
-                judgeService.judge(question.getType(), options, answer, req.getUserAnswer());
+                judgeService.judge(question, options, answer, req.getUserAnswer());
 
         detail.setUserAnswer(req.getUserAnswer());
         detail.setAnsweredAt(LocalDateTime.now());

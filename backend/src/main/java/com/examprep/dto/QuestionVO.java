@@ -66,6 +66,12 @@ public class QuestionVO {
     @Schema(description = "评分要点（含答案时返回）")
     private Object gradingPoints;
 
+    @Schema(description = "听力音频地址（听力题返回）")
+    private String audioUrl;
+
+    @Schema(description = "子题列表（组合类大题返回，子题不含答案）")
+    private List<SubItem> subQuestions;
+
     @Data
     @Schema(description = "选项")
     public static class OptionVO {
@@ -86,6 +92,28 @@ public class QuestionVO {
             vo.setIsAnswer(withAnswer ? Integer.valueOf(1).equals(o.getIsAnswer()) : null);
             return vo;
         }
+    }
+
+    @Data
+    @Schema(description = "组合题子题")
+    public static class SubItem {
+
+        @Schema(description = "子题 ID（提交答案用）")
+        private Long id;
+
+        private String type;
+
+        @Schema(description = "子题题型中文名")
+        private String typeName;
+
+        @Schema(description = "子题题干")
+        private String stem;
+
+        @Schema(description = "子题分值")
+        private Integer score;
+
+        @Schema(description = "子题选项（不含答案）")
+        private List<OptionVO> options;
     }
 
     /** 基础字段（不含答案） */

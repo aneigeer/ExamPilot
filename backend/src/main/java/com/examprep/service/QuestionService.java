@@ -9,8 +9,10 @@ import com.examprep.common.QuestionType;
 import com.examprep.common.ResultCode;
 import com.examprep.dto.QuestionVO;
 import com.examprep.entity.Question;
+import com.examprep.entity.ListeningAudio;
 import com.examprep.entity.QuestionAnswer;
 import com.examprep.entity.QuestionOption;
+import com.examprep.mapper.ListeningAudioMapper;
 import com.examprep.mapper.QuestionAnswerMapper;
 import com.examprep.mapper.QuestionMapper;
 import com.examprep.mapper.QuestionOptionMapper;
@@ -33,6 +35,7 @@ public class QuestionService {
     private final QuestionMapper questionMapper;
     private final QuestionOptionMapper questionOptionMapper;
     private final QuestionAnswerMapper questionAnswerMapper;
+    private final ListeningAudioMapper listeningAudioMapper;
 
     /**
      * 题目分页列表（不含答案与解析）
@@ -111,6 +114,38 @@ public class QuestionService {
         vo.setOptions(options.stream()
                 .map(o -> QuestionVO.OptionVO.of(o, withAnswer))
                 .toList());
+
+        // 组合类大题：返回子题（子题选项按场景决定是否含答案）
+        if (QuestionType.isComposite(q.getType())) {
+            List<Question> children = questionMapper.selectList(Wrappers.<Question>lambdaQuery()
+                    .eq(Question::getParentId, q.getId())
+                    .orderByAsc(Question::getId));
+            vo.setSubQuestions(children.stream().map(child -> {
+                QuestionVO.SubItem si = new QuestionVO.SubItem();
+                si.setId(child.getId());
+                si.setType(child.getType());
+                si.setTypeName(QuestionType.labelOf(child.getType()));
+                si.setStem(child.getStem());
+                si.setScore(child.getScore());
+                List<QuestionOption> childOptions = questionOptionMapper.selectList(
+                        Wrappers.<QuestionOption>lambdaQuery()
+                                .eq(QuestionOption::getQuestionId, child.getId())
+                                .orderByAsc(QuestionOption::getSort));
+                si.setOptions(childOptions.stream()
+                        .map(o -> QuestionVO.OptionVO.of(o, withAnswer))
+                        .toList());
+                return si;
+            }).toList());
+        }
+        // 听力题：音频地址
+        if ("LISTENING".equals(q.getType())) {
+            ListeningAudio audio = listeningAudioMapper.selectOne(
+                    Wrappers.<ListeningAudio>lambdaQuery()
+                            .eq(ListeningAudio::getQuestionId, q.getId()));
+            if (audio != null) {
+                vo.setAudioUrl("/files/audio/" + audio.getFileId());
+            }
+        }
 
         if (withAnswer) {
             vo.setAnalysis(q.getAnalysis());

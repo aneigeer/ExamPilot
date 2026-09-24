@@ -53,6 +53,8 @@ public class FileStorageService {
     /** 允许的图片类型（App 端） */
     private final Set<String> allowedImageTypes;
     /** 允许的文档类型（管理端 Web） */
+    private final Set<String> allowedAudioTypes = Set.of("mp3", "wav", "m4a", "aac", "ogg");
+
     private final Set<String> allowedDocTypes = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "txt",
             "mp4", "mov", "avi", "webm", "mp3", "wav", "m4a");
 
@@ -100,6 +102,28 @@ public class FileStorageService {
                     "单张图片不能超过 " + (imageMaxSize / 1024 / 1024) + "MB");
         }
         return store(file, uploaderId, "images");
+    }
+
+    /** 上传音频（听力题，P1） */
+    public FileRecord storeAudio(MultipartFile file, Long uploaderId) {
+        String ext = extOf(file.getOriginalFilename());
+        if (!allowedAudioTypes.contains(ext)) {
+            throw new BizException(ResultCode.FILE_TYPE_NOT_ALLOWED,
+                    "仅支持音频格式：" + String.join(" / ", allowedAudioTypes));
+        }
+        if (file.getSize() > 50L * 1024 * 1024) {
+            throw new BizException(ResultCode.FILE_TOO_LARGE, "音频不能超过 50MB");
+        }
+        return store(file, uploaderId, "audios");
+    }
+
+    /** 按 ID 取文件记录（音频访问等场景） */
+    public FileRecord getFile(Long fileId) {
+        FileRecord file = fileRecordMapper.selectById(fileId);
+        if (file == null) {
+            throw new BizException(ResultCode.NOT_FOUND, "文件不存在");
+        }
+        return file;
     }
 
     /** 上传文档（管理端 Web） */
