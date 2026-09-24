@@ -9,10 +9,12 @@ import com.examprep.dto.ReportHandleRequest;
 import com.examprep.dto.ResourceVO;
 import com.examprep.dto.UserVO;
 import com.examprep.entity.Announcement;
+import com.examprep.entity.Appeal;
 import com.examprep.entity.OperationLog;
 import com.examprep.entity.Report;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.AdminService;
+import com.examprep.service.AppealService;
 import com.examprep.service.AuditService;
 import com.examprep.service.NoticeService;
 import com.examprep.service.OperationLogService;
@@ -49,6 +51,7 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final AppealService appealService;
     private final AuditService auditService;
     private final NoticeService noticeService;
     private final OperationLogService operationLogService;
@@ -234,6 +237,43 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public Result<Map<String, Long>> roleStats() {
         return Result.success(adminService.roleDistribution());
+    }
+
+    // ==================================================================
+    // 申诉处理（P1）
+    // ==================================================================
+
+    @Operation(summary = "申诉列表",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。`status` 可传 PENDING / APPROVED / REJECTED。")
+    @GetMapping("/appeals")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<PageResult<Appeal>> appeals(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size,
+            @Parameter(description = "申诉状态") @RequestParam(required = false) String status) {
+        return Result.success(appealService.page(page, size, status));
+    }
+
+    @Operation(summary = "申诉通过（资料恢复公开）",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。资料状态 OFFLINE/APPEALING → APPROVED，并通知上传人。")
+    @PostMapping("/appeals/{id}/approve")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<Void> approveAppeal(@PathVariable Long id,
+                                      @RequestBody(required = false) AuditRequest request) {
+        appealService.approve(id, SecurityUtils.requireUserId(),
+                request == null ? null : request.getReason());
+        return Result.success("申诉已通过，资料已恢复公开", null);
+    }
+
+    @Operation(summary = "申诉驳回（维持下架）",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。资料维持 OFFLINE，并通知上传人。")
+    @PostMapping("/appeals/{id}/reject")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<Void> rejectAppeal(@PathVariable Long id,
+                                     @RequestBody(required = false) AuditRequest request) {
+        appealService.reject(id, SecurityUtils.requireUserId(),
+                request == null ? null : request.getReason());
+        return Result.success("申诉已驳回，资料维持下架", null);
     }
 
     // ==================================================================

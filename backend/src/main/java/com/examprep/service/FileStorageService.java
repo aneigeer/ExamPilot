@@ -53,7 +53,8 @@ public class FileStorageService {
     /** 允许的图片类型（App 端） */
     private final Set<String> allowedImageTypes;
     /** 允许的文档类型（管理端 Web） */
-    private final Set<String> allowedDocTypes = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "txt");
+    private final Set<String> allowedDocTypes = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "txt",
+            "mp4", "mov", "avi", "webm", "mp3", "wav", "m4a");
 
     private final FileRecordMapper fileRecordMapper;
     private final ResourcePageMapper resourcePageMapper;
@@ -106,7 +107,10 @@ public class FileStorageService {
         String ext = extOf(file.getOriginalFilename());
         if (!allowedDocTypes.contains(ext)) {
             throw new BizException(ResultCode.FILE_TYPE_NOT_ALLOWED,
-                    "仅支持文档格式：" + String.join(" / ", allowedDocTypes));
+                    "仅支持文档/音视频格式：" + String.join(" / ", allowedDocTypes));
+        }
+        if (file.getSize() > 200L * 1024 * 1024) {
+            throw new BizException(ResultCode.FILE_TOO_LARGE, "单个文件不能超过 200MB");
         }
         return store(file, uploaderId, "documents");
     }
