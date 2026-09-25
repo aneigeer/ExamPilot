@@ -26,6 +26,14 @@
         <activity android:name=".ui.practice.PracticeConfigActivity" android:exported="false" />
         <activity android:name=".ui.practice.PracticeActivity" android:exported="false" />
         <activity android:name=".ui.practice.ReportActivity" android:exported="false" />
-        <!-- 下一轮加入：题库、资料详情/上传、模拟考试、错题本页面 -->
+        <activity android:name=".ui.question.QuestionListActivity" android:exported="false" />
+        <activity android:name=".ui.question.QuestionDetailActivity" android:exported="false" />
+        <activity android:name=".ui.resource.ResourceDetailActivity" android:exported="false" />
+        <activity android:name=".ui.mock.MockExamActivity" android:exported="false" />
+        <activity android:name=".ui.mock.MockReportActivity" android:exported="false" />
+        <activity android:name=".ui.wrong.WrongBookActivity" android:exported="false" />
+        <activity android:name=".ui.list.DownloadsActivity" android:exported="false" />
+        <activity android:name=".ui.list.FavoritesActivity" android:exported="false" />
+        <activity android:name=".ui.list.NotificationsActivity" android:exported="false" />
     </application>
 </manifest>

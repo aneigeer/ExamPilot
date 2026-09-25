@@ -38,6 +38,7 @@ public class HomeFragment extends Fragment {
         api = ApiClient.api();
 
         adapter = new ResourceAdapter();
+        adapter.setOnClick(r -> openResource(r.id));
         binding.rvHotResources.setAdapter(adapter);
         binding.rvHotResources.setNestedScrollingEnabled(false);
 
@@ -45,7 +46,9 @@ public class HomeFragment extends Fragment {
         binding.btnStartPractice.setOnClickListener(v ->
                 startActivity(new Intent(getContext(),
                         com.examprep.app.ui.practice.PracticeConfigActivity.class)));
-        binding.btnStartMock.setOnClickListener(v -> toast("模拟考试页开发中（下一轮交付）"));
+        binding.btnStartMock.setOnClickListener(v ->
+                startActivity(new Intent(getContext(),
+                        com.examprep.app.ui.mock.MockExamActivity.class)));
 
         loadHome();
         return binding.getRoot();
@@ -106,6 +109,13 @@ public class HomeFragment extends Fragment {
         binding.tvExams.setText(exam.toString());
 
         adapter.submit(home.hotResources == null ? List.of() : home.hotResources);
+    }
+
+    private void openResource(long id) {
+        Intent intent = new Intent(getContext(),
+                com.examprep.app.ui.resource.ResourceDetailActivity.class);
+        intent.putExtra("resourceId", id);
+        startActivity(intent);
     }
 
     private void toast(String msg) {

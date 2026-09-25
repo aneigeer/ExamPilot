@@ -269,4 +269,50 @@ public class Models {
         public String lastWrongAt;
         public Question question;
     }
+
+    // ---------- 模拟考试（P1） ----------
+
+    public static class MockPaper implements java.io.Serializable {
+        public Long recordId;
+        public Long paperId;
+        public String paperName;
+        public Integer durationMinutes;
+        public String deadline;
+        public long remainingSeconds;
+        public Integer totalScore;
+        public String status;
+        public int answeredCount;
+        public List<Question> questions;
+    }
+
+    public static class MockReport implements java.io.Serializable {
+        public Long recordId;
+        public String status;
+        public int totalScore;
+        public double gotScore;
+        public double scoreRate;
+        public int correctCount;
+        public int answeredCount;
+        public int totalCount;
+        public String submittedAt;
+        public List<MockDetail> details;
+    }
+
+    public static class MockDetail implements java.io.Serializable {
+        public Long questionId;
+        public String typeName;
+        public String stem;
+        public String userAnswer;
+        public Boolean correct;
+        public String correctAnswer;
+        public double scoreGot;
+    }
+
+    public static class Notification {
+        public Long id;
+        public String title;
+        public String content;
+        public String readAt;
+        public String createdAt;
+    }
 }

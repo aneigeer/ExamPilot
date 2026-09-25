@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@color/primary" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="14dp">
+        <TextView
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:padding="6dp" android:text="← 返回"
+            android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:text="题目详情" android:textColor="#FFFFFF" android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvQTypeName"
+                style="@style/StatLabel" />
+
+            <TextView
+                android:id="@+id/tvQStem"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text_main" android:textSize="16sp"
+                android:lineSpacingExtra="4dp" />
+
+            <TextView
+                android:id="@+id/tvQOptions"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/text_main" android:textSize="14sp"
+                android:lineSpacingExtra="6dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="12dp">
+                    <TextView
+                        android:id="@+id/tvQAnswer"
+                        style="@style/CardText" android:textColor="@color/correct" />
+                    <TextView
+                        android:id="@+id/tvQAnalysis"
+                        style="@style/CardText" android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

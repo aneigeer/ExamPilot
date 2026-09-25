@@ -1,5 +1,6 @@
 package com.examprep.app.ui.main;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -46,7 +47,12 @@ public class ResourceFragment extends Fragment {
         adapter = new ResourceAdapter();
         binding.rvResources.setLayoutManager(new LinearLayoutManager(getContext()));
         binding.rvResources.setAdapter(adapter);
-        adapter.setOnClick(r -> toast("资料详情页开发中（下一轮交付）"));
+        adapter.setOnClick(r -> {
+            Intent intent = new Intent(getContext(),
+                    com.examprep.app.ui.resource.ResourceDetailActivity.class);
+            intent.putExtra("resourceId", r.id);
+            startActivity(intent);
+        });
 
         binding.refresh.setOnRefreshListener(() -> {
             page = 1;

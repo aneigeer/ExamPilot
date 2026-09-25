@@ -60,10 +60,10 @@ public class MeFragment extends Fragment {
             });
         });
 
-        binding.btnWrongBook.setOnClickListener(v -> toast("错题本开发中（下一轮交付）"));
-        binding.btnFavorites.setOnClickListener(v -> toast("我的收藏开发中（下一轮交付）"));
-        binding.btnDownloads.setOnClickListener(v -> toast("下载历史开发中（下一轮交付）"));
-        binding.btnNotifications.setOnClickListener(v -> toast("通知中心开发中（下一轮交付）"));
+        binding.btnWrongBook.setOnClickListener(v -> open(com.examprep.app.ui.wrong.WrongBookActivity.class));
+        binding.btnFavorites.setOnClickListener(v -> open(com.examprep.app.ui.list.FavoritesActivity.class));
+        binding.btnDownloads.setOnClickListener(v -> open(com.examprep.app.ui.list.DownloadsActivity.class));
+        binding.btnNotifications.setOnClickListener(v -> open(com.examprep.app.ui.list.NotificationsActivity.class));
 
         if (store.hasToken()) {
             loadStats();
@@ -97,6 +97,10 @@ public class MeFragment extends Fragment {
                 toast("统计加载失败");
             }
         });
+    }
+
+    private void open(Class<?> clazz) {
+        startActivity(new Intent(requireContext(), clazz));
     }
 
     private void goLogin() {

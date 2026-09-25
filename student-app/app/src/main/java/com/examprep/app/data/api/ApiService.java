@@ -151,6 +151,49 @@ public interface ApiService {
     @DELETE("wrong-book/{questionId}")
     Call<Models.ApiResult<Object>> wrongBookRemove(@Path("questionId") long questionId);
 
+    // ---------- 模拟考试（P1） ----------
+
+    @POST("exams/mock/start")
+    Call<Models.ApiResult<Models.MockPaper>> mockStart(@Body MockStartBody body);
+
+    public static class MockStartBody {
+        public final Long subjectId;
+        public final int count;
+        public final int durationMinutes;
+
+        public MockStartBody(Long subjectId, int count, int durationMinutes) {
+            this.subjectId = subjectId;
+            this.count = count;
+            this.durationMinutes = durationMinutes;
+        }
+    }
+
+    @GET("exams/mock/{id}")
+    Call<Models.ApiResult<Models.MockPaper>> mockPaper(@Path("id") long recordId);
+
+    @POST("exams/mock/{id}/answer")
+    Call<Models.ApiResult<Integer>> mockAnswer(
+            @Path("id") long recordId, @Body AnswerBody body);
+
+    @POST("exams/mock/{id}/submit")
+    Call<Models.ApiResult<Models.MockReport>> mockSubmit(@Path("id") long recordId);
+
+    @GET("exams/mock/{id}/report")
+    Call<Models.ApiResult<Models.MockReport>> mockReport(@Path("id") long recordId);
+
+    // ---------- 收藏 / 通知列表 ----------
+
+    @GET("favorites/resources")
+    Call<Models.ApiResult<Models.Page<Models.Resource>>> favoriteResources(
+            @Query("page") long page, @Query("size") long size);
+
+    @GET("notifications")
+    Call<Models.ApiResult<Models.Page<Models.Notification>>> notifications(
+            @Query("page") long page, @Query("size") long size);
+
+    @PUT("notifications/read-all")
+    Call<Models.ApiResult<Object>> notificationsReadAll();
+
     // ---------- 资料 ----------
 
     @GET("resources")
