@@ -1,0 +1,5 @@
+// 大学生多考试备考知识库与题库系统 · Android 学生端
+// 技术栈：Java + XML + MVVM（ViewModel/LiveData）+ Retrofit + Glide
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

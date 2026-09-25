@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="14dp">
+
+        <!-- 头部 -->
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <ImageView
+                android:layout_width="52dp" android:layout_height="52dp"
+                android:src="@drawable/ic_tab_me" android:contentDescription="头像" />
+            <LinearLayout
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content" android:layout_marginStart="12dp"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/tvNickname"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="未登录" android:textColor="@color/text_main"
+                    android:textSize="17sp" android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvStudentNo"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="游客模式" android:textColor="@color/text_sub" android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 统计 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="14dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="14dp">
+                <TextView style="@style/CardTitle" android:text="我的学习统计" />
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:orientation="horizontal">
+                    <LinearLayout style="@style/StatCol">
+                        <TextView android:id="@+id/tvPractice" style="@style/StatNum" android:text="0" />
+                        <TextView style="@style/StatLabel" android:text="练习次数" />
+                    </LinearLayout>
+                    <LinearLayout style="@style/StatCol">
+                        <TextView android:id="@+id/tvAccuracy" style="@style/StatNum" android:text="0%" />
+                        <TextView style="@style/StatLabel" android:text="正确率" />
+                    </LinearLayout>
+                    <LinearLayout style="@style/StatCol">
+                        <TextView android:id="@+id/tvWrong" style="@style/StatNum" android:text="0" />
+                        <TextView style="@style/StatLabel" android:text="错题" />
+                    </LinearLayout>
+                    <LinearLayout style="@style/StatCol">
+                        <TextView android:id="@+id/tvFav" style="@style/StatNum" android:text="0" />
+                        <TextView style="@style/StatLabel" android:text="收藏" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 功能项 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:layout_marginBottom="16dp">
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:padding="6dp">
+
+                <TextView android:id="@+id/btnWrongBook" style="@style/MenuItem" android:text="错题本" />
+                <TextView android:id="@+id/btnFavorites" style="@style/MenuItem" android:text="我的收藏" />
+                <TextView android:id="@+id/btnDownloads" style="@style/MenuItem" android:text="下载历史" />
+                <TextView android:id="@+id/btnNotifications" style="@style/MenuItem" android:text="通知中心" />
+                <TextView android:id="@+id/btnLogout" style="@style/MenuItem" android:text="退出登录" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</ScrollView>

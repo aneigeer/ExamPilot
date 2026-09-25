@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">备考知识库</string>
+    <string name="tab_home">首页</string>
+    <string name="tab_course">课程</string>
+    <string name="tab_resource">资料</string>
+    <string name="tab_me">我的</string>
+    <string name="hint_student_no">学号</string>
+    <string name="hint_password">密码</string>
+    <string name="btn_login">登 录</string>
+    <string name="guest_login">游客浏览</string>
+</resources>

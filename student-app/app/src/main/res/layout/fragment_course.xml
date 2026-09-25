@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="14dp">
+
+    <TextView style="@style/CardTitle" android:text="🎓 课程库"
+        android:textSize="18sp" android:layout_marginBottom="10dp" />
+
+    <Spinner
+        android:id="@+id/spCollege"
+        android:layout_width="match_parent" android:layout_height="44dp"
+        android:background="@android:drawable/editbox_background" />
+
+    <Spinner
+        android:id="@+id/spSemester"
+        android:layout_width="match_parent" android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:background="@android:drawable/editbox_background" />
+
+    <TextView
+        android:id="@+id/tvCourseEmpty"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="20dp" android:gravity="center"
+        android:text="暂无课程" android:textColor="@color/text_sub" android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvCourses"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layout_marginTop="10dp" />
+</LinearLayout>
