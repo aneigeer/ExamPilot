@@ -153,6 +153,13 @@ public class PracticeService {
                     .toList());
         }
 
+        // 按知识点刷题（大纲 3.6）
+        if (req.getKnowledgeId() != null) {
+            wrapper.apply("EXISTS (SELECT 1 FROM question_knowledge qk "
+                    + "WHERE qk.question_id = question.id AND qk.knowledge_id = {0})",
+                    req.getKnowledgeId());
+        }
+
         if (req.getKnowledgeId() != null) {
             List<Long> byKnowledge = questionMapper.selectQuestionIdsByKnowledgeId(req.getKnowledgeId());
             if (byKnowledge.isEmpty()) {

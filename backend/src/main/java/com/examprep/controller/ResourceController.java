@@ -57,8 +57,10 @@ public class ResourceController {
             @Parameter(description = "资料类型") @RequestParam(required = false) String type,
             @Parameter(description = "标签（精确匹配其中一个）：重点必考/含答案/无答案/近年高频")
             @RequestParam(required = false) String tags,
-            @Parameter(description = "标题关键词") @RequestParam(required = false) String keyword) {
-        return Result.success(resourceService.pageResources(page, size, examCategoryId, subjectId, courseId, type, tags, keyword));
+            @Parameter(description = "标题关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "排序：不传为最新；recommended 推荐加权（评分下沉 + 时间衰减）")
+            @RequestParam(required = false) String sort) {
+        return Result.success(resourceService.pageResources(page, size, examCategoryId, subjectId, courseId, type, tags, keyword, sort));
     }
 
     @Operation(summary = "我的上传", description = "**访问级别：AUTH**。含未通过审核的资料。")

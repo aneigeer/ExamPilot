@@ -75,18 +75,30 @@ public class ResourceService {
 
     public PageResult<ResourceVO> pageResources(long page, long size,
                                                 Long examCategoryId, Long subjectId,
-                                                Long courseId, String type, String tags, String keyword) {
+                                                Long courseId, String type, String tags, String keyword,
+                                                String sort) {
         IPage<Resource> p = new Page<>(page, size);
-        IPage<Resource> result = resourceMapper.selectPage(p,
-                Wrappers.<Resource>lambdaQuery()
-                        .eq(Resource::getAuditStatus, STATUS_APPROVED)
-                        .eq(examCategoryId != null, Resource::getExamCategoryId, examCategoryId)
-                        .eq(subjectId != null, Resource::getSubjectId, subjectId)
-                        .eq(courseId != null, Resource::getCourseId, courseId)
-                        .eq(StringUtils.hasText(type), Resource::getType, type)
-                        .apply(StringUtils.hasText(tags), "FIND_IN_SET({0}, tags) > 0", tags)
-                        .like(StringUtils.hasText(keyword), Resource::getTitle, keyword)
-                        .orderByDesc(Resource::getCreatedAt));
+        var wrapper = Wrappers.<Resource>lambdaQuery()
+                .eq(Resource::getAuditStatus, STATUS_APPROVED)
+                .eq(examCategoryId != null, Resource::getExamCategoryId, examCategoryId)
+                .eq(subjectId != null, Resource::getSubjectId, subjectId)
+                .eq(courseId != null, Resource::getCourseId, courseId)
+                .eq(StringUtils.hasText(type), Resource::getType, type)
+                .apply(StringUtils.hasText(tags), "FIND_IN_SET({0}, tags) > 0", tags)
+                .like(StringUtils.hasText(keyword), Resource::getTitle, keyword);
+
+        // 排序：recommended = 推荐加权（大纲 4.5 评分下沉 + 时间衰减）
+        // 权重 =（下载量×2 + 有效评分均分×min(评分人数,5)）/（发布天数+7）
+        // 评分人数不足 3 人不计入评分权重（评分下沉），避免少量刷分影响排序
+        if ("recommended".equals(sort)) {
+            wrapper.last("ORDER BY (download_count * 2 + IF(rating_count >= 3, "
+                    + "IFNULL(rating_avg, 0) * LEAST(rating_count, 5), 0)) "
+                    + "/ (DATEDIFF(NOW(), created_at) + 7) DESC, id DESC");
+        } else {
+            wrapper.orderByDesc(Resource::getCreatedAt);
+        }
+
+        IPage<Resource> result = resourceMapper.selectPage(p, wrapper);
 
         List<ResourceVO> list = enrich(result.getRecords());
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), list);

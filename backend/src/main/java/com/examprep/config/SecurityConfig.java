@@ -107,6 +107,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/", "/admin/", "/admin/index.html",
                                 "/admin/vendor/**").permitAll()
                         // 管理端：超管专属
+                        .requestMatchers("/admin/logs/audit").hasAnyRole("AUDITOR", "ADMIN")
                         .requestMatchers("/admin/users/**", "/admin/logs/**", "/admin/roles/**")
                         .hasRole("ADMIN")
                         // 管理端：审核员及以上

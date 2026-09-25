@@ -14,6 +14,7 @@ import com.examprep.entity.OperationLog;
 import com.examprep.entity.Report;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.AdminService;
+import com.examprep.service.AdminStatsService;
 import com.examprep.service.AppealService;
 import com.examprep.service.AuditService;
 import com.examprep.service.NoticeService;
@@ -52,6 +53,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AppealService appealService;
+    private final AdminStatsService adminStatsService;
     private final AuditService auditService;
     private final NoticeService noticeService;
     private final OperationLogService operationLogService;
@@ -237,6 +239,31 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public Result<Map<String, Long>> roleStats() {
         return Result.success(adminService.roleDistribution());
+    }
+
+    // ==================================================================
+    // 数据统计增强（审计 B5：热门科目 / 活跃用户 / 题型正确率）
+    // ==================================================================
+
+    @Operation(summary = "热门科目统计", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。按资料数与下载量排序的 TOP10 科目。")
+    @GetMapping("/stats/hot-subjects")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<List<Map<String, Object>>> hotSubjects() {
+        return Result.success(adminStatsService.hotSubjects());
+    }
+
+    @Operation(summary = "活跃用户统计", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。按练习次数排序的 TOP10 用户。")
+    @GetMapping("/stats/active-users")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<List<Map<String, Object>>> activeUsers() {
+        return Result.success(adminStatsService.activeUsers());
+    }
+
+    @Operation(summary = "各题型正确率", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。基于答题明细的题型正确率分布。")
+    @GetMapping("/stats/type-accuracy")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<List<Map<String, Object>>> typeAccuracy() {
+        return Result.success(adminStatsService.typeAccuracy());
     }
 
     // ==================================================================
