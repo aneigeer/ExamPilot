@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@color/primary" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="14dp">
+        <TextView
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:padding="6dp" android:text="← 返回"
+            android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:text="上传资料（图片）" android:textColor="#FFFFFF" android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPick"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:text="📷 选择图片（相册多选）" />
+
+            <TextView
+                android:id="@+id/tvPicked"
+                style="@style/StatLabel" android:layout_marginTop="6dp"
+                android:text="未选择图片。仅支持 jpg/png/webp/gif，上传前自动压缩。" />
+
+            <TextView style="@style/StatLabel" android:layout_marginTop="14dp" android:text="资料标题" />
+            <EditText
+                android:id="@+id/etTitle"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:background="@android:drawable/editbox_background" android:padding="10dp"
+                android:inputType="text" android:maxLines="1" />
+
+            <TextView style="@style/StatLabel" android:layout_marginTop="12dp" android:text="资料类型" />
+            <Spinner
+                android:id="@+id/spType"
+                android:layout_width="match_parent" android:layout_height="44dp"
+                android:background="@android:drawable/editbox_background" />
+
+            <TextView style="@style/StatLabel" android:layout_marginTop="12dp" android:text="所属科目" />
+            <Spinner
+                android:id="@+id/spSubject"
+                android:layout_width="match_parent" android:layout_height="44dp"
+                android:background="@android:drawable/editbox_background" />
+
+            <TextView style="@style/StatLabel" android:layout_marginTop="12dp" android:text="简介" />
+            <EditText
+                android:id="@+id/etDesc"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:background="@android:drawable/editbox_background" android:padding="10dp"
+                android:inputType="textMultiLine" android:minLines="2" />
+
+            <TextView style="@style/StatLabel" android:layout_marginTop="12dp" android:text="标签（可选，逗号分隔：重点必考,含答案）" />
+            <EditText
+                android:id="@+id/etTags"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:background="@android:drawable/editbox_background" android:padding="10dp"
+                android:inputType="text" android:maxLines="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSubmit"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_marginTop="20dp" android:text="提交审核" />
+
+            <TextView
+                style="@style/StatLabel" android:layout_marginTop="10dp" android:gravity="center"
+                android:text="提示：PDF/DOCX/ZIP 等文档请到电脑端管理后台上传" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -19,6 +19,12 @@
             android:text="模拟考试" android:textColor="#FFFFFF" android:textSize="16sp"
             android:textStyle="bold" />
         <TextView
+            android:id="@+id/btnMockCard"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp" android:padding="6dp" android:text="答题卡"
+            android:textColor="#FFFFFF" android:background="?attr/selectableItemBackground" />
+
+        <TextView
             android:id="@+id/tvTimer"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="" android:textColor="#FFD54F" android:textSize="15sp"

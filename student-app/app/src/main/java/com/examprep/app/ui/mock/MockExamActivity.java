@@ -63,6 +63,11 @@ public class MockExamActivity extends AppCompatActivity {
             }
         });
         binding.btnMockStart.setOnClickListener(v -> start());
+        binding.btnMockCard.setOnClickListener(v -> {
+            if (!questions.isEmpty()) {
+                showCardSheet();
+            }
+        });
         binding.btnMockSubmit.setOnClickListener(v -> confirmSubmit());
         binding.btnMockPrev.setOnClickListener(v -> {
             if (index > 0) {
@@ -252,6 +257,45 @@ public class MockExamActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    /** 答题卡：题号网格，已答高亮，点击跳题（大纲 7.5 答题卡） */
+    private void showCardSheet() {
+        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        android.widget.GridLayout grid = new android.widget.GridLayout(this);
+        grid.setColumnCount(5);
+        int pad = dp(20);
+        grid.setPadding(pad, pad, pad, pad);
+
+        for (int i = 0; i < questions.size(); i++) {
+            Models.Question q = questions.get(i);
+            boolean answered = selections.containsKey(q.id);
+            MaterialButton b = new MaterialButton(this);
+            b.setText(String.valueOf(i + 1));
+            b.setWidth(dp(52));
+            b.setHeight(dp(52));
+            b.setBackgroundColor(answered ? 0xFF2E7D32 : 0xFFB0BEC5);
+            int idx = i;
+            b.setOnClickListener(v -> {
+                index = idx;
+                renderQuestion();
+                sheet.dismiss();
+            });
+            android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
+            lp.setMargins(dp(4), dp(4), dp(4), dp(4));
+            b.setLayoutParams(lp);
+            grid.addView(b);
+        }
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        TextView tip = new TextView(this);
+        tip.setText("绿色=已答　灰色=未答　点题号跳转　已答 " + selections.size() + "/" + questions.size());
+        tip.setPadding(pad, dp(12), pad, 0);
+        box.addView(tip);
+        box.addView(grid);
+        sheet.setContentView(box);
+        sheet.show();
     }
 
     private void confirmSubmit() {

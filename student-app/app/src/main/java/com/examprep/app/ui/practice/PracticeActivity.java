@@ -56,11 +56,15 @@ public class PracticeActivity extends AppCompatActivity {
         practiceId = getIntent().getLongExtra("practiceId", 0);
 
         binding.btnFinish.setOnClickListener(v -> confirmFinish());
+        binding.btnCard.setOnClickListener(v -> showCardSheet());
         binding.btnAction.setOnClickListener(v -> onAction());
         loadNext();
     }
 
     private void loadNext() {
+        if (current != null) {
+            saveDraft();
+        }
         judged = false;
         multiSelection.clear();
         subSelection.clear();
@@ -120,7 +124,10 @@ public class PracticeActivity extends AppCompatActivity {
             binding.btnAction.setEnabled(q.subQuestions != null && !q.subQuestions.isEmpty());
         } else if ("FILL_BLANK".equals(q.type) || QuestionTypes.isSubjective(q.type)) {
             boolean subjective = QuestionTypes.isSubjective(q.type);
-            addInput(subjective ? "输入你的回答" : "多个空用 | 分隔", subjective);
+            EditText et = addInput(subjective ? "输入你的回答（自动保存草稿）" : "多个空用 | 分隔", subjective);
+            if (subjective) {
+                restoreDraft(et);
+            }
             binding.btnAction.setEnabled(true);
         } else {
             // 单选 / 判断 / 多选：动态选项按钮
@@ -180,7 +187,7 @@ public class PracticeActivity extends AppCompatActivity {
         }
     }
 
-    private void addInput(String hint, boolean multiLine) {
+    private EditText addInput(String hint, boolean multiLine) {
         EditText et = new EditText(this);
         et.setHint(hint);
         et.setBackground(getDrawable(android.R.drawable.editbox_background));
@@ -188,6 +195,62 @@ public class PracticeActivity extends AppCompatActivity {
         et.setGravity(Gravity.TOP);
         et.setTag("input");
         binding.llAnswerArea.addView(et);
+        return et;
+    }
+
+    /** 主观题草稿（SharedPreferences 本地保存，大纲 7.6） */
+    private void restoreDraft(EditText et) {
+        if (current != null && QuestionTypes.isSubjective(current.type)) {
+            String draft = getSharedPreferences("draft", MODE_PRIVATE)
+                    .getString("draft_" + current.id, "");
+            if (!draft.isEmpty()) {
+                et.setText(draft);
+            }
+        }
+    }
+
+    private void saveDraft() {
+        for (int i = 0; i < binding.llAnswerArea.getChildCount(); i++) {
+            View child = binding.llAnswerArea.getChildAt(i);
+            if (child instanceof EditText && current != null
+                    && QuestionTypes.isSubjective(current.type)) {
+                String text = String.valueOf(((EditText) child).getText());
+                getSharedPreferences("draft", MODE_PRIVATE).edit()
+                        .putString("draft_" + current.id, text).apply();
+            }
+        }
+    }
+
+    /** 答题卡（大纲 7.5）：进度概览底部弹层 */
+    private void showCardSheet() {
+        com.google.android.material.bottomsheet.BottomSheetDialog sheet =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(20);
+        box.setPadding(pad, pad, pad, pad);
+
+        String[] lines = {
+                "总题数：" + totalCount,
+                "已作答：" + answeredCount,
+                "答　对：" + correctCount,
+                "答　错：" + Math.max(0, answeredCount - correctCount),
+                "剩　余：" + Math.max(0, totalCount - answeredCount)
+        };
+        for (String line : lines) {
+            TextView tv = new TextView(this);
+            tv.setText(line);
+            tv.setTextSize(16);
+            tv.setPadding(0, dp(8), 0, dp(8));
+            box.addView(tv);
+        }
+        TextView tip = new TextView(this);
+        tip.setText("本次练习为顺序出题模式，完成当前题后自动进入下一题");
+        tip.setTextSize(12);
+        tip.setTextColor(0xFF7A8190);
+        box.addView(tip);
+        sheet.setContentView(box);
+        sheet.show();
     }
 
     private String currentInput() {

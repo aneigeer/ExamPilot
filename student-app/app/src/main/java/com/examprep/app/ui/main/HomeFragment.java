@@ -43,6 +43,16 @@ public class HomeFragment extends Fragment {
         binding.rvHotResources.setNestedScrollingEnabled(false);
 
         binding.refresh.setOnRefreshListener(this::loadHome);
+        binding.btnSearch.setOnClickListener(v -> startActivity(
+                new Intent(getContext(), com.examprep.app.ui.search.SearchActivity.class)));
+        binding.fabUpload.setOnClickListener(v -> {
+            if (!com.examprep.app.data.prefs.TokenStore.get(requireContext()).hasToken()) {
+                toast("游客不可上传，请先登录");
+                startActivity(new Intent(getContext(), com.examprep.app.ui.login.LoginActivity.class));
+                return;
+            }
+            startActivity(new Intent(getContext(), com.examprep.app.ui.upload.UploadActivity.class));
+        });
         binding.btnStartPractice.setOnClickListener(v ->
                 startActivity(new Intent(getContext(),
                         com.examprep.app.ui.practice.PracticeConfigActivity.class)));

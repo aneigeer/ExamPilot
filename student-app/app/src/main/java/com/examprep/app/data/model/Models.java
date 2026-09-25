@@ -315,4 +315,40 @@ public class Models {
         public String readAt;
         public String createdAt;
     }
+
+    // ---------- 审计补齐（题库 tab / 笔记 / 收藏题 / 上传 / 搜索） ----------
+
+    public static class KnowledgeNode {
+        public Long id;
+        public String name;
+        public Integer level;
+        public List<KnowledgeNode> children;
+    }
+
+    public static class FavoriteQuestion {
+        public Long id;
+        public Long questionId;
+        public Question question;
+    }
+
+    public static class Appeal {
+        public Long id;
+        public Long userId;
+        public String targetType;
+        public Long targetId;
+        public String reason;
+        public String status;
+        public String handleNote;
+        public String createdAt;
+    }
+
+    public static class QuestionNoteItem {
+        public Long id;
+        public Long questionId;
+        public String typeName;
+        public String stem;
+        public String content;
+        public String createdAt;
+        public String updatedAt;
+    }
 }

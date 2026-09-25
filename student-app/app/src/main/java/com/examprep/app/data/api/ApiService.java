@@ -8,10 +8,14 @@ import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.Multipart;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
+import retrofit2.http.Part;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
+
+import okhttp3.MultipartBody;
 
 /** 后端接口定义（与后端 132 个接口一一对应，按需声明） */
 public interface ApiService {
@@ -194,6 +198,77 @@ public interface ApiService {
     @PUT("notifications/read-all")
     Call<Models.ApiResult<Object>> notificationsReadAll();
 
+    // ---------- 审计补齐（题库 tab / 上传 / 举报 / 申诉 / 收藏题 / 账号 / 搜索） ----------
+
+    @GET("exams")
+    Call<Models.ApiResult<List<Models.ExamBrief>>> exams();
+
+    @GET("subjects/{id}/knowledge-tree")
+    Call<Models.ApiResult<List<Models.KnowledgeNode>>> knowledgeTree(@Path("id") long subjectId);
+
+    @POST("resources/{id}/report")
+    Call<Models.ApiResult<Object>> reportResource(
+            @Path("id") long id, @Query("reason") String reason, @Query("description") String description);
+
+    @GET("appeals/mine")
+    Call<Models.ApiResult<List<Models.Appeal>>> myAppeals();
+
+    @POST("appeals")
+    Call<Models.ApiResult<Models.Appeal>> createAppeal(
+            @Query("resourceId") long resourceId, @Query("reason") String reason);
+
+    @GET("favorites/questions")
+    Call<Models.ApiResult<Models.Page<Models.FavoriteQuestion>>> favoriteQuestions(
+            @Query("page") long page, @Query("size") long size);
+
+    @GET("resources/mine")
+    Call<Models.ApiResult<Models.Page<Models.Resource>>> myUploads(
+            @Query("page") long page, @Query("size") long size);
+
+    @PUT("auth/password")
+    Call<Models.ApiResult<Object>> changePassword(@Body ChangePasswordBody body);
+
+    public static class ChangePasswordBody {
+        public final String oldPassword;
+        public final String newPassword;
+
+        public ChangePasswordBody(String oldPassword, String newPassword) {
+            this.oldPassword = oldPassword;
+            this.newPassword = newPassword;
+        }
+    }
+
+    @GET("search/resources")
+    Call<Models.ApiResult<Models.Page<Models.Resource>>> searchResources(
+            @Query("keyword") String keyword, @Query("page") long page, @Query("size") long size);
+
+    @GET("notes")
+    Call<Models.ApiResult<List<Models.QuestionNoteItem>>> myNotes(
+            @Query("questionId") Long questionId);
+
+    @Multipart
+    @POST("files/image")
+    Call<Models.ApiResult<FileUploadData>> uploadImage(@retrofit2.http.Part MultipartBody.Part file);
+
+    public static class FileUploadData {
+        public Long fileId;
+        public String fileName;
+        public long size;
+    }
+
+    public static class ResourceSubmitBody {
+        public String title;
+        public Long examCategoryId;
+        public Long subjectId;
+        public String type;
+        public String description;
+        public String tags;
+        public Long fileId;
+    }
+
+    @POST("resources")
+    Call<Models.ApiResult<Models.Resource>> createResource(@Body ResourceSubmitBody body);
+
     // ---------- 资料 ----------
 
     @GET("resources")
@@ -233,6 +308,13 @@ public interface ApiService {
 
     @GET("favorites/check")
     Call<Models.ApiResult<FavResult>> favoriteCheck(
+            @Query("targetType") String targetType, @Query("targetId") long targetId);
+
+    @GET("follows")
+    Call<Models.ApiResult<List<java.util.Map<String, Object>>>> follows(@Query("targetType") String targetType);
+
+    @POST("follows")
+    Call<Models.ApiResult<java.util.Map<String, Object>>> followsToggle(
             @Query("targetType") String targetType, @Query("targetId") long targetId);
 
     @GET("comments")

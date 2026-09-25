@@ -11,6 +11,7 @@ public class QuestionNoteVO {
 
     private Long id;
     private Long questionId;
+    private Long noteId;
 
     @Schema(description = "题型中文名")
     private String typeName;

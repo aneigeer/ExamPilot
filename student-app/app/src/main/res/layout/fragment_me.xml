@@ -70,6 +70,12 @@
                 android:orientation="vertical" android:padding="6dp">
 
                 <TextView android:id="@+id/btnWrongBook" style="@style/MenuItem" android:text="错题本" />
+                <TextView android:id="@+id/btnNote" style="@style/MenuItem" android:text="我的笔记" />
+                <TextView android:id="@+id/btnFavQuestion" style="@style/MenuItem" android:text="收藏题" />
+                <TextView android:id="@+id/btnUploadRecords" style="@style/MenuItem" android:text="上传记录" />
+                <TextView android:id="@+id/btnFollows" style="@style/MenuItem" android:text="我的关注" />
+                <TextView android:id="@+id/btnAppeals" style="@style/MenuItem" android:text="我的申诉" />
+                <TextView android:id="@+id/btnAccount" style="@style/MenuItem" android:text="账号设置" />
                 <TextView android:id="@+id/btnFavorites" style="@style/MenuItem" android:text="我的收藏" />
                 <TextView android:id="@+id/btnDownloads" style="@style/MenuItem" android:text="下载历史" />
                 <TextView android:id="@+id/btnNotifications" style="@style/MenuItem" android:text="通知中心" />

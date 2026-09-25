@@ -64,6 +64,12 @@ public class MeFragment extends Fragment {
         binding.btnFavorites.setOnClickListener(v -> open(com.examprep.app.ui.list.FavoritesActivity.class));
         binding.btnDownloads.setOnClickListener(v -> open(com.examprep.app.ui.list.DownloadsActivity.class));
         binding.btnNotifications.setOnClickListener(v -> open(com.examprep.app.ui.list.NotificationsActivity.class));
+        binding.btnNote.setOnClickListener(v -> open(com.examprep.app.ui.note.NoteActivity.class));
+        binding.btnFavQuestion.setOnClickListener(v -> open(com.examprep.app.ui.list.FavoriteQuestionActivity.class));
+        binding.btnUploadRecords.setOnClickListener(v -> open(com.examprep.app.ui.list.UploadRecordsActivity.class));
+        binding.btnFollows.setOnClickListener(v -> open(com.examprep.app.ui.follow.FollowActivity.class));
+        binding.btnAppeals.setOnClickListener(v -> open(com.examprep.app.ui.appeal.AppealActivity.class));
+        binding.btnAccount.setOnClickListener(v -> open(com.examprep.app.ui.account.AccountActivity.class));
 
         if (store.hasToken()) {
             loadStats();

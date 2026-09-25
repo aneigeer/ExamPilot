@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
@@ -59,6 +60,8 @@ public class ResourceDetailActivity extends AppCompatActivity {
         binding.btnDownload.setOnClickListener(v -> download());
         binding.btnFavorite.setOnClickListener(v -> favorite());
         binding.btnSend.setOnClickListener(v -> addComment());
+        binding.btnReport.setOnClickListener(v -> report());
+        binding.btnAppeal.setOnClickListener(v -> appeal());
 
         loadDetail();
         loadComments();
@@ -76,6 +79,12 @@ public class ResourceDetailActivity extends AppCompatActivity {
                 }
                 resource = r.data;
                 bind();
+                // 被下架的资料：上传人可申诉（大纲 3.8）
+                if ("OFFLINE".equals(resource.auditStatus) || "APPEALING".equals(resource.auditStatus)) {
+                    binding.btnAppeal.setVisibility(View.VISIBLE);
+                } else {
+                    binding.btnAppeal.setVisibility(View.GONE);
+                }
             }
 
             @Override
@@ -217,6 +226,82 @@ public class ResourceDetailActivity extends AppCompatActivity {
                 toast("网络错误");
             }
         });
+    }
+
+    /** 举报资料（大纲 3.7 资料净化流程） */
+    private void report() {
+        if (!TokenStore.get(this).hasToken()) {
+            goLogin();
+            return;
+        }
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("举报资料");
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("举报理由（如：内容违规 / 涉嫌侵权）");
+        builder.setView(input);
+        builder.setPositiveButton("提交", (d, w) -> {
+            String reason = String.valueOf(input.getText()).trim();
+            if (reason.isEmpty()) {
+                toast("请填写举报理由");
+                return;
+            }
+            api.reportResource(resourceId, reason, "").enqueue(new retrofit2.Callback<Models.ApiResult<Object>>() {
+                @Override
+                public void onResponse(retrofit2.Call<Models.ApiResult<Object>> call,
+                                       retrofit2.Response<Models.ApiResult<Object>> resp) {
+                    Models.ApiResult<Object> r = resp.body();
+                    toast(r != null && r.ok() ? "举报已提交，等待核验"
+                            : (r == null ? "提交失败" : r.message));
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<Models.ApiResult<Object>> call, Throwable t) {
+                    toast("网络错误");
+                }
+            });
+        });
+        builder.setNegativeButton("取消", null);
+        builder.show();
+    }
+
+    /** 对下架结果申诉（大纲 3.8：OFFLINE → APPEALING） */
+    private void appeal() {
+        if (!TokenStore.get(this).hasToken()) {
+            goLogin();
+            return;
+        }
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("发起申诉");
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("申诉理由");
+        builder.setView(input);
+        builder.setPositiveButton("提交", (d, w) -> {
+            String reason = String.valueOf(input.getText()).trim();
+            if (reason.isEmpty()) {
+                toast("请填写申诉理由");
+                return;
+            }
+            api.createAppeal(resourceId, reason).enqueue(new retrofit2.Callback<Models.ApiResult<Models.Appeal>>() {
+                @Override
+                public void onResponse(retrofit2.Call<Models.ApiResult<Models.Appeal>> call,
+                                       retrofit2.Response<Models.ApiResult<Models.Appeal>> resp) {
+                    Models.ApiResult<Models.Appeal> r = resp.body();
+                    if (r != null && r.ok()) {
+                        toast("申诉已提交，等待管理员处理");
+                        binding.btnAppeal.setVisibility(View.GONE);
+                    } else {
+                        toast(r == null ? "提交失败" : r.message);
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<Models.ApiResult<Models.Appeal>> call, Throwable t) {
+                    toast("网络错误");
+                }
+            });
+        });
+        builder.setNegativeButton("取消", null);
+        builder.show();
     }
 
     private void goLogin() {

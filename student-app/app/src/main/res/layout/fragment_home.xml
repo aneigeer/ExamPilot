@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/refresh"
     android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/btnSearch"
+        android:layout_width="match_parent" android:layout_height="44dp"
+        android:layout_margin="14dp" android:gravity="center_vertical"
+        android:paddingStart="14dp" android:paddingEnd="14dp"
+        android:background="@android:drawable/editbox_background"
+        android:text="🔍 搜索资料…" android:textColor="@color/text_sub" android:textSize="14sp" />
 
     <ScrollView
         android:layout_width="match_parent" android:layout_height="match_parent"
@@ -105,3 +115,11 @@
         </LinearLayout>
     </ScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+<com.google.android.material.floatingactionbutton.FloatingActionButton
+    android:id="@+id/fabUpload"
+    android:layout_width="wrap_content" android:layout_height="wrap_content"
+    android:layout_gravity="bottom|end" android:layout_margin="18dp"
+    android:src="@drawable/ic_fab_add" android:contentDescription="上传资料"
+    app:tint="#FFFFFF" xmlns:app="http://schemas.android.com/apk/res-auto" />
+</FrameLayout>

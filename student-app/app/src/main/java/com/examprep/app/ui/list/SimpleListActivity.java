@@ -43,7 +43,13 @@ public abstract class SimpleListActivity extends AppCompatActivity {
 
     protected void render(List<String[]> rows) {
         binding.tvListEmpty.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
-        binding.rvList.setAdapter(new TwoLineAdapter(rows));
+        TwoLineAdapter adapter = new TwoLineAdapter(rows);
+        adapter.setOnClick(this::onRowClick);
+        binding.rvList.setAdapter(adapter);
+    }
+
+    /** 子类可覆盖：行点击（row = [title, subtitle, ...extra]） */
+    protected void onRowClick(String[] row) {
     }
 
     protected void toast(String msg) {

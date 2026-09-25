@@ -35,5 +35,13 @@
         <activity android:name=".ui.list.DownloadsActivity" android:exported="false" />
         <activity android:name=".ui.list.FavoritesActivity" android:exported="false" />
         <activity android:name=".ui.list.NotificationsActivity" android:exported="false" />
+        <activity android:name=".ui.upload.UploadActivity" android:exported="false" />
+        <activity android:name=".ui.note.NoteActivity" android:exported="false" />
+        <activity android:name=".ui.list.FavoriteQuestionActivity" android:exported="false" />
+        <activity android:name=".ui.list.UploadRecordsActivity" android:exported="false" />
+        <activity android:name=".ui.account.AccountActivity" android:exported="false" />
+        <activity android:name=".ui.search.SearchActivity" android:exported="false" />
+        <activity android:name=".ui.appeal.AppealActivity" android:exported="false" />
+        <activity android:name=".ui.follow.FollowActivity" android:exported="false" />
     </application>
 </manifest>

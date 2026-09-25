@@ -1,5 +1,6 @@
 package com.examprep.app.ui.main;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,11 +14,16 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.examprep.app.R;
 import com.examprep.app.data.api.ApiClient;
 import com.examprep.app.data.api.ApiService;
 import com.examprep.app.data.model.Models;
 import com.examprep.app.databinding.FragmentCourseBinding;
+import com.examprep.app.ui.common.TwoLineAdapter;
+import com.examprep.app.ui.resource.ResourceDetailActivity;
+import com.examprep.app.ui.upload.UploadActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +32,16 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-/** 课程库：学院 + 学期筛选 → 课程列表 */
+/**
+ * 课程库 tab（大纲 7.5）：课程视图（学院/学期筛选）+ 资料视图（搜索/标签/分页，上拉加载）。
+ * 课程按「学院/学年/学期」找课；资料核心动作是浏览与下载。
+ */
 public class CourseFragment extends Fragment {
 
     private FragmentCourseBinding binding;
     private ApiService api;
 
+    // 课程
     private final List<Models.College> colleges = new ArrayList<>();
     private final List<Models.Semester> semesters = new ArrayList<>();
     private Long collegeId;
@@ -39,12 +49,44 @@ public class CourseFragment extends Fragment {
     private boolean collegeLoaded;
     private boolean semesterLoaded;
 
+    // 资料
+    private TwoLineAdapter resourceAdapter;
+    private final List<String[]> resourceRows = new ArrayList<>();
+    private long resPage = 1;
+    private final long resSize = 20;
+    private long resTotal;
+    private String keyword;
+    private String tags;
+    private boolean resLoading;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         binding = FragmentCourseBinding.inflate(inflater, container, false);
         api = ApiClient.api();
+
+        // 视图切换
+        binding.toggle.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (!isChecked) {
+                return;
+            }
+            boolean course = checkedId == R.id.btnTabCourse;
+            binding.llCourseView.setVisibility(course ? View.VISIBLE : View.GONE);
+            binding.llResourceView.setVisibility(course ? View.GONE : View.VISIBLE);
+        });
+
+        initCourseView();
+        initResourceView();
+        loadColleges();
+        loadSemesters();
+        loadResources();
+        return binding.getRoot();
+    }
+
+    // ==================== 课程视图 ====================
+
+    private void initCourseView() {
         binding.rvCourses.setLayoutManager(new LinearLayoutManager(getContext()));
 
         binding.spCollege.setOnItemSelectedListener(new SimpleSelect() {
@@ -65,10 +107,6 @@ public class CourseFragment extends Fragment {
                 }
             }
         });
-
-        loadColleges();
-        loadSemesters();
-        return binding.getRoot();
     }
 
     private void loadColleges() {
@@ -87,11 +125,10 @@ public class CourseFragment extends Fragment {
                 for (Models.College c : colleges) {
                     names.add(c.name);
                 }
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),
-                        android.R.layout.simple_spinner_dropdown_item, names);
-                binding.spCollege.setAdapter(adapter);
+                binding.spCollege.setAdapter(new ArrayAdapter<>(getContext(),
+                        android.R.layout.simple_spinner_dropdown_item, names));
                 collegeLoaded = true;
-                maybeLoad();
+                maybeLoadCourses();
             }
 
             @Override
@@ -117,11 +154,10 @@ public class CourseFragment extends Fragment {
                 for (Models.Semester s : semesters) {
                     names.add(s.name);
                 }
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),
-                        android.R.layout.simple_spinner_dropdown_item, names);
-                binding.spSemester.setAdapter(adapter);
+                binding.spSemester.setAdapter(new ArrayAdapter<>(getContext(),
+                        android.R.layout.simple_spinner_dropdown_item, names));
                 semesterLoaded = true;
-                maybeLoad();
+                maybeLoadCourses();
             }
 
             @Override
@@ -131,7 +167,7 @@ public class CourseFragment extends Fragment {
         });
     }
 
-    private void maybeLoad() {
+    private void maybeLoadCourses() {
         if (collegeLoaded && semesterLoaded) {
             loadCourses();
         }
@@ -145,7 +181,20 @@ public class CourseFragment extends Fragment {
                 Models.ApiResult<List<Models.Course>> r = resp.body();
                 List<Models.Course> list = r != null && r.ok() && r.data != null ? r.data : List.of();
                 binding.tvCourseEmpty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
-                binding.rvCourses.setAdapter(new CourseAdapter(list));
+
+                List<String[]> rows = new ArrayList<>();
+                for (Models.Course c : list) {
+                    StringBuilder meta = new StringBuilder();
+                    if (c.teacherName != null) {
+                        meta.append(c.teacherName).append(" · ");
+                    }
+                    if (c.semesterName != null) {
+                        meta.append(c.semesterName).append(" · ");
+                    }
+                    meta.append("学分 ").append(c.credit);
+                    rows.add(new String[]{c.name, meta.toString()});
+                }
+                binding.rvCourses.setAdapter(new TwoLineAdapter(rows));
             }
 
             @Override
@@ -155,6 +204,110 @@ public class CourseFragment extends Fragment {
         });
     }
 
+    // ==================== 资料视图 ====================
+
+    private void initResourceView() {
+        resourceAdapter = new TwoLineAdapter(resourceRows);
+        binding.rvResources.setLayoutManager(new LinearLayoutManager(getContext()));
+        binding.rvResources.setAdapter(resourceAdapter);
+        resourceAdapter.setOnClick(row -> {
+            Intent intent = new Intent(getContext(), ResourceDetailActivity.class);
+            intent.putExtra("resourceId", Long.parseLong(row[2]));
+            startActivity(intent);
+        });
+
+        binding.refresh.setOnRefreshListener(() -> {
+            resPage = 1;
+            loadResources();
+        });
+        binding.etSearch.setOnEditorActionListener((v, actionId, event) -> {
+            keyword = String.valueOf(binding.etSearch.getText()).trim();
+            if (keyword.isEmpty()) {
+                keyword = null;
+            }
+            resPage = 1;
+            loadResources();
+            return true;
+        });
+        binding.chipTags.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) {
+                tags = null;
+            } else {
+                tags = String.valueOf(((com.google.android.material.chip.Chip) group.findViewById(checkedIds.get(0))).getText());
+            }
+            resPage = 1;
+            loadResources();
+        });
+
+        // 上拉加载（大纲 7.6）
+        binding.rvResources.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (dy <= 0 || resLoading) {
+                    return;
+                }
+                LinearLayoutManager lm = (LinearLayoutManager) rv.getLayoutManager();
+                if (lm == null) {
+                    return;
+                }
+                int last = lm.findLastCompletelyVisibleItemPosition();
+                if (last >= resourceAdapter.getItemCount() - 2
+                        && resourceRows.size() < resTotal) {
+                    resPage++;
+                    loadResources();
+                }
+            }
+        });
+    }
+
+    private void loadResources() {
+        if (resLoading) {
+            return;
+        }
+        resLoading = true;
+        binding.refresh.setRefreshing(resPage == 1);
+        api.resources(resPage, resSize, null, tags, keyword)
+                .enqueue(new Callback<Models.ApiResult<Models.Page<Models.Resource>>>() {
+                    @Override
+                    public void onResponse(Call<Models.ApiResult<Models.Page<Models.Resource>>> call,
+                                           Response<Models.ApiResult<Models.Page<Models.Resource>>> resp) {
+                        resLoading = false;
+                        binding.refresh.setRefreshing(false);
+                        Models.ApiResult<Models.Page<Models.Resource>> r = resp.body();
+                        List<Models.Resource> list = r != null && r.ok() && r.data != null && r.data.list != null
+                                ? r.data.list : List.of();
+                        resTotal = r != null && r.ok() && r.data != null ? r.data.total : 0;
+
+                        if (resPage == 1) {
+                            resourceRows.clear();
+                        }
+                        for (Models.Resource res : list) {
+                            resourceRows.add(new String[]{res.title,
+                                    res.typeName + " · " + (res.subjectName == null ? "-" : res.subjectName)
+                                            + " · 下载 " + res.downloadCount,
+                                    String.valueOf(res.id)});
+                        }
+                        binding.tvResourceEmpty.setVisibility(resourceRows.isEmpty() ? View.VISIBLE : View.GONE);
+                        binding.tvLoadMore.setVisibility(
+                                resourceRows.size() < resTotal ? View.VISIBLE : View.GONE);
+                        resourceAdapter = new TwoLineAdapter(resourceRows);
+                        resourceAdapter.setOnClick(row -> {
+                            Intent intent = new Intent(getContext(), ResourceDetailActivity.class);
+                            intent.putExtra("resourceId", Long.parseLong(row[2]));
+                            startActivity(intent);
+                        });
+                        binding.rvResources.setAdapter(resourceAdapter);
+                    }
+
+                    @Override
+                    public void onFailure(Call<Models.ApiResult<Models.Page<Models.Resource>>> call, Throwable t) {
+                        resLoading = false;
+                        binding.refresh.setRefreshing(false);
+                        toast("网络错误：" + t.getMessage());
+                    }
+                });
+    }
+
     private void toast(String msg) {
         Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
     }
@@ -162,52 +315,6 @@ public class CourseFragment extends Fragment {
     abstract static class SimpleSelect implements AdapterView.OnItemSelectedListener {
         @Override
         public void onNothingSelected(AdapterView<?> parent) {
-        }
-    }
-
-    private static class CourseAdapter extends RecyclerView.Adapter<CourseAdapter.VH> {
-        private final List<Models.Course> data;
-
-        CourseAdapter(List<Models.Course> data) {
-            this.data = data;
-        }
-
-        @NonNull
-        @Override
-        public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            com.examprep.app.databinding.ItemCourseBinding binding =
-                    com.examprep.app.databinding.ItemCourseBinding.inflate(
-                            LayoutInflater.from(parent.getContext()), parent, false);
-            return new VH(binding);
-        }
-
-        @Override
-        public void onBindViewHolder(@NonNull VH h, int position) {
-            Models.Course c = data.get(position);
-            h.binding.tvName.setText(c.name);
-            StringBuilder meta = new StringBuilder();
-            if (c.teacherName != null) {
-                meta.append(c.teacherName).append(" · ");
-            }
-            if (c.semesterName != null) {
-                meta.append(c.semesterName).append(" · ");
-            }
-            meta.append("学分 ").append(c.credit);
-            h.binding.tvCourseMeta.setText(meta.toString());
-        }
-
-        @Override
-        public int getItemCount() {
-            return data.size();
-        }
-
-        static class VH extends RecyclerView.ViewHolder {
-            final com.examprep.app.databinding.ItemCourseBinding binding;
-
-            VH(com.examprep.app.databinding.ItemCourseBinding binding) {
-                super(binding.getRoot());
-                this.binding = binding;
-            }
         }
     }
 }

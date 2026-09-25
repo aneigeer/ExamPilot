@@ -1,30 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="14dp">
+    android:orientation="vertical" android:background="@color/bg">
 
-    <TextView style="@style/CardTitle" android:text="🎓 课程库"
-        android:textSize="18sp" android:layout_marginBottom="10dp" />
-
-    <Spinner
-        android:id="@+id/spCollege"
-        android:layout_width="match_parent" android:layout_height="44dp"
-        android:background="@android:drawable/editbox_background" />
-
-    <Spinner
-        android:id="@+id/spSemester"
-        android:layout_width="match_parent" android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:background="@android:drawable/editbox_background" />
-
-    <TextView
-        android:id="@+id/tvCourseEmpty"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="20dp" android:gravity="center"
-        android:text="暂无课程" android:textColor="@color/text_sub" android:visibility="gone" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvCourses"
+    <ScrollView
         android:layout_width="match_parent" android:layout_height="match_parent"
-        android:layout_marginTop="10dp" />
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="14dp">
+
+            <TextView style="@style/CardTitle" android:text="🎓 课程库"
+                android:textSize="18sp" android:layout_marginBottom="10dp" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggle"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                app:singleSelection="true" app:selectionRequired="true"
+                app:checkedButton="@+id/btnTabCourse">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTabCourse"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content" android:text="课程" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTabResource"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp" android:layout_weight="1"
+                    android:layout_height="wrap_content" android:text="资料" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <!-- 课程视图 -->
+            <LinearLayout
+                android:id="@+id/llCourseView"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="10dp">
+                <Spinner
+                    android:id="@+id/spCollege"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:background="@android:drawable/editbox_background" />
+                <Spinner
+                    android:id="@+id/spSemester"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@android:drawable/editbox_background" />
+                <TextView
+                    android:id="@+id/tvCourseEmpty"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp" android:gravity="center"
+                    android:text="暂无课程" android:textColor="@color/text_sub" android:visibility="gone" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvCourses"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp" android:nestedScrollingEnabled="false" />
+            </LinearLayout>
+
+            <!-- 资料视图 -->
+            <LinearLayout
+                android:id="@+id/llResourceView"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="10dp"
+                android:visibility="gone">
+                <EditText
+                    android:id="@+id/etSearch"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:hint="搜索资料标题…" android:imeOptions="actionSearch"
+                    android:inputType="text" android:maxLines="1"
+                    android:background="@android:drawable/editbox_background"
+                    android:paddingStart="12dp" android:paddingEnd="12dp" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chipTags"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    app:selectionRequired="false" app:singleSelection="true">
+                    <com.google.android.material.chip.Chip style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="重点必考" />
+                    <com.google.android.material.chip.Chip style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="含答案" />
+                    <com.google.android.material.chip.Chip style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="无答案" />
+                    <com.google.android.material.chip.Chip style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="近年高频" />
+                </com.google.android.material.chip.ChipGroup>
+                <TextView
+                    android:id="@+id/tvResourceEmpty"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp" android:gravity="center"
+                    android:text="暂无资料" android:textColor="@color/text_sub" android:visibility="gone" />
+                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                    android:id="@+id/refresh"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp">
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvResources"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false" />
+                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+                <TextView
+                    android:id="@+id/tvLoadMore"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:gravity="center" android:padding="10dp"
+                    android:text="上拉加载更多" android:textColor="@color/text_sub"
+                    android:textSize="12sp" android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>
