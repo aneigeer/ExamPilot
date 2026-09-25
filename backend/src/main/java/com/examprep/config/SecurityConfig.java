@@ -103,6 +103,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, AUTH_REQUIRED_GET).authenticated()
                         // 匿名可读接口
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
+                        // 管理端静态页面（Vue 单页应用）匿名可访问；页面内的管理 API 仍有角色校验
+                        .requestMatchers(HttpMethod.GET, "/", "/admin/", "/admin/index.html",
+                                "/admin/vendor/**").permitAll()
                         // 管理端：超管专属
                         .requestMatchers("/admin/users/**", "/admin/logs/**", "/admin/roles/**")
                         .hasRole("ADMIN")
