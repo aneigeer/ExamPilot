@@ -122,8 +122,6 @@ docker compose up -d --build   # MySQL + 后端 + Nginx（见 docs/部署文档.
 | docs/用户手册.md | 学生端与管理端使用说明（含隐私政策/版权/学术诚信声明） |
 | docs/部署文档.md | 本机运行与 Docker Compose 部署、备份恢复 |
 | docs/项目总结.md | 交付成果、技术亮点、问题与展望 |
-| docs/功能验证脚本.md | 功能验证分镜与讲稿 |
-| docs/使用PPT.html | 浏览器打开放映 |
 | docs/大纲-v2.md | 需求与设计大纲（原始基线） |
 
 ## 九、开发约定
