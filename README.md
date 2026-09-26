@@ -4,25 +4,27 @@
 
 不商用、不上架；资料以模拟题、原创题、授权资料、回忆题型为主。
 
-## 当前状态
+## 当前状态（v1.0 全部完成）
 
 | 模块 | 状态 |
 |---|---|
-| 后端（Spring Boot）| ✅ **完成** —— 101 个接口，端到端测试通过 |
-| 数据库（31 张表）| ✅ 完成，脚本可重复执行 |
-| Android 学生端 | ⬜ 未开始 |
-| Web 管理端 | ⬜ 未开始 |
+| 后端（Spring Boot 3.5.3） | ✅ **完成** —— **132 个接口**（P0-A / P0-B / P1 全覆盖），Swagger 在线文档，判分单元测试 12/12 通过 |
+| 数据库（MySQL 8） | ✅ **完成** —— **40 张表**，schema + data + 3 个增量迁移，脚本可重复执行 |
+| Android 学生端 | ✅ **完成** —— Java + XML 原生，25+ 页面，**APK v1.1 可直接安装**（`备考知识库学生端-v1.1.apk`） |
+| Web 管理端 | ✅ **完成** —— Vue3 + Element Plus，13 个功能页，由后端同源托管免部署 |
+| 项目文档 | ✅ **完成** —— 需求规格/概要设计/详细设计/数据库设计/API/测试报告/用户手册/部署文档/项目总结/文档材料（见 docs/） |
 
 ## 一、目录结构
 
 ```
 大学生多考试备考知识库与题库系统/
-├── backend/          后端服务（Java 21 + Spring Boot 3.5.3，101 个接口）
-├── admin-web/        管理端 Web（Vue3 + Element Plus）
-├── student-app/      学生端 App（Android 原生：Java + XML）
-├── sql/              数据库脚本（schema.sql / data.sql，可重复执行）
-├── docs/             项目文档（大纲等）
-├── .gitignore        版本控制排除规则
+├── backend/          后端服务（Java 21 + Spring Boot 3.5.3，132 个接口，内嵌管理端页面）
+├── admin-web/        管理端 Web 源码（Vue3 + Element Plus 单页应用，CDN 本地化）
+├── student-app/      学生端 App（Android 原生：Java + XML，Gradle 工程）
+├── sql/              数据库脚本（schema / data / 三个增量迁移，可重复执行）
+├── docs/             项目文档（大纲、需求规格、设计、API、测试报告、用户手册、部署文档、项目总结等）
+├── docker-compose.yml / nginx.conf / backup.bat   部署与运维
+├── 备考知识库学生端-v1.1.apk   学生端安装包（debug 签名，Android 8+ 直接安装）
 └── README.md
 ```
 
@@ -30,13 +32,11 @@
 
 | 端 | 技术栈 |
 |---|---|
-| 学生端 | Android 原生 —— Java + XML 布局 + MVVM（ViewModel + LiveData）+ Retrofit/OkHttp + Glide + RecyclerView + BottomNavigationView |
-| 管理端 | Vue3 + Vite + TypeScript + Element Plus + ECharts |
+| 学生端 | Android 原生 —— Java + XML 布局 + ViewBinding + Retrofit/OkHttp/Gson + Glide + RecyclerView + BottomNavigationView + FloatingActionButton（compileSdk 34 / minSdk 26，Gradle 8.7 + AGP 8.5.2） |
+| 管理端 | Vue3 + Element Plus（CDN 本地化单页应用，由后端同源托管，零构建零跨域） |
 | 后端 | JDK 21 + Spring Boot 3.5.3 + Spring Security 6 + JWT（jjwt 0.12.6）+ MyBatis-Plus 3.5.7 + springdoc-openapi 2.8.6 + PDFBox 3.0.7 |
-| 数据库 | MySQL 8.0 |
-| 构建工具 | Maven（后端）/ Vite（管理端）/ Gradle（学生端）|
-
-**构建参数**：Android `compileSdk 34`、`minSdk 26`（Android 8）。
+| 数据库 | MySQL 8.0（40 张表，答案表 MySQL JSON 承载全题型结构） |
+| 构建工具 | Maven（后端）/ Gradle 8.7 + AGP 8.5.2（学生端） |
 
 ## 三、快速开始
 
@@ -45,33 +45,44 @@
 ```bash
 mysql -u root -p < sql/schema.sql
 mysql -u root -p < sql/data.sql
+mysql -u root -p < sql/migration-p0b.sql
+mysql -u root -p < sql/migration-p1.sql
+mysql -u root -p < sql/migration-p1b.sql
 ```
 
 ### 2. 配置数据库口令
 
-复制 `backend/src/main/resources/application-local.yml.example` 为 `application-local.yml`，填入本机 MySQL 密码（该文件已被 .gitignore 排除，不会入库）。
+复制 `backend/src/main/resources/application-local.yml.example` 为 `application-local.yml`，填入本机 MySQL 密码（该文件已被 .gitignore 排除）。
 
-### 3. 启动后端
+### 3. 启动后端（内嵌管理端页面）
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-### 4. 打开接口文档
+- 管理端：<http://localhost:8080/api/admin/index.html>
+- 接口文档：<http://localhost:8080/api/swagger-ui.html>（访问级别 PUBLIC / AUTH / ROLE:xxx 逐接口标注；另见 docs/API.md 静态清单）
 
-- Swagger UI：<http://localhost:8080/api/swagger-ui.html>
-- 服务基地址：<http://localhost:8080/api>
+### 4. 学生端
 
-**接口文档不使用手写的 API.md**，全部由代码自动生成（springdoc）。每个接口都标注了访问级别：`PUBLIC`（游客可用）/ `AUTH`（需登录）/ `ROLE:AUDITOR` / `ROLE:ADMIN`。
+- 模拟器：直接安装 `备考知识库学生端-v1.1.apk`（默认地址 10.0.2.2 指向宿主机）
+- 真机：修改 `student-app/app/build.gradle` 的 `BASE_URL` 为电脑局域网 IP 后重新构建（命令见 docs/部署文档.md）
+- 构建命令：`cd student-app && gradle assembleDebug`
+
+### 5. Docker 部署（可选）
+
+```bash
+docker compose up -d --build   # MySQL + 后端 + Nginx（见 docs/部署文档.md）
+```
 
 ## 四、示例账号
 
-| 角色 | 学号 | 密码 | 能做什么 |
+| 角色 | 账号 | 密码 | 能做什么 |
 |---|---|---|---|
-| 超管 | `admin` | `admin123` | 用户/角色管理、公告管理、基础数据维护、操作日志 |
-| 审核员 | `auditor` | `audit123` | 题目审核、资料审核、举报处理、仪表盘 |
-| 学生 | `2021001` | `123456` | 刷题、上传资料、评论评分、收藏、错题本 |
+| 超管 | `admin` | `admin123` | 用户/角色管理、公告、基础数据维护、全部日志、统计 |
+| 审核员 | `auditor` | `audit123` | 题目/资料审核、举报处理、申诉处理、审核日志 |
+| 学生 | `2021001` | `123456` | 刷题、模拟考试、上传资料、下载、评论评分、收藏、笔记、错题本 |
 
 ## 五、核心模型
 
@@ -79,61 +90,47 @@ mvn spring-boot:run
 考试类别 → 科目 → 知识点 → 题目 / 资料
 ```
 
-- **考试类别**：校内课程、CET4、CET6、计算机二级
-- **题目**：全题型统一存储（P0 先开放 单选/多选/判断/填空/简答 五种，其余题型已预留枚举与表结构）
-- **资料**：课件、笔记、知识点总结、模拟卷、回忆题型、原创题
-- **预览**：PDF 由 PDFBox 自动转逐页图片；游客仅可看前 3 页，登录后看整本
-- **下载**：短时效签名地址（10 分钟），防链接转发盗链
+- **题型**：23 种枚举全预留，已开放 17 种（P0 五种：单选/多选/判断/填空/简答；自评五种：名词解释/计算/应用/作文/翻译；复杂七种：匹配/排序/完形/阅读/听力/组合/编程）
+- **客观题**答案存选项表 is_answer；**主观题/复杂题**答案存答案表 MySQL JSON（按题型不同结构）
+- **预览**：PDFBox 转逐页图片，游客前 3 页低清带水印，登录整本高清带水印
+- **下载**：短时效 HMAC 签名 URL（10 分钟），防盗链
+- **审核状态机**：DRAFT → PENDING → APPROVED/REJECTED → OFFLINE → APPEALING → 恢复/维持；审核员自我回避
 
 ## 六、两个业务闭环
 
 | 闭环 | 流程 |
 |---|---|
-| 刷题 | 按科目/知识点/题型/难度选题（顺序或随机）→ 刷题 → 客观题自动判分 / 主观题自评 → 练习报告 → 错题本 |
-| 资料 | 上传 → 提交审核 → 审核员通过/驳回 → 驳回可修改重交 → 公开展示 → 预览 / 下载 / 评论 / 评分 / 举报 |
+| 刷题 | 题库 tab（类别→科目→知识点）→ 六种模式选题 → 客观自动判分 / 主观自评 → 练习报告 → 错题本 → 掌握度 |
+| 资料 | 上传（App 图片 / 管理端文档）→ 审核 → 预览 → 签名下载 → 举报 → 核验下架 → 申诉 → 恢复/维持 |
 
-## 七、后端接口概览（101 个）
+## 七、后端接口概览（132 个，按模块）
 
-| 模块 | 数量 | 说明 |
-|---|---|---|
-| 认证 | 4 | 登录、登出、当前用户、改密 |
-| 考试知识体系 | 4 | 考试类别、科目、知识点树 |
-| 题库 | 3 | 题型、列表（不含答案）、详情（含答案） |
-| 刷题 | 8 | 开始/取题/提交/自评/结束/报告/错题本 |
-| 课程库 | 6 | 学院、专业、教师、学期、课程 |
-| 资料库 | 9 | 列表、详情、预览、下载、上传提交、重新提交、举报、类型 |
-| 通知公告 | 6 | 通知列表/未读数/已读 + 公告 |
-| 后台管理 | 21 | 仪表盘、审核（题目+资料）、举报、用户/角色、日志、公告管理 |
-| 基础数据维护 | 16 | 考试类别/科目/知识点/课程/教师/学院 增删改 |
-| 首页 / 搜索 | 3 | 首页聚合、统一搜索 |
-| 收藏与历史 | 5 | 收藏切换、收藏列表、下载历史 |
-| 题目管理 | 4 | 管理端题目增删改（含完整性校验） |
-| 评论评分 | 6 | 评论、点赞、资料评分 |
-| 文件 | 4 | 上传、预览图、签名下载 |
+认证 5 · 首页聚合与搜索 3 · 考试体系 4 · 题库与刷题错题本 13 · 课程库 11 · 资料库与文件 25 · 通知公告 6 · 评论评分点赞 6 · 收藏/下载历史/掌握度 8 · 笔记 4 · 模拟考试与编程运行 6 · 题目管理与导入导出审核 6 · 基础数据维护 20 · 审核/举报/仪表盘/日志/统计 14+ · 申诉 5 · 关注 3 · 用户管理 3
 
-## 八、本机开发环境
+完整清单（含访问级别）见 **docs/API.md**；在线交互版见 Swagger UI。
 
-| 软件 | 版本 | 路径 |
-|---|---|---|
-| JDK | Eclipse Temurin 21.0.10 LTS | `D:\bigplan\tools\jdk21` |
-| Maven | 3.9.15 | `D:\bigplan\tools\maven` |
-| MySQL | 8.0.46 | `D:\bigplan\tools\mysql-8.0.46` |
-| Android Studio | Quail 1（AI-261.23567.138）| `D:\bigplan\tools\Android Studio Quail 1` |
-| Android SDK | platforms android-34 / android-36.1 | `D:\bigplan\tools\androidSDK` |
-| Node.js | 22.22.2（npm 10.9.7）| 已在 PATH |
-
-## 九、文档索引
+## 八、文档索引
 
 | 文档 | 说明 |
 |---|---|
-| [docs/大纲-v2.md](docs/大纲-v2.md) | 完整需求与设计大纲（最新版）|
-| Swagger UI | 运行后端后访问 <http://localhost:8080/api/swagger-ui.html>（即接口文档）|
+| docs/需求规格说明书.md | 功能与非功能需求、验收标准 |
+| docs/概要设计说明书.md | 架构、模块划分、技术选型、关键决策 |
+| docs/详细设计说明书.md | 判分/审核状态机/预览水印/签名下载/限流/推荐排序实现细节 |
+| docs/数据库设计说明书.md | 40 表清单、ER 图、关键表结构、索引约束 |
+| docs/API.md | 接口清单与访问级别 |
+| docs/测试报告.md | 单元/端到端/权限/性能/安全测试结果 |
+| docs/用户手册.md | 学生端与管理端使用说明（含隐私政策/版权/学术诚信声明） |
+| docs/部署文档.md | 本机运行与 Docker Compose 部署、备份恢复 |
+| docs/项目总结.md | 交付成果、技术亮点、问题与展望 |
+| docs/功能验证脚本.md | 功能验证分镜与讲稿 |
+| docs/使用PPT.html | 浏览器打开放映 |
+| docs/大纲-v2.md | 需求与设计大纲（原始基线） |
 
-## 十、开发约定
+## 九、开发约定
 
-1. **接口文档即代码**：接口文档由 springdoc 自动生成，接口的访问级别（PUBLIC / AUTH / ROLE:xxx）写在代码注解里，与实现永不脱节。
-2. **权限后端校验**：前端限制不算数，后端逐接口校验；白名单集中在 `SecurityConfig`。
-3. **统一响应**：所有接口返回 `{code, message, data, traceId}`；`traceId` 用于排查问题时定位日志。
-4. **提交规范**：每个模块自己跑通再提交，保留完整 Git 提交记录备使用。
-5. **敏感信息不入库**：数据库口令、JWT 密钥一律走 `application-local.yml`（已被 `.gitignore` 排除）。
-6. **脚本幂等**：`sql/*.sql` 可重复执行，不会产生脏数据。
+1. **接口文档即代码**：Swagger 由 springdoc 自动生成，访问级别写在代码注解里，与实现永不脱节
+2. **权限后端校验**：前端限制不算数，后端逐接口校验；白名单集中在 `SecurityConfig`
+3. **统一响应**：`{code, message, data, traceId}`；traceId 用于定位日志
+4. **提交规范**：每个模块自己跑通再提交，Git 记录备使用
+5. **敏感信息不入库**：数据库口令、JWT 密钥走 `application-local.yml`（已 .gitignore）
+6. **脚本幂等**：`sql/*.sql` 可重复执行
