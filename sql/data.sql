@@ -26,6 +26,7 @@ DELETE FROM `semester`;
 DELETE FROM `teacher`;
 DELETE FROM `major`;
 DELETE FROM `college`;
+DELETE FROM `school`;
 DELETE FROM `user`;
 DELETE FROM `announcement`;
 
@@ -33,10 +34,34 @@ DELETE FROM `announcement`;
 -- 一、学院 / 专业 / 教师 / 学期
 -- ============================================================
 
-INSERT INTO `college` (`id`, `name`, `code`, `sort`) VALUES
-(1, '计算机学院', 'CS', 1),
-(2, '数学学院', 'MATH', 2),
-(3, '外国语学院', 'FL', 3);
+INSERT INTO `school` (`id`, `name`, `code`, `sort`, `status`) VALUES
+(1, '中南林业科技大学', 'CSUFT', 1, 1);
+
+-- 23 个学院：id 1/2/3 由旧使用学院沿用（有用户/专业引用），sort 按真实清单排定
+INSERT INTO `college` (`id`, `school_id`, `name`, `code`, `sort`) VALUES
+(1,  1, '计算机与数学学院',   'CSM',    12),
+(2,  1, '材料与能源学院',     'MSE',    2),
+(3,  1, '外国语学院',         'FL',     16),
+(4,  1, '林学院',             'FOREST', 1),
+(5,  1, '生态环境学院',       'ECO',    3),
+(6,  1, '生命科学与技术学院', 'LIFE',   4),
+(7,  1, '园林与建筑学院',     'LA',     5),
+(8,  1, '食品科学与工程学院', 'FOOD',   6),
+(9,  1, '水土保持学院',       'SWC',    7),
+(10, 1, '机械与智能制造学院', 'MECH',   8),
+(11, 1, '家居与艺术设计学院', 'HD',     9),
+(12, 1, '化学与化工学院',     'CHEM',   10),
+(13, 1, '电子信息与物理学院', 'EEP',    11),
+(14, 1, '国家公园与旅游学院', 'NPAT',   13),
+(15, 1, '低空经济学院',       'LAE',    14),
+(16, 1, '经济管理学院',       'EM',     15),
+(17, 1, '法学院',             'LAW',    17),
+(18, 1, '马克思主义学院',     'MARX',   18),
+(19, 1, '体育与音乐学院',     'SM',     19),
+(20, 1, '国际学院',           'INTL',   20),
+(21, 1, '班戈学院',           'BANGOR', 21),
+(22, 1, '创新创业学院',       'IE',     22),
+(23, 1, '继续教育学院',       'CE',     23);
 
 INSERT INTO `major` (`id`, `college_id`, `name`, `code`, `sort`) VALUES
 (1, 1, '计算机科学与技术', 'CS01', 1),

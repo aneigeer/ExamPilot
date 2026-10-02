@@ -35,6 +35,13 @@ public interface ApiService {
         }
     }
 
+    /** 自助注册：成功后直接返回令牌（自动登录），结构与 login 一致 */
+    @POST("auth/register")
+    Call<Models.ApiResult<Models.LoginData>> register(@Body Models.RegisterRequest body);
+
+    @GET("schools")
+    Call<Models.ApiResult<List<Models.School>>> schools();
+
     @POST("auth/logout")
     Call<Models.ApiResult<Object>> logout();
 
@@ -46,7 +53,7 @@ public interface ApiService {
     // ---------- 课程库 ----------
 
     @GET("colleges")
-    Call<Models.ApiResult<List<Models.College>>> colleges();
+    Call<Models.ApiResult<List<Models.College>>> colleges(@Query("schoolId") Long schoolId);
 
     @GET("semesters")
     Call<Models.ApiResult<List<Models.Semester>>> semesters();

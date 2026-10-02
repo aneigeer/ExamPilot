@@ -62,5 +62,13 @@
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/guest_login" android:textColor="@color/text_sub" />
+
+        <TextView
+            android:id="@+id/tvGoRegister"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:padding="8dp"
+            android:text="@string/go_register"
+            android:textColor="@color/primary" android:textSize="14sp" />
     </LinearLayout>
 </ScrollView>

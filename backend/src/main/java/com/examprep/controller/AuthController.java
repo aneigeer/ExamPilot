@@ -4,6 +4,7 @@ import com.examprep.common.Result;
 import com.examprep.dto.ChangePasswordRequest;
 import com.examprep.dto.LoginRequest;
 import com.examprep.dto.LoginResponse;
+import com.examprep.dto.RegisterRequest;
 import com.examprep.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,6 +35,14 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return Result.success("登录成功", authService.login(request));
+    }
+
+    @Operation(summary = "自助注册",
+            description = "**访问级别：PUBLIC**。学号全局唯一，重复返回 409；"
+                    + "成功后直接返回令牌（自动登录，省一次请求）。")
+    @PostMapping("/register")
+    public Result<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return Result.success("注册成功", authService.register(request));
     }
 
     @Operation(summary = "游客入口",

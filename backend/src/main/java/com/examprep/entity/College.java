@@ -18,6 +18,9 @@ public class College {
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    @Schema(description = "所属学校 ID")
+    private Long schoolId;
+
     @Schema(description = "学院名称", example = "计算机学院")
     private String name;
 

@@ -38,6 +38,9 @@ public class User {
     @Schema(description = "学院 ID")
     private Long collegeId;
 
+    @Schema(description = "所属学校 ID")
+    private Long schoolId;
+
     @Schema(description = "专业 ID")
     private Long majorId;
 

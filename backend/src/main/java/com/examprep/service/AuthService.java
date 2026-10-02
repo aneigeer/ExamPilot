@@ -6,7 +6,12 @@ import com.examprep.common.ResultCode;
 import com.examprep.dto.ChangePasswordRequest;
 import com.examprep.dto.LoginRequest;
 import com.examprep.dto.LoginResponse;
+import com.examprep.dto.RegisterRequest;
+import com.examprep.entity.College;
+import com.examprep.entity.School;
 import com.examprep.entity.User;
+import com.examprep.mapper.CollegeMapper;
+import com.examprep.mapper.SchoolMapper;
 import com.examprep.mapper.UserMapper;
 import com.examprep.security.JwtUtil;
 import com.examprep.security.LoginUser;
@@ -28,6 +33,8 @@ import java.time.LocalDateTime;
 public class AuthService {
 
     private final UserMapper userMapper;
+    private final SchoolMapper schoolMapper;
+    private final CollegeMapper collegeMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -59,6 +66,52 @@ public class AuthService {
         String token = jwtUtil.generate(user.getId(), user.getStudentNo(), user.getRole());
         log.info("用户登录成功: {} ({})", user.getStudentNo(), user.getRole());
         return LoginResponse.of(token, jwtUtil.getExpireMillis(), user);
+    }
+
+    /**
+     * 自助注册：学号全局唯一；成功后直接走登录逻辑返回令牌（自动登录）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public LoginResponse register(RegisterRequest req) {
+        // 学号全局查重（user.student_no 本身有全局唯一索引，这里先查以便返回友好提示）
+        User existing = userMapper.selectOne(Wrappers.<User>lambdaQuery()
+                .eq(User::getStudentNo, req.getStudentNo()));
+        if (existing != null) {
+            throw new BizException(ResultCode.CONFLICT, "该学号已被注册");
+        }
+
+        // 学校必须存在且启用
+        School school = schoolMapper.selectById(req.getSchoolId());
+        if (school == null || school.getStatus() == null || school.getStatus() != 1) {
+            throw new BizException(ResultCode.PARAM_ERROR, "所选学校不存在或不可用");
+        }
+
+        // 学院若传入，必须属于所选学校
+        if (req.getCollegeId() != null) {
+            College college = collegeMapper.selectById(req.getCollegeId());
+            if (college == null || !req.getSchoolId().equals(college.getSchoolId())) {
+                throw new BizException(ResultCode.PARAM_ERROR, "所选学院不存在或不属于该校");
+            }
+        }
+
+        User user = new User();
+        user.setStudentNo(req.getStudentNo().trim());
+        user.setNickname(req.getNickname().trim());
+        // 与登录校验同一套 BCrypt 加密
+        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        user.setSchoolId(req.getSchoolId());
+        user.setCollegeId(req.getCollegeId());
+        user.setGrade(req.getGrade());
+        user.setRole("STUDENT");
+        user.setStatus(1);
+        userMapper.insert(user);
+        log.info("新用户注册成功: {} (schoolId={})", user.getStudentNo(), user.getSchoolId());
+
+        // 注册成功后自动登录（复用登录逻辑，省一次请求）
+        LoginRequest loginReq = new LoginRequest();
+        loginReq.setStudentNo(user.getStudentNo());
+        loginReq.setPassword(req.getPassword());
+        return login(loginReq);
     }
 
     /**

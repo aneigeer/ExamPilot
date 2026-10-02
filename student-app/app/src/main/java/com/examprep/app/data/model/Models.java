@@ -21,6 +21,25 @@ public class Models {
         public User user;
     }
 
+    // ---------- 注册 ----------
+
+    public static class School {
+        public Long id;
+        public String name;
+        public String code;
+        public Integer sort;
+    }
+
+    /** 注册请求体（与后端 RegisterRequest 对齐） */
+    public static class RegisterRequest {
+        public String studentNo;
+        public String nickname;
+        public String password;
+        public Long schoolId;
+        public Long collegeId;
+        public String grade;
+    }
+
     public static class User {
         public Long id;
         public String studentNo;

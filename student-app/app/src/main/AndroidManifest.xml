@@ -23,6 +23,7 @@
         </activity>
 
         <activity android:name=".ui.main.MainActivity" android:exported="false" />
+        <activity android:name=".ui.register.RegisterActivity" android:exported="false" />
         <activity android:name=".ui.practice.PracticeConfigActivity" android:exported="false" />
         <activity android:name=".ui.practice.PracticeActivity" android:exported="false" />
         <activity android:name=".ui.practice.ReportActivity" android:exported="false" />

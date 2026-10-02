@@ -110,7 +110,7 @@ public class CourseFragment extends Fragment {
     }
 
     private void loadColleges() {
-        api.colleges().enqueue(new Callback<Models.ApiResult<List<Models.College>>>() {
+        api.colleges(null).enqueue(new Callback<Models.ApiResult<List<Models.College>>>() {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.College>>> call,
                                    Response<Models.ApiResult<List<Models.College>>> resp) {

@@ -28,10 +28,12 @@ public class CourseController {
 
     private final CourseService courseService;
 
-    @Operation(summary = "学院列表", description = "**访问级别：PUBLIC**。课程库顶部筛选用。")
+    @Operation(summary = "学院列表",
+            description = "**访问级别：PUBLIC**。支持按学校筛选（不传返回全部），结果按 sort 升序。")
     @GetMapping("/colleges")
-    public Result<List<College>> listColleges() {
-        return Result.success(courseService.listColleges());
+    public Result<List<College>> listColleges(
+            @Parameter(description = "学校 ID，不传返回全部") @RequestParam(required = false) Long schoolId) {
+        return Result.success(courseService.listColleges(schoolId));
     }
 
     @Operation(summary = "专业列表", description = "**访问级别：PUBLIC**")

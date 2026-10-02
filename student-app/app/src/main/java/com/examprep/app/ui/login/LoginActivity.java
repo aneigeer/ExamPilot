@@ -13,6 +13,7 @@ import com.examprep.app.data.model.Models;
 import com.examprep.app.data.prefs.TokenStore;
 import com.examprep.app.databinding.ActivityLoginBinding;
 import com.examprep.app.ui.main.MainActivity;
+import com.examprep.app.ui.register.RegisterActivity;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -38,6 +39,8 @@ public class LoginActivity extends AppCompatActivity {
 
         binding.btnLogin.setOnClickListener(v -> doLogin());
         binding.btnGuest.setOnClickListener(v -> goMain());
+        binding.tvGoRegister.setOnClickListener(v ->
+                startActivity(new Intent(this, RegisterActivity.class)));
     }
 
     private void doLogin() {

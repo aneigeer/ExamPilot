@@ -52,6 +52,7 @@ public class SecurityConfig {
             "/files/preview/**",
             // 课程库（校内课程维度）
             "/colleges/**",
+            "/schools/**",
             "/majors/**",
             "/teachers/**",
             "/semesters/**",

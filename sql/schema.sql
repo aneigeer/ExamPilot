@@ -24,6 +24,7 @@ CREATE TABLE `user` (
     `password_hash` VARCHAR(100) NOT NULL                COMMENT '密码哈希（BCrypt）',
     `real_name`     VARCHAR(50)  DEFAULT NULL            COMMENT '真实姓名',
     `college_id`    BIGINT       DEFAULT NULL            COMMENT '学院ID',
+    `school_id`     BIGINT       NOT NULL DEFAULT 1      COMMENT '所属学校ID',
     `major_id`      BIGINT       DEFAULT NULL            COMMENT '专业ID',
     `grade`         VARCHAR(20)  DEFAULT NULL            COMMENT '年级，如 2023',
     `role`          VARCHAR(20)  NOT NULL DEFAULT 'STUDENT' COMMENT '角色：GUEST/STUDENT/AUDITOR/ADMIN',
@@ -35,16 +36,32 @@ CREATE TABLE `user` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_student_no` (`student_no`),
     KEY `idx_user_college` (`college_id`),
+    KEY `idx_user_school` (`school_id`),
     KEY `idx_user_role` (`role`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户表';
 
 -- ============================================================
--- 二、校内课程扩展（学院 / 专业 / 教师 / 学期 / 开课班）
+-- 二、校内课程扩展（学校 / 学院 / 专业 / 教师 / 学期 / 开课班）
 -- ============================================================
+
+DROP TABLE IF EXISTS `school`;
+CREATE TABLE `school` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+    `name`       VARCHAR(100) NOT NULL COMMENT '学校名称',
+    `code`       VARCHAR(30)  DEFAULT NULL COMMENT '学校编码',
+    `sort`       INT          NOT NULL DEFAULT 0,
+    `status`     TINYINT      NOT NULL DEFAULT 1,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `is_deleted` TINYINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_school_name` (`name`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '学校表';
 
 DROP TABLE IF EXISTS `college`;
 CREATE TABLE `college` (
     `id`         BIGINT      NOT NULL AUTO_INCREMENT,
+    `school_id`  BIGINT      NOT NULL DEFAULT 1 COMMENT '所属学校',
     `name`       VARCHAR(50) NOT NULL COMMENT '学院名称',
     `code`       VARCHAR(30) DEFAULT NULL COMMENT '学院编码',
     `sort`       INT         NOT NULL DEFAULT 0,
@@ -53,7 +70,8 @@ CREATE TABLE `college` (
     `updated_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `is_deleted` TINYINT     NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_college_name` (`name`)
+    UNIQUE KEY `uk_college_name` (`name`),
+    KEY `idx_college_school` (`school_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '学院表';
 
 DROP TABLE IF EXISTS `major`;

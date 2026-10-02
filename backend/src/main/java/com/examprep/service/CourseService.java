@@ -39,10 +39,12 @@ public class CourseService {
     private final CourseMapper courseMapper;
     private final SubjectMapper subjectMapper;
 
-    public List<College> listColleges() {
+    public List<College> listColleges(Long schoolId) {
         return collegeMapper.selectList(Wrappers.<College>lambdaQuery()
+                .eq(schoolId != null, College::getSchoolId, schoolId)
                 .eq(College::getStatus, 1)
-                .orderByAsc(College::getSort));
+                .orderByAsc(College::getSort)
+                .orderByAsc(College::getId));
     }
 
     public List<Major> listMajors(Long collegeId) {
