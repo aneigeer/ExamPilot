@@ -10,11 +10,14 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.examprep.app.data.api.ApiClient;
 import com.examprep.app.data.api.ApiService;
 import com.examprep.app.data.model.Models;
+import com.examprep.app.data.prefs.TokenStore;
 import com.examprep.app.databinding.FragmentHomeBinding;
 
 import java.util.List;
@@ -23,12 +26,16 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-/** 首页：平台统计 + 刷题入口 + 公告 + 考试类别 + 热门资料 */
+/**
+ * 首页：渐变头部（问候+搜索）+ 平台统计 + 刷题入口 + 公告 + 考试类别 + 热门资料。
+ * 所有跳转与游客拦截逻辑与旧版保持一致。
+ */
 public class HomeFragment extends Fragment {
 
     private FragmentHomeBinding binding;
     private ApiService api;
     private ResourceAdapter adapter;
+    private HomeExamAdapter examAdapter;
 
     @Nullable
     @Override
@@ -41,6 +48,13 @@ public class HomeFragment extends Fragment {
         adapter.setOnClick(r -> openResource(r.id));
         binding.rvHotResources.setAdapter(adapter);
         binding.rvHotResources.setNestedScrollingEnabled(false);
+
+        examAdapter = new HomeExamAdapter();
+        examAdapter.setOnClick(this::openExam);
+        binding.rvExams.setLayoutManager(new LinearLayoutManager(
+                getContext(), RecyclerView.HORIZONTAL, false));
+        binding.rvExams.setAdapter(examAdapter);
+        binding.rvExams.setNestedScrollingEnabled(false);
 
         binding.refresh.setOnRefreshListener(this::loadHome);
         binding.btnSearch.setOnClickListener(v -> startActivity(
@@ -62,6 +76,22 @@ public class HomeFragment extends Fragment {
 
         loadHome();
         return binding.getRoot();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 登录/退出后回到首页时刷新问候语
+        if (binding != null) {
+            updateGreeting();
+        }
+    }
+
+    /** 登录用户显示「你好，昵称」，游客显示「你好，游客」 */
+    private void updateGreeting() {
+        TokenStore ts = TokenStore.get(requireContext());
+        binding.tvGreeting.setText(ts.hasToken()
+                ? "你好，" + ts.userName() : "你好，游客");
     }
 
     private void loadHome() {
@@ -88,6 +118,8 @@ public class HomeFragment extends Fragment {
     }
 
     private void bind(Models.Home home) {
+        updateGreeting();
+
         if (home.stats != null) {
             binding.tvStatSubject.setText(String.valueOf(home.stats.subjectCount));
             binding.tvStatQuestion.setText(String.valueOf(home.stats.questionCount));
@@ -95,30 +127,36 @@ public class HomeFragment extends Fragment {
             binding.tvStatUser.setText(String.valueOf(home.stats.userCount));
         }
 
-        StringBuilder ann = new StringBuilder();
+        // 公告：只展示最新 1 条
         List<Models.Announcement> announcements = home.announcements;
         if (announcements == null || announcements.isEmpty()) {
-            ann.append("暂无公告");
+            binding.tvAnnouncements.setText("暂无公告");
         } else {
-            for (Models.Announcement a : announcements) {
-                ann.append("· ").append(a.title).append('\n');
-            }
+            binding.tvAnnouncements.setText(
+                    "· " + announcements.get(0).title);
         }
-        binding.tvAnnouncements.setText(ann.toString());
 
-        StringBuilder exam = new StringBuilder();
+        // 考试类别：横滑卡片；无数据时显示文字提示
         List<Models.ExamBrief> exams = home.exams;
         if (exams == null || exams.isEmpty()) {
-            exam.append("暂无考试类别");
+            binding.tvExams.setVisibility(View.VISIBLE);
+            binding.tvExams.setText("暂无考试类别");
+            binding.rvExams.setVisibility(View.GONE);
         } else {
-            for (Models.ExamBrief e : exams) {
-                exam.append("· ").append(e.name)
-                        .append("（").append(e.subjectCount).append(" 个科目）\n");
-            }
+            binding.tvExams.setVisibility(View.GONE);
+            binding.rvExams.setVisibility(View.VISIBLE);
+            examAdapter.submit(exams);
         }
-        binding.tvExams.setText(exam.toString());
 
         adapter.submit(home.hotResources == null ? List.of() : home.hotResources);
+    }
+
+    /** 考试类别卡片：切到题库 tab 并直达该类别科目列表 */
+    private void openExam(Models.ExamBrief exam) {
+        if (exam.id == null || !(getActivity() instanceof MainActivity)) {
+            return;
+        }
+        ((MainActivity) requireActivity()).openExamSubjects(exam.id, exam.name);
     }
 
     private void openResource(long id) {

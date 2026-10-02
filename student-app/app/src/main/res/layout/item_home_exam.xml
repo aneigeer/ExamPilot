@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首页考试类别横滑卡片：渐变背景由代码按位置循环设置 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="128dp" android:layout_height="wrap_content"
+    android:layout_marginEnd="10dp"
+    android:background="@drawable/bg_exam_blue"
+    android:clickable="true" android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:orientation="vertical"
+    android:paddingStart="14dp" android:paddingEnd="14dp"
+    android:paddingTop="16dp" android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/tvExamName"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:ellipsize="end" android:maxLines="1"
+        android:textColor="@android:color/white" android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvExamSub"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/on_grad_soft" android:textSize="11sp" />
+</LinearLayout>

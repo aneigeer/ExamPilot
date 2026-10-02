@@ -1,7 +1,9 @@
 package com.examprep.app.ui.main;
 
 import android.os.Bundle;
+import android.view.MenuItem;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
@@ -28,24 +30,44 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         BottomNavigationView nav = binding.bottomNav;
-        nav.setOnItemSelectedListener(item -> {
-            Fragment f;
-            int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                f = new HomeFragment();
-            } else if (id == R.id.nav_bank) {
-                f = new QuestionBankFragment();
-            } else if (id == R.id.nav_course) {
-                f = new CourseFragment();
-            } else {
-                f = new MeFragment();
-            }
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragmentContainer, f)
-                    .commit();
-            return true;
-        });
+        nav.setOnItemSelectedListener(this::onNavItemSelected);
         nav.setSelectedItemId(R.id.nav_home);
+    }
+
+    private boolean onNavItemSelected(@NonNull MenuItem item) {
+        Fragment f;
+        int id = item.getItemId();
+        if (id == R.id.nav_home) {
+            f = new HomeFragment();
+        } else if (id == R.id.nav_bank) {
+            f = new QuestionBankFragment();
+        } else if (id == R.id.nav_course) {
+            f = new CourseFragment();
+        } else {
+            f = new MeFragment();
+        }
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainer, f)
+                .commit();
+        return true;
+    }
+
+    /** 首页考试类别卡片入口：切到题库 tab 并直达指定类别科目列表 */
+    public void openExamSubjects(long examId, String examName) {
+        BottomNavigationView nav = binding.bottomNav;
+        // 先静默切换选中态（不触发 replace），再带上参数替换 Fragment
+        nav.setOnItemSelectedListener(null);
+        nav.setSelectedItemId(R.id.nav_bank);
+        nav.setOnItemSelectedListener(this::onNavItemSelected);
+
+        QuestionBankFragment f = new QuestionBankFragment();
+        Bundle args = new Bundle();
+        args.putLong("examId", examId);
+        args.putString("examName", examName);
+        f.setArguments(args);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainer, f)
+                .commit();
     }
 
     @Override

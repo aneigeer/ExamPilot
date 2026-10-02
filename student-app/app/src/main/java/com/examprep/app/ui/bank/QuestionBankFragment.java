@@ -63,7 +63,13 @@ public class QuestionBankFragment extends Fragment {
             }
         });
 
-        loadExams();
+        // 支持从首页考试类别卡片直达科目列表；无参数时按原逻辑展示类别卡片
+        Bundle args = getArguments();
+        if (args != null && args.containsKey("examId")) {
+            loadSubjects(args.getLong("examId"), args.getString("examName", ""));
+        } else {
+            loadExams();
+        }
         return binding.getRoot();
     }
 

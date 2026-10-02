@@ -1,125 +1,235 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent">
 
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
     android:id="@+id/refresh"
     android:layout_width="match_parent" android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/btnSearch"
-        android:layout_width="match_parent" android:layout_height="44dp"
-        android:layout_margin="14dp" android:gravity="center_vertical"
-        android:paddingStart="14dp" android:paddingEnd="14dp"
-        android:background="@android:drawable/editbox_background"
-        android:text="🔍 搜索资料…" android:textColor="@color/text_sub" android:textSize="14sp" />
-
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent" android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:background="@color/home_bg"
+        android:fillViewport="true" android:overScrollMode="never">
 
         <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="vertical" android:padding="14dp">
+            android:orientation="vertical">
 
-            <!-- 平台统计 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent" android:layout_height="wrap_content">
-                <LinearLayout
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="horizontal" android:padding="14dp">
-                    <LinearLayout style="@style/StatCol">
-                        <TextView android:id="@+id/tvStatSubject" style="@style/StatNum" android:text="0" />
-                        <TextView style="@style/StatLabel" android:text="科目" />
-                    </LinearLayout>
-                    <LinearLayout style="@style/StatCol">
-                        <TextView android:id="@+id/tvStatQuestion" style="@style/StatNum" android:text="0" />
-                        <TextView style="@style/StatLabel" android:text="题目" />
-                    </LinearLayout>
-                    <LinearLayout style="@style/StatCol">
-                        <TextView android:id="@+id/tvStatResource" style="@style/StatNum" android:text="0" />
-                        <TextView style="@style/StatLabel" android:text="资料" />
-                    </LinearLayout>
-                    <LinearLayout style="@style/StatCol">
-                        <TextView android:id="@+id/tvStatUser" style="@style/StatNum" android:text="0" />
-                        <TextView style="@style/StatLabel" android:text="用户" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 刷题入口 -->
+            <!-- ===== 顶部渐变头部：问候 + 搜索胶囊 ===== -->
             <LinearLayout
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:orientation="horizontal">
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnStartPractice"
-                    android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="52dp" android:layout_marginEnd="6dp"
-                    android:text="开始刷题" />
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnStartMock"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp" android:layout_weight="1"
-                    android:layout_height="52dp" android:layout_marginStart="6dp"
-                    android:text="模拟考试" />
+                android:background="@drawable/bg_home_header"
+                android:orientation="vertical"
+                android:paddingStart="20dp" android:paddingEnd="20dp"
+                android:paddingTop="26dp" android:paddingBottom="26dp">
+
+                <TextView
+                    android:id="@+id/tvGreeting"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="你好，游客"
+                    android:textColor="@color/on_grad" android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvGreetingSub"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="今天也要加油备考"
+                    android:textColor="@color/on_grad_soft" android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/btnSearch"
+                    android:layout_width="match_parent" android:layout_height="46dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_search_pill"
+                    android:clickable="true" android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp" android:paddingEnd="16dp"
+                    android:text="🔍  搜索资料…"
+                    android:textColor="@color/on_grad" android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- 公告 -->
-            <com.google.android.material.card.MaterialCardView
+            <LinearLayout
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
+                android:orientation="vertical"
+                android:paddingStart="14dp" android:paddingEnd="14dp"
+                android:paddingTop="16dp" android:paddingBottom="88dp">
+
+                <!-- ===== 平台统计 2×2 白色圆角卡片 ===== -->
                 <LinearLayout
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="14dp">
-                    <TextView style="@style/CardTitle" android:text="📢 平台公告" />
+                    android:orientation="horizontal">
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/card" app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp" app:strokeWidth="0dp">
+                        <LinearLayout
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:gravity="center" android:orientation="vertical"
+                            android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:paddingTop="16dp" android:paddingBottom="16dp">
+                            <TextView android:id="@+id/tvStatSubject"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="0" android:textColor="@color/primary"
+                                android:textSize="24sp" android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp" android:text="科目"
+                                android:textColor="@color/text_sub" android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/card" app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp" app:strokeWidth="0dp">
+                        <LinearLayout
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:gravity="center" android:orientation="vertical"
+                            android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:paddingTop="16dp" android:paddingBottom="16dp">
+                            <TextView android:id="@+id/tvStatQuestion"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="0" android:textColor="@color/primary"
+                                android:textSize="24sp" android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp" android:text="题目"
+                                android:textColor="@color/text_sub" android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp" android:orientation="horizontal">
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/card" app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp" app:strokeWidth="0dp">
+                        <LinearLayout
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:gravity="center" android:orientation="vertical"
+                            android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:paddingTop="16dp" android:paddingBottom="16dp">
+                            <TextView android:id="@+id/tvStatResource"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="0" android:textColor="@color/primary"
+                                android:textSize="24sp" android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp" android:text="资料"
+                                android:textColor="@color/text_sub" android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        app:cardBackgroundColor="@color/card" app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp" app:strokeWidth="0dp">
+                        <LinearLayout
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:gravity="center" android:orientation="vertical"
+                            android:paddingStart="8dp" android:paddingEnd="8dp"
+                            android:paddingTop="16dp" android:paddingBottom="16dp">
+                            <TextView android:id="@+id/tvStatUser"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="0" android:textColor="@color/primary"
+                                android:textSize="24sp" android:textStyle="bold" />
+                            <TextView
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp" android:text="用户"
+                                android:textColor="@color/text_sub" android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+                <!-- ===== 刷题入口（原有功能保留） ===== -->
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp" android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnStartPractice"
+                        android:layout_width="0dp" android:layout_height="50dp"
+                        android:layout_marginEnd="6dp" android:layout_weight="1"
+                        android:insetTop="0dp" android:insetBottom="0dp"
+                        android:text="开始刷题" android:textSize="14sp"
+                        app:cornerRadius="14dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnStartMock"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="0dp" android:layout_height="50dp"
+                        android:layout_marginStart="6dp" android:layout_weight="1"
+                        android:insetTop="0dp" android:insetBottom="0dp"
+                        android:text="模拟考试" android:textSize="14sp"
+                        app:cornerRadius="14dp" />
+                </LinearLayout>
+
+                <!-- ===== 公告横幅（最新 1 条） ===== -->
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_announcement"
+                    android:gravity="center_vertical" android:orientation="horizontal"
+                    android:paddingStart="12dp" android:paddingEnd="12dp"
+                    android:paddingTop="12dp" android:paddingBottom="12dp">
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="📢" android:textSize="16sp" />
                     <TextView
                         android:id="@+id/tvAnnouncements"
                         android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:textColor="@color/text_sub" android:textSize="13sp"
-                        android:lineSpacingExtra="4dp" android:text="加载中…" />
+                        android:layout_marginStart="8dp"
+                        android:ellipsize="end" android:maxLines="1"
+                        android:text="暂无公告"
+                        android:textColor="@color/text_main" android:textSize="13sp" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
 
-            <!-- 考试类别 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
-                <LinearLayout
+                <!-- ===== 考试类别（横滑彩色渐变卡片） ===== -->
+                <TextView
+                    style="@style/CardTitle" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_marginTop="20dp"
+                    android:text="📚 考试类别" />
+                <TextView
+                    android:id="@+id/tvExams"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="14dp">
-                    <TextView style="@style/CardTitle" android:text="📚 考试类别" />
-                    <TextView
-                        android:id="@+id/tvExams"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:textColor="@color/text_sub" android:textSize="13sp"
-                        android:lineSpacingExtra="4dp" android:text="加载中…" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:layout_marginTop="8dp"
+                    android:text="加载中…"
+                    android:textColor="@color/text_sub" android:textSize="13sp" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvExams"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:clipToPadding="false"
+                    android:orientation="horizontal" android:overScrollMode="never" />
 
-            <!-- 热门资料 -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:layout_marginBottom="16dp">
-                <LinearLayout
+                <!-- ===== 热门资料 ===== -->
+                <TextView
+                    style="@style/CardTitle" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_marginTop="20dp"
+                    android:text="🔥 热门资料" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvHotResources"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical" android:padding="14dp">
-                    <TextView style="@style/CardTitle" android:text="🔥 热门资料" />
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rvHotResources"
-                        android:layout_width="match_parent" android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 <com.google.android.material.floatingactionbutton.FloatingActionButton
     android:id="@+id/fabUpload"
     android:layout_width="wrap_content" android:layout_height="wrap_content"
-    android:layout_gravity="bottom|end" android:layout_margin="18dp"
-    android:src="@drawable/ic_fab_add" android:contentDescription="上传资料"
-    app:tint="#FFFFFF" xmlns:app="http://schemas.android.com/apk/res-auto" />
+    android:layout_gravity="bottom|end" android:layout_margin="20dp"
+    android:contentDescription="上传资料"
+    android:src="@drawable/ic_fab_add"
+    app:backgroundTint="@color/primary" app:elevation="6dp"
+    app:tint="#FFFFFF" />
 </FrameLayout>
