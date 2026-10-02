@@ -2,6 +2,7 @@ package com.examprep.controller;
 
 import com.examprep.common.Result;
 import com.examprep.dto.KnowledgeNodeVO;
+import com.examprep.dto.SubjectVO;
 import com.examprep.entity.ExamCategory;
 import com.examprep.entity.Subject;
 import com.examprep.service.ExamService;
@@ -32,9 +33,9 @@ public class ExamController {
         return Result.success(examService.listExamCategories());
     }
 
-    @Operation(summary = "科目列表", description = "**访问级别：PUBLIC**。可不传 examCategoryId 查全部。")
+    @Operation(summary = "科目列表", description = "**访问级别：PUBLIC**。可不传 examCategoryId 查全部。计数为已审核内容的实时统计。")
     @GetMapping("/subjects")
-    public Result<List<Subject>> listSubjects(
+    public Result<List<SubjectVO>> listSubjects(
             @Parameter(description = "考试类别 ID，不传则查全部")
             @RequestParam(required = false) Long examCategoryId) {
         return Result.success(examService.listSubjects(examCategoryId));

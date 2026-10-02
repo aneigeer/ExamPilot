@@ -65,6 +65,13 @@ public class FileStorageService {
     private final long imageMaxSize;
     private final String signSecret;
 
+    /**
+     * 已校验魔数的扩展名集合（jpg/png/gif/webp/pdf）。
+     * 局限：zip/mp4 等其他文档类型暂不做魔数校验（各容器格式头部分布复杂，
+     * 恶意文件仍可能伪装成这些扩展名），后续可接入 Apache Tika 做统一内容探测。
+     */
+    private static final Set<String> MAGIC_CHECKED_TYPES = Set.of("jpg", "jpeg", "png", "gif", "webp", "pdf");
+
     public FileStorageService(FileRecordMapper fileRecordMapper,
                               ResourcePageMapper resourcePageMapper,
                               @Value("${app.upload.dir:./uploads}") String uploadDir,
@@ -101,6 +108,7 @@ public class FileStorageService {
             throw new BizException(ResultCode.FILE_TOO_LARGE,
                     "单张图片不能超过 " + (imageMaxSize / 1024 / 1024) + "MB");
         }
+        verifyMagicNumber(file, ext);
         return store(file, uploaderId, "images");
     }
 
@@ -136,7 +144,39 @@ public class FileStorageService {
         if (file.getSize() > 200L * 1024 * 1024) {
             throw new BizException(ResultCode.FILE_TOO_LARGE, "单个文件不能超过 200MB");
         }
+        verifyMagicNumber(file, ext); // 仅对 pdf 校验，zip/doc 等暂不校验，见 MAGIC_CHECKED_TYPES 注释
         return store(file, uploaderId, "documents");
+    }
+
+    /**
+     * 落盘前校验文件头魔数，防止把文本/可执行内容改扩展名伪装上传。
+     * 仅覆盖 MAGIC_CHECKED_TYPES 中已收录魔数的类型，其余类型直接放行（局限见其注释）。
+     */
+    private void verifyMagicNumber(MultipartFile file, String ext) {
+        if (!MAGIC_CHECKED_TYPES.contains(ext)) {
+            return;
+        }
+        byte[] head;
+        try (InputStream is = file.getInputStream()) {
+            head = is.readNBytes(12); // 最长需求：webp = "RIFF"(4) + 4 字节占位 + "WEBP"(4)
+        } catch (IOException e) {
+            throw new BizException("读取上传文件失败：" + e.getMessage());
+        }
+        String hex = HexFormat.of().formatHex(head).toUpperCase(Locale.ROOT);
+        boolean matched = switch (ext) {
+            // jpg/jpeg: FF D8 FF；png: 89 50 4E 47；gif: 47 49 46；pdf: 25 50 44 46
+            case "jpg", "jpeg" -> hex.startsWith("FFD8FF");
+            case "png" -> hex.startsWith("89504E47");
+            case "gif" -> hex.startsWith("474946");
+            case "webp" -> hex.startsWith("52494646") && hex.length() >= 12
+                    && hex.regionMatches(8, "57454250", 0, 8); // RIFF....WEBP
+            case "pdf" -> hex.startsWith("25504446");
+            default -> false;
+        };
+        if (!matched) {
+            log.warn("文件魔数校验失败 ext={} head={}", ext, hex);
+            throw new BizException("文件内容与扩展名不符");
+        }
     }
 
     private FileRecord store(MultipartFile file, Long uploaderId, String subDir) {

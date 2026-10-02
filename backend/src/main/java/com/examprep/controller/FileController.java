@@ -2,6 +2,7 @@ package com.examprep.controller;
 
 import com.examprep.common.Result;
 import com.examprep.entity.FileRecord;
+import com.examprep.entity.Resource;
 import com.examprep.entity.ResourcePage;
 import com.examprep.security.LoginUser;
 import com.examprep.security.SecurityUtils;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,6 +46,10 @@ public class FileController {
     private final FileStorageService fileStorageService;
     private final ResourceService resourceService;
     private final WatermarkService watermarkService;
+
+    /** 游客可预览的最大页数（与 ResourceService 的预览口径一致） */
+    @Value("${app.preview.guest-pages:3}")
+    private int guestPages;
 
     @Operation(summary = "上传图片",
             description = "**访问级别：AUTH**。**这是 App 端唯一的上传入口**。仅接受 jpg/jpeg/png/webp/gif，单张不超过 10MB。返回 `fileId` 用于提交资料。")
@@ -102,18 +108,51 @@ public class FileController {
     }
 
     @Operation(summary = "访问预览图",
-            description = "**访问级别：PUBLIC**。返回图片流。页数限制在 `/resources/{id}/preview` 已做控制。")
+            description = "**访问级别：PUBLIC（受控）**。未过审资源仅 ADMIN/AUDITOR 或上传者本人可看（其余 404）；"
+                    + "已过审资源对游客仅开放前 guest-pages 页，超出返回 403 提示登录。")
     @GetMapping("/files/preview/{pageId}")
     public void previewImage(@Parameter(description = "预览图页 ID") @PathVariable Long pageId,
                              HttpServletResponse response) throws IOException {
         ResourcePage page = resourceService.getPage(pageId);
+        Resource resource = resourceService.getResourceOrNull(page.getResourceId());
+        if (resource == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        LoginUser loginUser = SecurityUtils.getLoginUserOrNull();
+        boolean approved = "APPROVED".equals(resource.getAuditStatus());
+
+        // ---- 访问控制：先鉴权，再读文件 ----
+        if (!approved) {
+            // 未过审资源：仅 ADMIN/AUDITOR 或上传者本人可看，其余一律 404（不提示存在性）
+            boolean privileged = loginUser != null
+                    && (SecurityUtils.isAuditorOrAdmin()
+                        || loginUser.getUserId().equals(resource.getUploaderId()));
+            if (!privileged) {
+                log.info("[preview] denied pageId={} auditStatus={} visitor={}",
+                        pageId, resource.getAuditStatus(), loginUser == null ? "guest" : loginUser.getUserId());
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+        } else if (loginUser == null && page.getPageNo() != null && page.getPageNo() > guestPages) {
+            // 已过审资源：游客只能看前 guestPages 页，与 /resources/{id}/preview 的口径一致
+            log.info("[preview] guest page limit pageId={} pageNo={} guestPages={}",
+                    pageId, page.getPageNo(), guestPages);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write("{\"code\":3006,\"message\":\"游客仅可预览前 "
+                    + guestPages + " 页，请登录后查看更多\",\"data\":null}");
+            return;
+        }
+
         Path path = fileStorageService.getUploadRoot().resolve(page.getImagePath()).normalize();
         if (!Files.exists(path)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "预览图文件缺失");
             return;
         }
-        // 访问者水印标识：脱敏学号 / 游客 —— 截图传播可追溯来源
-        LoginUser loginUser = SecurityUtils.getLoginUserOrNull();
+        // 访问者水印标识：脱敏学号 / 游客 —— 截图传播可追溯来源（loginUser 已在上方鉴权处取得）
         String visitorLabel = loginUser == null ? null
                 : WatermarkService.maskStudentNo(loginUser.getStudentNo());
 

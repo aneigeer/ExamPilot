@@ -73,6 +73,12 @@ public class QuestionBankFragment extends Fragment {
         return binding.getRoot();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null; // 释放视图绑定，避免内存泄漏与操作已销毁视图
+    }
+
     private void setLevel(int level) {
         this.level = level;
         binding.llExamCards.setVisibility(level == LEVEL_EXAM ? View.VISIBLE : View.GONE);
@@ -91,6 +97,7 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.ExamBrief>>> call,
                                    Response<Models.ApiResult<List<Models.ExamBrief>>> resp) {
+                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.ExamBrief>> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -109,6 +116,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.ExamBrief>>> call, Throwable t) {
+                if (!isAdded()) return;
                 toast("网络错误：" + t.getMessage());
             }
         });
@@ -125,6 +133,7 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.Subject>>> call,
                                    Response<Models.ApiResult<List<Models.Subject>>> resp) {
+                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.Subject>> r = resp.body();
                 List<Models.Subject> list = r != null && r.ok() && r.data != null ? r.data : List.of();
                 if (list.isEmpty()) {
@@ -149,6 +158,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.Subject>>> call, Throwable t) {
+                if (!isAdded()) return;
                 toast("网络错误");
             }
         });
@@ -162,6 +172,7 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.KnowledgeNode>>> call,
                                    Response<Models.ApiResult<List<Models.KnowledgeNode>>> resp) {
+                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.KnowledgeNode>> r = resp.body();
                 List<Models.KnowledgeNode> roots = r != null && r.ok() && r.data != null ? r.data : List.of();
                 if (roots.isEmpty()) {
@@ -172,6 +183,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.KnowledgeNode>>> call, Throwable t) {
+                if (!isAdded()) return;
                 toast("网络错误");
             }
         });

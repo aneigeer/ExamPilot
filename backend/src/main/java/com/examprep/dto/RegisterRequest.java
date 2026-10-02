@@ -3,6 +3,7 @@ package com.examprep.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -24,8 +25,9 @@ public class RegisterRequest {
     private String nickname;
 
     @NotBlank(message = "密码不能为空")
-    @Size(min = 6, max = 64, message = "密码长度需在 6-64 之间")
-    @Schema(description = "密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Size(min = 8, max = 64, message = "密码长度需在 8-64 之间")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "密码需同时包含字母和数字")
+    @Schema(description = "密码（≥8 位且同时含字母和数字）", example = "Stu2025@x", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 
     @NotNull(message = "学校不能为空")

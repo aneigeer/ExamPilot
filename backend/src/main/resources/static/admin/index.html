@@ -386,6 +386,7 @@
             <el-form label-width="80px" style="max-width:560px">
               <el-form-item label="文件">
                 <el-upload :action="uploadUrl" :headers="uploadHeaders" :on-success="onDocUploaded"
+                           :on-error="onUploadError"
                            :limit="1" :auto-upload="true" drag style="width:100%">
                   <el-icon style="font-size:40px;color:#909399"><upload-filled /></el-icon>
                   <div>拖拽文件或点击选择（PDF/DOCX/XLSX/PPTX/ZIP/MP4/MP3，≤200MB）</div>
@@ -515,20 +516,26 @@ const API = '/api';
 
 async function api(method, path, body) {
   const token = localStorage.getItem('token') || '';
-  const resp = await fetch(API + path, {
-    method,
-    headers: Object.assign({'Content-Type': 'application/json'},
-      token ? {Authorization: 'Bearer ' + token} : {}),
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  if (resp.status === 401) {
-    localStorage.removeItem('token');
-    location.reload();
-    throw new Error('登录已过期');
+  try {
+    const resp = await fetch(API + path, {
+      method,
+      headers: Object.assign({'Content-Type': 'application/json'},
+        token ? {Authorization: 'Bearer ' + token} : {}),
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    if (resp.status === 401) {
+      localStorage.removeItem('token');
+      location.reload();
+      throw new Error('登录已过期');
+    }
+    const json = await resp.json();
+    if (json.code !== 200) throw new Error(json.message || '请求失败');
+    return json.data;
+  } catch (e) {
+    // 统一错误提示：页面级裸 await 失败时也能看到具体原因，不再静默白屏
+    ElementPlus.ElMessage.error((e && e.message) ? e.message : '网络异常，请稍后重试');
+    throw e;
   }
-  const json = await resp.json();
-  if (json.code !== 200) throw new Error(json.message || '请求失败');
-  return json.data;
 }
 
 createApp({
@@ -558,7 +565,6 @@ createApp({
         blanksText: '', reference: ''},
       docForm: {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''},
       uploadUrl: '/api/files/document',
-      uploadHeaders: {Authorization: 'Bearer ' + (localStorage.getItem('token') || '')},
       resourceTypes2: [],
       knowledgeAdmin: [], knowledgeSubjectId: '5',
       collegeAdmin: [], teacherAdmin: [],
@@ -566,6 +572,13 @@ createApp({
       exams: [], subjectAdmin: [],
       logs: [], logTotal: 0, logPage: 1
     };
+  },
+  computed: {
+    // 上传头改为计算属性：每次上传时实时读取 localStorage 里的最新 token。
+    // 原先在 data() 初始化时一次性读取，登录后不更新，导致上传永远带空 token 而 401。
+    uploadHeaders() {
+      return {Authorization: 'Bearer ' + (localStorage.getItem('token') || '')};
+    }
   },
   methods: {
     statusTag(s) {
@@ -719,10 +732,11 @@ createApp({
       if (!this.subjectAdmin.length) await this.loadData();
     },
     deleteQuestion(id) {
+      // 错误提示已由 api() 统一弹出，这里只吞掉 rejection 避免重复提示
       api('DELETE', '/admin/questions/' + id).then(() => {
         ElementPlus.ElMessage.success('已删除');
         this.loadQuestionAdmin();
-      }).catch(e => ElementPlus.ElMessage.error(e.message));
+      }).catch(() => {});
     },
     openQCreate() {
       if (!this.questionTypes.length) {
@@ -792,6 +806,10 @@ createApp({
       } else {
         ElementPlus.ElMessage.error(resp.message || '上传失败');
       }
+    },
+    onUploadError() {
+      // el-upload 网络层失败（4xx/5xx/断网）不会走 on-success，必须单独提示
+      ElementPlus.ElMessage.error('上传失败');
     },
     async submitDoc() {
       const f = this.docForm;

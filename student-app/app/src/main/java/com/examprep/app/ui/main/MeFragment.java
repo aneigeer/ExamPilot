@@ -48,13 +48,15 @@ public class MeFragment extends Fragment {
                 @Override
                 public void onResponse(Call<Models.ApiResult<Object>> call,
                                        Response<Models.ApiResult<Object>> resp) {
-                    store.clear();
+                    store.clear(); // 清除本地凭证与页面是否存活无关，必须执行
+                    if (!isAdded()) return; // Activity 可能已销毁，跳过跳转登录页的 UI 操作
                     goLogin();
                 }
 
                 @Override
                 public void onFailure(Call<Models.ApiResult<Object>> call, Throwable t) {
                     store.clear();
+                    if (!isAdded()) return;
                     goLogin();
                 }
             });
@@ -82,11 +84,18 @@ public class MeFragment extends Fragment {
         return binding.getRoot();
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null; // 释放视图绑定，避免内存泄漏与操作已销毁视图
+    }
+
     private void loadStats() {
         api.myStats().enqueue(new Callback<Models.ApiResult<Models.MyStats>>() {
             @Override
             public void onResponse(Call<Models.ApiResult<Models.MyStats>> call,
                                    Response<Models.ApiResult<Models.MyStats>> resp) {
+                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<Models.MyStats> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -100,6 +109,7 @@ public class MeFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<Models.MyStats>> call, Throwable t) {
+                if (!isAdded()) return;
                 toast("统计加载失败");
             }
         });

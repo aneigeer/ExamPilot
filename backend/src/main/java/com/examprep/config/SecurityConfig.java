@@ -142,7 +142,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOriginPatterns(List.of("*"));
+        // 收紧同源白名单：管理端与后端同源部署（/api/admin/index.html），App 端为原生 OkHttp 无跨域需求
+        cfg.setAllowedOrigins(List.of("http://localhost:8080"));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Authorization"));

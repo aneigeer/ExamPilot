@@ -30,6 +30,12 @@ public class JwtUtil {
 
     public JwtUtil(@Value("${app.jwt.secret}") String secret,
                    @Value("${app.jwt.expire-minutes:10080}") long expireMinutes) {
+        if (secret == null || secret.isBlank()) {
+            // application.yml 的默认值已置空：密钥必须显式注入，防止 Git 里的默认密钥被用来伪造 token
+            throw new IllegalStateException(
+                    "app.jwt.secret 未配置：请设置环境变量 JWT_SECRET，"
+                            + "或在 application-local.yml 中配置 app.jwt.secret（HS256 要求至少 32 字节）");
+        }
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalStateException("app.jwt.secret 长度不足，HS256 要求至少 32 字节");

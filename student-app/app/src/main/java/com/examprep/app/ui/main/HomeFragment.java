@@ -79,6 +79,12 @@ public class HomeFragment extends Fragment {
     }
 
     @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null; // 释放视图绑定，避免内存泄漏与操作已销毁视图
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
         // 登录/退出后回到首页时刷新问候语
@@ -100,6 +106,7 @@ public class HomeFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<Models.Home>> call,
                                    Response<Models.ApiResult<Models.Home>> resp) {
+                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
                 binding.refresh.setRefreshing(false);
                 Models.ApiResult<Models.Home> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
@@ -111,6 +118,7 @@ public class HomeFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<Models.Home>> call, Throwable t) {
+                if (!isAdded()) return;
                 binding.refresh.setRefreshing(false);
                 toast("网络错误：" + t.getMessage());
             }

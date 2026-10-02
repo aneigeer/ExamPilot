@@ -198,6 +198,11 @@ public class ResourceService {
         return page;
     }
 
+    /** 按 ID 取资料（可能为 null），供文件预览鉴权使用 */
+    public Resource getResourceOrNull(Long resourceId) {
+        return resourceMapper.selectById(resourceId);
+    }
+
     // ==================================================================
     // 下载
     // ==================================================================
