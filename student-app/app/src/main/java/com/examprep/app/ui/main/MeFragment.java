@@ -116,6 +116,7 @@ public class MeFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        if (!isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
+        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
     }
 }
