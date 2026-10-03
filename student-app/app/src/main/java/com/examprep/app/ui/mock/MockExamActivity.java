@@ -43,6 +43,10 @@ public class MockExamActivity extends AppCompatActivity {
     private int index;
     private CountDownTimer timer;
     private boolean submitting;
+    /** P0-1：已发起、尚未收到回调的答案同步请求数 */
+    private int pendingSyncs;
+    /** P0-1：交卷已请求（等待全部答案落库后再真正交卷） */
+    private boolean submitRequested;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -220,10 +224,14 @@ public class MockExamActivity extends AppCompatActivity {
                             selections.remove(q.id);
                         } else {
                             selections.put(q.id, joined);
+                            // P0-1：多选题切换后立即同步到后端
+                            syncAnswer(q.id, joined);
                         }
                         renderQuestion();
                     } else {
                         selections.put(q.id, o.key);
+                        // P0-1：单选/判断题选中后立即同步到后端
+                        syncAnswer(q.id, o.key);
                         renderQuestion();
                     }
                 });
@@ -236,7 +244,12 @@ public class MockExamActivity extends AppCompatActivity {
             et.setBackground(getDrawable(android.R.drawable.editbox_background));
             et.setOnFocusChangeListener((v, hasFocus) -> {
                 if (!hasFocus) {
-                    selections.put(q.id, String.valueOf(et.getText()).trim());
+                    String text = String.valueOf(et.getText()).trim();
+                    if (!text.isEmpty()) {
+                        selections.put(q.id, text);
+                        // P0-1：填空等文本题失焦后立即同步到后端
+                        syncAnswer(q.id, text);
+                    }
                 }
             });
             area.addView(et);
@@ -254,8 +267,48 @@ public class MockExamActivity extends AppCompatActivity {
                 String text = String.valueOf(((EditText) child).getText()).trim();
                 if (!text.isEmpty()) {
                     selections.put(q.id, text);
+                    // P0-1：翻题/交卷前把输入框里未失焦的文本同步到后端
+                    syncAnswer(q.id, text);
                 }
             }
+        }
+    }
+
+    /**
+     * P0-1 修复：模考每题答案必须同步到后端（POST /exams/mock/{recordId}/answer），
+     * 否则交卷时后端收到的作答为空、永远 0 分。此前 mockAnswer 接口已定义但从未被调用。
+     * 异步 fire-and-forget，不阻塞 UI；失败时交卷前还有一次全量兜底同步。
+     */
+    private void syncAnswer(long questionId, String answer) {
+        if (answer == null || answer.isEmpty() || recordId <= 0) {
+            return;
+        }
+        pendingSyncs++;
+        api.mockAnswer(recordId, new ApiService.AnswerBody(questionId, answer))
+                .enqueue(new Callback<Models.ApiResult<Integer>>() {
+                    @Override
+                    public void onResponse(Call<Models.ApiResult<Integer>> call,
+                                           Response<Models.ApiResult<Integer>> resp) {
+                        Models.ApiResult<Integer> r = resp.body();
+                        if (r == null || !r.ok()) {
+                            // 单题同步失败不阻断作答，交卷前会全量重试
+                            toast("答案同步失败，交卷时会自动重试");
+                        }
+                        onSyncSettled();
+                    }
+
+                    @Override
+                    public void onFailure(Call<Models.ApiResult<Integer>> call, Throwable t) {
+                        onSyncSettled();
+                    }
+                });
+    }
+
+    /** 一条同步请求完结（无论成败）：若处于交卷流程且全部落库，则真正交卷 */
+    private void onSyncSettled() {
+        pendingSyncs = Math.max(0, pendingSyncs - 1);
+        if (submitRequested && pendingSyncs == 0) {
+            doSubmit();
         }
     }
 
@@ -310,13 +363,27 @@ public class MockExamActivity extends AppCompatActivity {
     }
 
     private void submit() {
+        if (submitting || submitRequested) {
+            return;
+        }
+        submitRequested = true;
+        if (timer != null) {
+            timer.cancel();
+        }
+        // P0-1 兜底：交卷前把本地全部作答全量重发一遍（幂等 upsert，重复同步无害），
+        // 等所有在途同步（含此前单题的增量同步）落库后再调交卷接口
+        for (Map.Entry<Long, String> e : selections.entrySet()) {
+            syncAnswer(e.getKey(), e.getValue());
+        }
+        onSyncSettled();
+    }
+
+    /** 真正交卷：全部答案已同步到后端后调用 */
+    private void doSubmit() {
         if (submitting) {
             return;
         }
         submitting = true;
-        if (timer != null) {
-            timer.cancel();
-        }
         api.mockSubmit(recordId).enqueue(new Callback<Models.ApiResult<Models.MockReport>>() {
             @Override
             public void onResponse(Call<Models.ApiResult<Models.MockReport>> call,
@@ -333,6 +400,7 @@ public class MockExamActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<Models.ApiResult<Models.MockReport>> call, Throwable t) {
                 submitting = false;
+                submitRequested = false;
                 toast("交卷失败：" + t.getMessage());
             }
         });

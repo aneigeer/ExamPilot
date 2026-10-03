@@ -93,12 +93,20 @@ public class MockExamService {
             throw new BizException("该科目下没有可用的客观题");
         }
         Collections.shuffle(pool);
-        // 同题干只保留一道，避免历史重复数据导致同一张卷出现相同题
-        LinkedHashMap<String, Question> unique = new LinkedHashMap<>();
-        for (Question q : pool) {
-            unique.putIfAbsent(q.getStem() == null ? String.valueOf(q.getId()) : q.getStem(), q);
+        // P1-6 修复：只有池大于请求数（需要截取子集）时才按题干去重，
+        // 否则去重逻辑会把历史重复题干的题整道吞掉，导致「池 6 道只出 5 道」的少抽题
+        List<Question> picked;
+        if (pool.size() <= req.getCount()) {
+            // 池不大于请求数：全量出题
+            picked = pool;
+        } else {
+            // 同题干只保留一道，避免历史重复数据导致同一张卷出现相同题
+            LinkedHashMap<String, Question> unique = new LinkedHashMap<>();
+            for (Question q : pool) {
+                unique.putIfAbsent(q.getStem() == null ? String.valueOf(q.getId()) : q.getStem(), q);
+            }
+            picked = new ArrayList<>(unique.values()).subList(0, req.getCount());
         }
-        List<Question> picked = unique.values().stream().limit(req.getCount()).toList();
 
         int totalScore = picked.stream().mapToInt(q -> q.getScore() == null ? 1 : q.getScore()).sum();
         int duration = req.getDurationMinutes() == null ? 30 : req.getDurationMinutes();
@@ -239,11 +247,13 @@ public class MockExamService {
     @Transactional(rollbackFor = Exception.class)
     public MockReportVO submit(Long userId, Long recordId) {
         ExamRecord record = requireRecord(userId, recordId);
-        if (ONGOING.equals(record.getStatus())) {
-            // 已超时按超时交卷（EXPIRED），否则正常交卷（FINISHED）
-            boolean timeout = LocalDateTime.now().isAfter(record.getDeadline());
-            gradeIfFinished(record, timeout ? EXPIRED : FINISHED);
+        // P1-7：重复交卷直接 409 拒绝，不再返回 200「交卷成功」
+        if (!ONGOING.equals(record.getStatus())) {
+            throw new BizException(ResultCode.CONFLICT, "该考试已交卷，不能重复交卷");
         }
+        // 已超时按超时交卷（EXPIRED），否则正常交卷（FINISHED）
+        boolean timeout = LocalDateTime.now().isAfter(record.getDeadline());
+        gradeIfFinished(record, timeout ? EXPIRED : FINISHED);
         return buildReport(record);
     }
 

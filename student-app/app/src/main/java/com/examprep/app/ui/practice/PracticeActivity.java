@@ -316,7 +316,23 @@ public class PracticeActivity extends AppCompatActivity {
                 toast("请选择答案");
                 return;
             }
+        } else if ("FILL_BLANK".equals(current.type) || QuestionTypes.isMatching(current.type)
+                || QuestionTypes.isOrdering(current.type) || QuestionTypes.isSubjective(current.type)) {
+            // P0-2 修复：填空 / 匹配 / 排序 / 主观题从输入框取答案。
+            // 此前这些题型走到未初始化的 answer 变量，永远提示「请输入答案」交不上去
+            answer = currentInput();
+            if (answer.isEmpty()) {
+                toast("请输入答案");
+                return;
+            }
+            if (QuestionTypes.isMatching(current.type)
+                    && !answer.contains(":") && !answer.contains("：") && !answer.contains("=")) {
+                toast("匹配题请按 A:1,B:3 格式作答");
+                return;
+            }
         } else {
+            // 未识别题型兜底：一律尝试输入框文本
+            answer = currentInput();
             if (answer.isEmpty()) {
                 toast("请输入答案");
                 return;
@@ -388,6 +404,12 @@ public class PracticeActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(Call<Models.ApiResult<Object>> call,
                                            Response<Models.ApiResult<Object>> resp) {
+                        // P2-10 修复：按业务码分支提示，失败不能再显示「已记录」
+                        Models.ApiResult<Object> r = resp.body();
+                        if (r == null || !r.ok()) {
+                            toast(r == null ? "自评提交失败，请重试" : r.message);
+                            return;
+                        }
                         pendingSelfEval = 0;
                         binding.llSelfEval.setVisibility(View.GONE);
                         binding.tvSelfEvalTip.setVisibility(View.GONE);
@@ -398,7 +420,7 @@ public class PracticeActivity extends AppCompatActivity {
 
                     @Override
                     public void onFailure(Call<Models.ApiResult<Object>> call, Throwable t) {
-                        toast("自评提交失败");
+                        toast("自评提交失败：" + t.getMessage());
                     }
                 });
     }

@@ -258,9 +258,6 @@ public class PracticeService {
         }
 
         AnswerDetail detail = requireDetail(practiceId, req.getQuestionId());
-        if (detail.getUserAnswer() != null) {
-            throw new BizException("该题已作答，不能重复提交");
-        }
 
         Question question = questionMapper.selectById(req.getQuestionId());
         if (question == null) {
@@ -274,6 +271,12 @@ public class PracticeService {
         QuestionAnswer answer = questionAnswerMapper.selectOne(
                 Wrappers.<QuestionAnswer>lambdaQuery()
                         .eq(QuestionAnswer::getQuestionId, question.getId()));
+
+        // P2-9：同一 (practiceId, questionId) 重复提交幂等返回首次结果，
+        // 不再抛错也不重复累加 answeredCount / correctCount（双击提交防护）
+        if (detail.getUserAnswer() != null) {
+            return buildExistingResult(record, question, options, answer, detail);
+        }
 
         AnswerResultVO vo = new AnswerResultVO();
         vo.setQuestionId(question.getId());
@@ -325,6 +328,40 @@ public class PracticeService {
         return vo;
     }
 
+    /**
+     * P2-9：重建首次提交的判分结果（幂等返回）。
+     * 判分引擎是确定性的，用库里保存的 userAnswer 重算即可还原首次响应，不触碰任何计数与错题本。
+     */
+    private AnswerResultVO buildExistingResult(PracticeRecord record, Question question,
+                                               List<QuestionOption> options, QuestionAnswer answer,
+                                               AnswerDetail detail) {
+        AnswerResultVO vo = new AnswerResultVO();
+        vo.setQuestionId(question.getId());
+        vo.setType(question.getType());
+
+        JudgeService.Result judgeResult =
+                judgeService.judge(question, options, answer, detail.getUserAnswer());
+        if (judgeResult != null) {
+            vo.setJudged(true);
+            vo.setCorrect(judgeResult.correct());
+            vo.setCorrectAnswer(judgeResult.correctAnswerText());
+            vo.setAnalysis(question.getAnalysis());
+            vo.setNeedSelfEval(false);
+        } else {
+            // 主观题：已作答，自评与否以库里的 selfEval 为准
+            vo.setJudged(false);
+            vo.setNeedSelfEval(detail.getSelfEval() == null);
+            if (answer != null) {
+                vo.setReference(answer.getAnswerContent());
+                vo.setGradingPoints(answer.getGradingPoints());
+            }
+        }
+        vo.setAnsweredCount(record.getAnsweredCount());
+        vo.setTotalCount(record.getTotalCount());
+        vo.setCorrectCount(record.getCorrectCount());
+        return vo;
+    }
+
     // ==================================================================
     // 主观题自评
     // ==================================================================
@@ -332,6 +369,10 @@ public class PracticeService {
     @Transactional(rollbackFor = Exception.class)
     public AnswerResultVO selfEval(Long userId, Long practiceId, SelfEvalRequest req) {
         PracticeRecord record = requireRecord(userId, practiceId);
+        // P0-3：已交卷的练习不允许再自评改分（防刷分）
+        if (STATUS_FINISHED.equals(record.getStatus())) {
+            throw new BizException("练习已结束，不能再自评");
+        }
 
         AnswerDetail detail = requireDetail(practiceId, req.getQuestionId());
         if (detail.getUserAnswer() == null) {
@@ -349,6 +390,11 @@ public class PracticeService {
         Question question = questionMapper.selectById(req.getQuestionId());
         if (question == null) {
             throw new BizException(ResultCode.QUESTION_NOT_FOUND);
+        }
+
+        // P0-3：仅主观题允许自评；客观题 / 组合大题由后端自动判分，自评会覆盖判分结果
+        if (!judgeService.needSelfEval(question.getType()) || QuestionType.isComposite(question.getType())) {
+            throw new BizException("该题型为自动判分，不支持自评");
         }
 
         // 自评折算：会 = 满分，模糊 = 半分，不会 = 0

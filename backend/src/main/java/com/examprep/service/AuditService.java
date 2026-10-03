@@ -96,7 +96,8 @@ public class AuditService {
     @Transactional(rollbackFor = Exception.class)
     public void approveResource(Long resourceId, Long auditorId, String reason) {
         Resource resource = requireAuditable(resourceId, auditorId, PENDING);
-        changeStatus(resource, APPROVED);
+        // P0-4：CAS 更新，两个审核员并发审核同一资源时只有一个能成功
+        casResourceStatus(resource, PENDING, APPROVED);
         writeAuditRecord("RESOURCE", resourceId, auditorId, APPROVED, reason);
         noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
                 "资料审核通过",
@@ -112,7 +113,8 @@ public class AuditService {
             throw new BizException("驳回必须填写原因，便于上传人修改");
         }
         Resource resource = requireAuditable(resourceId, auditorId, PENDING);
-        changeStatus(resource, REJECTED);
+        // P0-4：CAS 更新，防止并发双份审核记录
+        casResourceStatus(resource, PENDING, REJECTED);
         writeAuditRecord("RESOURCE", resourceId, auditorId, REJECTED, reason);
         noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
                 "资料审核未通过",
@@ -131,7 +133,8 @@ public class AuditService {
         if (OFFLINE.equals(resource.getAuditStatus())) {
             throw new BizException(ResultCode.AUDIT_STATUS_ILLEGAL, "该资料已下架");
         }
-        changeStatus(resource, OFFLINE);
+        // P0-4：CAS 下架（WHERE audit_status != OFFLINE），并发下架只有一方生效
+        casResourceOffline(resource);
         writeAuditRecord("RESOURCE", resourceId, auditorId, OFFLINE, reason);
         noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
                 "资料已下架",
@@ -158,12 +161,34 @@ public class AuditService {
         return resource;
     }
 
-    private void changeStatus(Resource resource, String status) {
+    /**
+     * P0-4：CAS 更新资料状态——UPDATE 带 `WHERE audit_status = expectedStatus` 前置条件。
+     * 两个审核员并发审核同一资源时，后到者影响行数为 0，抛 409「该内容已被处理」，
+     * 避免双份审核记录与状态机矛盾（先 requireAuditable 预检、再 CAS 兜底竞态窗口）。
+     */
+    private void casResourceStatus(Resource resource, String expectedStatus, String newStatus) {
         Resource update = new Resource();
-        update.setId(resource.getId());
-        update.setAuditStatus(status);
-        resourceMapper.updateById(update);
-        resource.setAuditStatus(status);
+        update.setAuditStatus(newStatus);
+        int rows = resourceMapper.update(update, Wrappers.<Resource>lambdaUpdate()
+                .eq(Resource::getId, resource.getId())
+                .eq(Resource::getAuditStatus, expectedStatus));
+        if (rows == 0) {
+            throw new BizException(ResultCode.CONFLICT, "该内容已被处理，请刷新后查看最新状态");
+        }
+        resource.setAuditStatus(newStatus);
+    }
+
+    /** P0-4：CAS 下架——只要当前不是 OFFLINE 即可下架（与 casResourceStatus 同理，防并发双下架记录） */
+    private void casResourceOffline(Resource resource) {
+        Resource update = new Resource();
+        update.setAuditStatus(OFFLINE);
+        int rows = resourceMapper.update(update, Wrappers.<Resource>lambdaUpdate()
+                .eq(Resource::getId, resource.getId())
+                .ne(Resource::getAuditStatus, OFFLINE));
+        if (rows == 0) {
+            throw new BizException(ResultCode.CONFLICT, "该内容已被处理，请刷新后查看最新状态");
+        }
+        resource.setAuditStatus(OFFLINE);
     }
 
     private void writeAuditRecord(String targetType, Long targetId, Long auditorId,
@@ -206,12 +231,17 @@ public class AuditService {
         }
 
         Report update = new Report();
-        update.setId(reportId);
         update.setStatus(status);
         update.setHandlerId(handlerId);
         update.setHandleNote(req.getNote());
         update.setHandledAt(LocalDateTime.now());
-        reportMapper.updateById(update);
+        // P0-4：CAS 更新（WHERE status = 'PENDING'），并发处理同一举报只有一方生效
+        int rows = reportMapper.update(update, Wrappers.<Report>lambdaUpdate()
+                .eq(Report::getId, reportId)
+                .eq(Report::getStatus, PENDING));
+        if (rows == 0) {
+            throw new BizException(ResultCode.CONFLICT, "该举报已被处理，请刷新后查看最新状态");
+        }
 
         boolean valid = "VALID".equals(status);
 
@@ -220,7 +250,8 @@ public class AuditService {
             if ("RESOURCE".equals(report.getTargetType())) {
                 Resource resource = resourceMapper.selectById(report.getTargetId());
                 if (resource != null && !OFFLINE.equals(resource.getAuditStatus())) {
-                    changeStatus(resource, OFFLINE);
+                    // P0-4：CAS 下架，防止并发双份下架审核记录
+                    casResourceOffline(resource);
                     writeAuditRecord("RESOURCE", resource.getId(), handlerId, OFFLINE,
                             "举报成立下架：" + req.getNote());
                     noticeService.send(resource.getUploaderId(), NoticeService.TYPE_AUDIT,
@@ -266,7 +297,8 @@ public class AuditService {
     @Transactional(rollbackFor = Exception.class)
     public void approveQuestion(Long questionId, Long auditorId, String reason) {
         Question question = requireAuditableQuestion(questionId, auditorId, PENDING);
-        updateQuestionStatus(question, APPROVED);
+        // P0-4：CAS 更新，防止并发双份审核记录
+        casQuestionStatus(question, PENDING, APPROVED);
         writeAuditRecord("QUESTION", questionId, auditorId, APPROVED, reason);
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "QUESTION", questionId,
                 "题目审核通过 #" + questionId);
@@ -278,7 +310,8 @@ public class AuditService {
             throw new BizException("驳回必须填写原因");
         }
         Question question = requireAuditableQuestion(questionId, auditorId, PENDING);
-        updateQuestionStatus(question, REJECTED);
+        // P0-4：CAS 更新，防止并发双份审核记录
+        casQuestionStatus(question, PENDING, REJECTED);
         writeAuditRecord("QUESTION", questionId, auditorId, REJECTED, reason);
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "QUESTION", questionId,
                 "题目驳回 #" + questionId + "：" + reason);
@@ -300,12 +333,17 @@ public class AuditService {
         return question;
     }
 
-    private void updateQuestionStatus(Question question, String status) {
+    /** P0-4：CAS 更新题目状态——UPDATE 带 `WHERE audit_status = expectedStatus`，影响行数 0 抛 409 */
+    private void casQuestionStatus(Question question, String expectedStatus, String newStatus) {
         Question update = new Question();
-        update.setId(question.getId());
-        update.setAuditStatus(status);
-        questionMapper.updateById(update);
-        question.setAuditStatus(status);
+        update.setAuditStatus(newStatus);
+        int rows = questionMapper.update(update, Wrappers.<Question>lambdaUpdate()
+                .eq(Question::getId, question.getId())
+                .eq(Question::getAuditStatus, expectedStatus));
+        if (rows == 0) {
+            throw new BizException(ResultCode.CONFLICT, "该题目已被处理，请刷新后查看最新状态");
+        }
+        question.setAuditStatus(newStatus);
     }
 
     // ==================================================================

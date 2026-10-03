@@ -85,6 +85,7 @@ public class CodeRunService {
             log.error("代码运行失败 questionId={}", questionId, e);
             throw new BizException("运行失败：" + e.getMessage());
         } finally {
+            // P2-8③：临时目录在所有退出路径（正常 / 异常 / 超时强杀）都会在此统一清理
             cleanup(dir);
             log.info("用户 {} 运行编程题 {}（{}），耗时 {}ms", userId, questionId, lang, System.currentTimeMillis() - begin);
         }
@@ -135,26 +136,97 @@ public class CodeRunService {
         return execute(dir, List.of(javaBin, className + ".java"), stdin, expected);
     }
 
+    /** 输出上限（约 1MB），防止失控程序把内存吃满 */
+    private static final int MAX_OUTPUT_CHARS = 1_000_000;
+
     private CodeRunResultVO execute(Path dir, List<String> command, String stdin, String expected) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(command).directory(dir.toFile());
         Process process = pb.start();
 
+        // P2-8①：起独立线程排空 stdout/stderr。若在 waitFor 之后才读输出，
+        // 大输出会把 OS 管道缓冲区写满，子进程阻塞在 write 上永不退出，被误判为「超时」
+        StringBuilder outBuf = new StringBuilder();
+        StringBuilder errBuf = new StringBuilder();
+        Thread outDrainer = new Thread(() -> drain(process.getInputStream(), outBuf), "coderun-stdout");
+        Thread errDrainer = new Thread(() -> drain(process.getErrorStream(), errBuf), "coderun-stderr");
+        outDrainer.setDaemon(true);
+        errDrainer.setDaemon(true);
+        outDrainer.start();
+        errDrainer.start();
+
+        // 写 stdin：进程提前退出时管道已关，写入抛 IOException 属正常路径，吞掉即可
         if (stdin != null && !stdin.isEmpty()) {
-            process.getOutputStream().write(stdin.getBytes(StandardCharsets.UTF_8));
+            try {
+                process.getOutputStream().write(stdin.getBytes(StandardCharsets.UTF_8));
+                process.getOutputStream().flush();
+            } catch (IOException ignored) {
+                // 进程未读 stdin 就退出
+            }
         }
-        process.getOutputStream().close();
+        try {
+            process.getOutputStream().close();
+        } catch (IOException ignored) {
+            // 同上
+        }
 
         boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         if (!finished) {
-            process.destroyForcibly();
+            destroyTree(process);
+            // 等排空线程把残余输出读完（被杀的进程管道会关闭，read 返回 -1）
+            outDrainer.join(2000);
+            errDrainer.join(2000);
             return new CodeRunResultVO("", "运行超时（超过 " + TIMEOUT_SECONDS + " 秒，已强制终止）", expected, false, false, null);
         }
 
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        String error = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        // 进程已退出，管道关闭，排空线程必然很快结束；join 只兜底防悬挂
+        outDrainer.join(5000);
+        errDrainer.join(5000);
+
+        String output = outBuf.toString();
+        String error = errBuf.toString();
         boolean matched = expected != null && normalize(output).equals(normalize(expected));
         long cost = 0;
         return new CodeRunResultVO(output, error, expected, matched, false, cost);
+    }
+
+    /** 后台排空一个输入流到缓冲区（P2-8①），超出上限后停止读取（该进程随后会被超时强杀） */
+    private void drain(java.io.InputStream is, StringBuilder buf) {
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(is, StandardCharsets.UTF_8))) {
+            char[] cbuf = new char[4096];
+            int n;
+            while ((n = reader.read(cbuf)) != -1) {
+                buf.append(cbuf, 0, n);
+                if (buf.length() >= MAX_OUTPUT_CHARS) {
+                    break;
+                }
+            }
+        } catch (IOException ignored) {
+            // 进程被杀 / 管道中断
+        }
+    }
+
+    /**
+     * P2-8②：强杀整棵进程树。
+     * 局限说明：JDK 的 destroyForcibly 只杀直接子进程；Windows 上若用户程序又派生了孙进程
+     * （如 C 程序 spawn 子进程），destroyForcibly 杀不掉，这里用 `taskkill /T /F` 按树强杀兜底。
+     * 本服务当前只运行单文件 C / Java 程序，通常无孙进程，此兜底防御用户代码自行 fork 的场景。
+     */
+    private void destroyTree(Process process) {
+        process.destroyForcibly();
+        if (System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+            try {
+                new ProcessBuilder("taskkill", "/PID", String.valueOf(process.pid()), "/T", "/F")
+                        .start().waitFor(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.debug("taskkill 兜底失败：{}", e.getMessage());
+            }
+        }
+        try {
+            process.waitFor(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String normalize(String s) {

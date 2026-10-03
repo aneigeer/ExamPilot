@@ -24,6 +24,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -329,11 +330,15 @@ public class FileStorageService {
                 return false;
             }
             long expireAt = Long.parseLong(parts[1]);
+            // P1-5：先校验过期时间（HMAC 已覆盖 fileId:expireAt，改任何一位都会导致签名不匹配）
             if (System.currentTimeMillis() > expireAt) {
                 log.debug("下载签名已过期 fileId={}", fileId);
                 return false;
             }
-            return hmac(parts[0] + ":" + parts[1]).equals(parts[2]);
+            // 常量时间比较，避免逐字节短路造成时序侧信道
+            return MessageDigest.isEqual(
+                    hmac(parts[0] + ":" + parts[1]).getBytes(StandardCharsets.UTF_8),
+                    parts[2].getBytes(StandardCharsets.UTF_8));
         } catch (NumberFormatException e) {
             return false;
         }
