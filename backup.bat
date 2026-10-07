@@ -20,3 +20,5 @@ rem 循环保留最近 %KEEP% 份
 for /f "skip=%KEEP% delims=" %%F in ('dir /b /o-n "%DIR%\%DB%_*.sql"') do del "%DIR%\%%F"
 
 echo 备份完成：%DIR%\%DB%_%STAMP%.sql
+
+pause

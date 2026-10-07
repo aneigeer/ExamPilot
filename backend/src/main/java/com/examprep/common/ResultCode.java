@@ -47,7 +47,29 @@ public enum ResultCode {
     // ---------- 审核与举报 ----------
     AUDIT_SELF_FORBIDDEN(4001, "不能审核自己上传的内容"),
     AUDIT_STATUS_ILLEGAL(4002, "当前状态不允许该操作"),
-    REPORT_ALREADY_HANDLED(4003, "该举报已处理");
+    REPORT_ALREADY_HANDLED(4003, "该举报已处理"),
+
+    // ---------- AI 导学（5xxx 段）----------
+    AI_QUESTION_EMPTY(5001, "请输入你的问题"),
+    AI_ANSWER_NOT_FOUND(5002, "未找到相关资料"),
+    AI_LLM_UNAVAILABLE(5003, "AI 服务暂时不可用，请稍后重试"),
+    AI_RETRIEVAL_FAILED(5004, "AI 检索失败，请稍后重试"),
+    AI_REINDEX_FAILED(5005, "AI 索引重建失败"),
+    AI_PROFILE_FAILED(5006, "学情画像生成失败"),
+    AI_RECOMMEND_FAILED(5007, "推荐生成失败"),
+    AI_SERVICE_UNAVAILABLE(503, "AI 服务暂时不可用，请使用题库与搜索功能"),
+
+    // ---------- AI 微服务扩展（T09/T10/T11；52xx 段由 FastAPI 侧使用）----------
+    AI_FASTAPI_UNAVAILABLE(5011, "AI 微服务不可用，已降级为基础检索"),
+    AI_FASTAPI_TIMEOUT(5012, "AI 微服务响应超时，已降级为基础检索"),
+    AI_VECTOR_SEARCH_FAILED(5013, "向量检索失败，已降级为全文检索"),
+    AI_EMBEDDING_FAILED(5014, "向量化失败，已降级为全文检索"),
+    AI_VECTOR_INDEX_STALE(5015, "向量索引与当前模型不匹配，需重建"),
+    AI_INDEX_SYNC_PENDING(5016, "向量索引待同步，检索结果可能不完整"),
+    AI_STORAGE_UNAVAILABLE(5017, "对象存储不可用，已回落本地磁盘"),
+    AI_OCR_UNAVAILABLE(5018, "OCR 不可用，请手动录入"),
+    AI_OCR_RECOGNIZE_FAILED(5019, "OCR 识别失败，请手动录入"),
+    AI_OCR_STRUCTURE_FAILED(5020, "OCR 结构化失败，原图已归档，请人工补录");
 
     private final Integer code;
     private final String message;

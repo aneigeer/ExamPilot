@@ -1,0 +1,24 @@
+# ======================================================================================
+# OCR 可选依赖（体积大，主理人按需执行 install-ocr.bat 安装）
+#
+# ★ 为什么不放进 requirements.txt：
+#   paddlepaddle CPU wheel 约 200MB + paddleocr 约 300MB + 首次运行自动下载模型
+#   约 50-100MB，合计 500MB–1GB。而 OCR 在本项目里是**可选能力**
+#   （设计方案 D2 建议放功能验证最后一位，不进主动线）。
+#
+# ★ 不装会怎样（**不会影响服务启动**）：
+#   - /v1/health 的 ocr.ready = false，其余能力照常
+#   - POST /v1/ocr 返回 503 {"code":5205,...,"degraded":true}
+#   - Java 侧 OcrService 返回"OCR 不可用，请手动录入"，管理员手工建题，功能不断
+#
+# ★ 已核实兼容性（设计方案 B.5）：
+#   PaddlePaddle 3.3.0 官方支持 Python 3.9-3.13 + Windows 10/11 x86_64，本机 3.13.14 可直接装。
+# ======================================================================================
+
+# CPU 版 paddlepaddle（必须用官方 CPU 源，PyPI 上的默认包不含 MKL 优化）
+# 安装命令（见 install-ocr.bat）：
+#   pip install paddlepaddle==3.3.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+paddlepaddle==3.3.0              # 约 200 MB
+
+# PaddleOCR 3.x（首次运行自动下载检测+识别模型）
+paddleocr==3.0.0                 # 约 300 MB（含模型缓存逻辑）

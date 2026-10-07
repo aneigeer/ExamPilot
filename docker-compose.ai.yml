@@ -1,0 +1,56 @@
+# AI 服务依赖栈：Qdrant（向量库）+ MinIO（对象存储）
+#
+# ★ name 必须显式声明：本项目目录名是纯中文「大学生多考试备考知识库与题库系统」，
+#   Docker Compose 从目录名推导 project name 时会剥掉非 ASCII 字符，推导结果为空串，
+#   直接报 `project name must not be empty` 而无法启动。显式命名即可绕过。
+name: exam-prep-ai
+#
+# 前置条件（用户执行）：必须先启动 Docker Desktop 引擎
+#   启动：docker info  期望能看到 Server Version
+#   验证：docker compose -f docker-compose.ai.yml config --quiet
+#
+# 降级说明：本文件不启动则 Java AI 模块自动降级到 ngram 全文检索 + 本地磁盘，
+#         系统功能不受影响（详见 docs/AI微服务扩展设计方案.md 章节 D.6）
+
+services:
+
+  # ========== Qdrant 向量库 ==========
+  # collection: exam_chunks，与 Java 侧 ai_vector_index_meta.collection 对应
+  # 持久化：qdrant-data volume。即使误删，Java 侧 reindex 可从 MySQL ai_chunk 完全重建
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: examprep-qdrant
+    ports:
+      - "6333:6333"   # HTTP/REST（FastAPI 调用）
+      - "6334:6334"   # gRPC（预留，本项目不用）
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      # ★ 不要设置 QDRANT__SERVICE__API_KEY（哪怕空串）：Qdrant 的语义是"该变量只要被声明
+      #   就等于开启鉴权"，空串会导致连匿名请求都被拒（返回 401 Must provide an API key）。
+      #   局域网使用默认不鉴权；如需开启，把下面一行取消注释并同步配置到
+      #   ai-service/.env 的 QDRANT_API_KEY，两边必须一致。
+      # QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:-}"
+      QDRANT__LOG_LEVEL: "WARN"
+    restart: unless-stopped
+
+  # ========== MinIO 对象存储 ==========
+  # 桶：exam-prep（由 Java 侧启动时幂等自动创建，无需手动 mc mb）
+  # 密钥：生产必须用环境变量注入，默认值仅供本机使用
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: examprep-minio
+    ports:
+      - "9000:9000"   # S3 API（Java minio-java 调用）
+      - "9001:9001"   # Web 控制台（浏览器可视化，使用可用）
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+volumes:
+  qdrant-data:
+  minio-data:

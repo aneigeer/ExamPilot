@@ -3,6 +3,7 @@ package com.examprep.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.examprep.common.BizException;
 import com.examprep.common.ResultCode;
+import com.examprep.config.StorageProperties;
 import com.examprep.entity.FileRecord;
 import com.examprep.entity.ResourcePage;
 import com.examprep.mapper.FileRecordMapper;
@@ -24,10 +25,12 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.ByteArrayInputStream;
+import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -61,6 +64,8 @@ public class FileStorageService {
 
     private final FileRecordMapper fileRecordMapper;
     private final ResourcePageMapper resourcePageMapper;
+    private final MinioStorageService minioStorageService;
+    private final StorageProperties storageProperties;
 
     private final Path uploadRoot;
     private final long imageMaxSize;
@@ -75,12 +80,16 @@ public class FileStorageService {
 
     public FileStorageService(FileRecordMapper fileRecordMapper,
                               ResourcePageMapper resourcePageMapper,
+                              MinioStorageService minioStorageService,
+                              StorageProperties storageProperties,
                               @Value("${app.upload.dir:./uploads}") String uploadDir,
                               @Value("${app.upload.image-max-size:10485760}") long imageMaxSize,
                               @Value("${app.upload.allowed-image-types:jpg,jpeg,png,webp,gif}") String allowedImageTypes,
                               @Value("${app.jwt.secret}") String jwtSecret) {
         this.fileRecordMapper = fileRecordMapper;
         this.resourcePageMapper = resourcePageMapper;
+        this.minioStorageService = minioStorageService;
+        this.storageProperties = storageProperties;
         this.uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
         this.imageMaxSize = imageMaxSize;
         this.allowedImageTypes = Arrays.stream(allowedImageTypes.split(","))
@@ -180,6 +189,17 @@ public class FileStorageService {
         }
     }
 
+    /**
+     * 双轨存储（T10）：<b>MinIO 为主 + 本地磁盘兜底</b>
+     *
+     * <p><b>铁律：上传永远不能失败。</b>执行顺序：
+     * <ol>
+     *   <li>MinIO 可用 → 写 MinIO，{@code stored_path = minio://bucket/key}</li>
+     *   <li>双写开关开启 → 同时在本地留一份（迁移期可回落）</li>
+     *   <li>MinIO 不可用 / 超时 / 熔断 → <b>只落本地</b>，{@code stored_path} 为相对路径</li>
+     * </ol>
+     * 无论走哪条路，{@code file_record} 都照常写、接口都返回成功。
+     */
     private FileRecord store(MultipartFile file, Long uploaderId, String subDir) {
         if (file == null || file.isEmpty()) {
             throw new BizException(ResultCode.UPLOAD_EMPTY);
@@ -188,41 +208,90 @@ public class FileStorageService {
                 ? file.getOriginalFilename() : "unnamed";
         String ext = extOf(originalName);
 
-        String md5;
+        byte[] bytes;
         try (InputStream is = file.getInputStream()) {
-            md5 = DigestUtils.md5DigestAsHex(is);
+            bytes = is.readAllBytes();
         } catch (IOException e) {
             throw new BizException("读取上传文件失败：" + e.getMessage());
         }
+        String md5 = DigestUtils.md5DigestAsHex(bytes);
 
         // 按日期分目录，避免单目录文件过多
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String fileName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
         String relative = subDir + "/" + datePart + "/" + fileName;
 
-        try {
-            Path target = uploadRoot.resolve(relative).normalize();
-            if (!target.startsWith(uploadRoot)) {
-                throw new BizException("非法的文件路径");
-            }
-            Files.createDirectories(target.getParent());
-            file.transferTo(target.toFile());
-
-            FileRecord record = new FileRecord();
-            record.setOriginalName(originalName);
-            record.setStoredPath(relative);
-            record.setMd5(md5);
-            record.setFileSize(file.getSize());
-            record.setMimeType(file.getContentType());
-            record.setExt(ext);
-            record.setUploaderId(uploaderId);
-            fileRecordMapper.insert(record);
-
-            log.info("文件上传成功 id={} name={} size={} md5={}", record.getId(), originalName, file.getSize(), md5);
-            return record;
-        } catch (IOException e) {
-            throw new BizException("保存文件失败：" + e.getMessage());
+        boolean minioUsable = minioStorageService.available();
+        if (minioUsable) {
+            minioStorageService.ensureBucket();
         }
+
+        // ---------- ① 主路径：MinIO ----------
+        String storedPath = relative;
+        if (minioUsable) {
+            try (InputStream is = new ByteArrayInputStream(bytes)) {
+                if (minioStorageService.putObject(relative, is, bytes.length, file.getContentType())) {
+                    storedPath = storageProperties.toStoredPath(relative);
+                }
+            } catch (IOException e) {
+                log.warn("[存储] 构造 MinIO 流失败，落本地: {}", e.getMessage());
+            }
+        }
+
+        // ---------- ② 双写：本地也留一份（迁移期可回落）----------
+        boolean needLocal = storageProperties.isDualWriteLocal()
+                || !StorageProperties.isMinioPath(storedPath);
+        if (needLocal) {
+            try {
+                Path target = uploadRoot.resolve(relative).normalize();
+                if (!target.startsWith(uploadRoot)) {
+                    throw new BizException("非法的文件路径");
+                }
+                Files.createDirectories(target.getParent());
+                Files.write(target, bytes);
+            } catch (IOException e) {
+                if (StorageProperties.isMinioPath(storedPath)) {
+                    // 已进 MinIO，本地副本写失败不影响上传成功（只失去回落能力）
+                    log.warn("[存储] MinIO 已成功但本地双写失败（不影响上传）: {}", e.getMessage());
+                } else {
+                    throw new BizException("保存文件失败：" + e.getMessage());
+                }
+            }
+        }
+
+        FileRecord record = new FileRecord();
+        record.setOriginalName(originalName);
+        record.setStoredPath(storedPath);
+        record.setMd5(md5);
+        record.setFileSize(file.getSize());
+        record.setMimeType(file.getContentType());
+        record.setExt(ext);
+        record.setUploaderId(uploaderId);
+        fileRecordMapper.insert(record);
+
+        log.info("文件上传成功 id={} name={} size={} md5={} 存储={}",
+                record.getId(), originalName, file.getSize(), md5,
+                StorageProperties.isMinioPath(storedPath) ? "minio" : "本地磁盘");
+        return record;
+    }
+
+    /**
+     * 解析文件物理路径（<b>T10 双读</b>）
+     *
+     * <p>{@code minio://} 前缀 → 走对象存储；其余 → 本地磁盘。
+     * 迁移期存量文件仍是本地相对路径，因此两种前缀会长期共存。
+     *
+     * @return 本地绝对路径；该文件在 MinIO 时返回 null
+     */
+    public Path resolveLocalPath(FileRecord fileRecord) {
+        if (fileRecord == null || !StringUtils.hasText(fileRecord.getStoredPath())) {
+            return null;
+        }
+        if (StorageProperties.isMinioPath(fileRecord.getStoredPath())) {
+            return null;
+        }
+        Path target = uploadRoot.resolve(fileRecord.getStoredPath()).normalize();
+        return target.startsWith(uploadRoot) ? target : null;
     }
 
     // ==================================================================
@@ -237,7 +306,52 @@ public class FileStorageService {
      * 其他文档类型暂不支持自动预览（P1 可接入 LibreOffice 转换）
      */
     public int buildPreviewPages(FileRecord fileRecord, Long resourceId) {
-        Path source = uploadRoot.resolve(fileRecord.getStoredPath());
+        // ★ T10 双读：minio:// 走对象存储，其余走本地磁盘
+        //   迁移期存量文件仍是本地相对路径，两种形式长期共存
+        Path localSource = resolveLocalPath(fileRecord);
+        if (localSource != null && Files.exists(localSource)) {
+            return renderPreviewPages(localSource, fileRecord, resourceId);
+        }
+
+        // 本地没有 → 试 MinIO
+        String objectKey = StorageProperties.parseObjectKey(fileRecord.getStoredPath());
+        if (objectKey != null) {
+            // 优先回落双写的本地副本（MinIO 不可用时仍能预览）
+            if (localSource != null && Files.exists(localSource)) {
+                return renderPreviewPages(localSource, fileRecord, resourceId);
+            }
+            try (InputStream is = minioStorageService.getObject(objectKey)) {
+                if (is == null) {
+                    log.warn("源文件在 MinIO 与本地均不可读，跳过预览图生成：{}",
+                            fileRecord.getStoredPath());
+                    return 0;
+                }
+                // 物化到临时文件供 PDFBox / 图片解码使用（PDFBox 需要可定位文件）
+                Path temp = Files.createTempFile("minio-preview-", "." + fileRecord.getExt());
+                try {
+                    Files.copy(is, temp, StandardCopyOption.REPLACE_EXISTING);
+                    return renderPreviewPages(temp, fileRecord, resourceId);
+                } finally {
+                    try {
+                        Files.deleteIfExists(temp);
+                    } catch (IOException ignored) {
+                        // 临时文件删除失败不影响业务
+                    }
+                }
+            } catch (IOException e) {
+                log.warn("从 MinIO 读取源文件失败: {}", e.getMessage());
+                return 0;
+            }
+        }
+
+        log.warn("源文件不存在，跳过预览图生成：{}", fileRecord.getStoredPath());
+        return 0;
+    }
+
+    /**
+     * 实际执行预览图渲染（本地路径或临时文件）
+     */
+    private int renderPreviewPages(Path source, FileRecord fileRecord, Long resourceId) {
         if (!Files.exists(source)) {
             log.warn("源文件不存在，跳过预览图生成：{}", source);
             return 0;

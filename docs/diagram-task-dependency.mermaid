@@ -1,0 +1,13 @@
+%% 任务依赖图 —— 来源 docs/AI模块设计方案.md 章节 D
+graph LR
+    T01["T01 语料底座与检索层<br/>2.5人日"] --> T03["T03 问答API与鉴权<br/>1人日"]
+    T01 --> T04["T04 学情画像与推荐<br/>1.5人日"]
+    T02["T02 大模型客户端与降级链<br/>1.5人日"] --> T03
+    T03 --> T05["T05 App端接入与联调<br/>2人日"]
+    T04 --> T05
+
+    style T01 fill:#ffe6cc
+    style T02 fill:#e6f3ff
+    style T03 fill:#e6ffe6
+    style T04 fill:#e6ffe6
+    style T05 fill:#f0e6ff

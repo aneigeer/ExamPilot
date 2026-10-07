@@ -57,6 +57,8 @@ public class SecurityConfig {
             "/teachers/**",
             "/semesters/**",
             "/courses/**",
+            // AI 导学：能力探测需匿名可调（App 未登录时也要能判断是否显示 AI 入口）
+            "/ai/capability",
             // 其他
             "/announcements/**",
             "/search/**",
@@ -70,7 +72,10 @@ public class SecurityConfig {
     private static final String[] AUTH_REQUIRED_GET = {
             "/resources/mine",
             "/favorites/**",
-            "/me/**"
+            "/me/**",
+            // AI 导学：学情画像与个性化推荐是个人数据，必须登录
+            "/ai/knowledge-profile",
+            "/ai/recommendations"
     };
 
     /** 完全放行（无需登录，含 POST） */
@@ -104,6 +109,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, AUTH_REQUIRED_GET).authenticated()
                         // 匿名可读接口
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
+                        // AI 问答：需登录（不带 token → 401）。
+                        // 业务层用 SecurityUtils.currentUserIdOrNull() 取用户，天然兼容游客调用场景
+                        //（游客可提问，只是不建画像加权、不做薄弱知识点 boost）。
+                        .requestMatchers(HttpMethod.POST, "/ai/ask").authenticated()
                         // 管理端静态页面（Vue 单页应用）匿名可访问；页面内的管理 API 仍有角色校验
                         .requestMatchers(HttpMethod.GET, "/", "/admin/", "/admin/index.html",
                                 "/admin/vendor/**").permitAll()

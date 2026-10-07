@@ -1,0 +1,17 @@
+%% 扩展任务依赖图 T06~T12 —— 来源 docs/AI微服务扩展设计方案.md 章节 D
+graph LR
+    T06["T06 AI模块接口解耦<br/>0.5人日"] --> T07["T07 FastAPI骨架+健康检查<br/>1人日"]
+    T06 --> T10["T10 MinIO接入<br/>1.5人日"]
+    T07 --> T08["T08 向量库+Embedding<br/>2人日"]
+    T07 --> T09["T09 Java↔FastAPI双通道问答<br/>1.5人日"]
+    T08 --> T09
+    T09 --> T11["T11 OCR题目结构化<br/>2.5人日"]
+    T10 --> T12["T12 联调与降级演练<br/>0.5人日"]
+    T11 --> T12
+    T09 --> T12
+
+    style T06 fill:#ffe6cc
+    style T08 fill:#e6f3ff
+    style T09 fill:#e6ffe6
+    style T11 fill:#e6ffe6
+    style T12 fill:#f0e6ff

@@ -1,0 +1,54 @@
+# ======================================================================================
+# AI 微服务核心依赖（主理人执行 install.bat 时安装）
+#
+# 体积预估（本机 Python 3.13 / Windows x64 实测口径）：
+#   fastapi            约 2 MB
+#   uvicorn[standard]  约 15 MB（含 uvloop/httptools/watchfiles/websockets）
+#   pydantic           约 5 MB
+#   httpx              约 3 MB
+#   onnxruntime        约 60 MB   ★ 不含 PyTorch，这是选 ONNX 路线的核心原因
+#   tokenizers         约 10 MB
+#   numpy              约 20 MB
+#   qdrant-client      约 5 MB
+#   pypdf              约 3 MB
+#   pillow             约 7 MB
+#   python-multipart   约 1 MB
+#   pytest             约 5 MB
+#   ---------------------------------------------------------------------------
+#   合计               约 135 MB（不含 embedding 模型文件约 28 MB）
+#
+# 明确不装（以及为什么）：
+#   torch / sentence-transformers  → 会拖入 PyTorch 800MB–2GB，bge-small 用 ONNX 完全够
+#   chromadb / faiss-cpu           → Qdrant 已覆盖，且 chromadb 过滤能力弱、无独立服务
+#   paddleocr / paddlepaddle        → 体积 500MB–1GB，放 requirements-ocr.txt 按需安装
+#
+# 全部固定次版本号，保证使用场景可复现。
+# ======================================================================================
+
+# —— Web 框架 ——
+fastapi==0.115.6                 # 约 2 MB
+uvicorn[standard]==0.34.0        # 约 15 MB
+python-multipart==0.0.20         # 约 1 MB（表单/文件上传支持）
+
+# —— 数据校验与配置 ——
+pydantic==2.10.4                 # 约 5 MB（含 pydantic-core 约 2 MB）
+
+# —— HTTP 客户端（调 GLM 用）——
+httpx==0.28.1                    # 约 3 MB
+
+# —— Embedding：ONNX Runtime 路线，不引入 PyTorch ——
+onnxruntime==1.20.1              # 约 60 MB
+tokenizers==0.20.3               # 约 10 MB
+numpy==2.2.1                     # 约 20 MB
+
+# —— 向量库客户端 ——
+qdrant-client==1.12.2            # 约 5 MB
+
+# —— 大 PDF 文本抽取（纯 Python，轻量）——
+pypdf==5.1.0                     # 约 3 MB
+
+# —— 图片处理（base64 解码后格式校验 / 缩放）——
+pillow==11.0.0                   # 约 7 MB
+
+# —— 测试（pytest 用；生产运行不需要，可选卸载）——
+pytest==8.3.4                    # 约 5 MB

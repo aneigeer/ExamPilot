@@ -1,0 +1,54 @@
+%% 五层架构图 —— 来源 docs/AI微服务扩展设计方案.md 章节 A
+flowchart TB
+    subgraph L0["客户端"]
+        APP["Android 学生端<br/>student-app"]
+    end
+
+    subgraph L1["① Java 后端（业务/鉴权/判分/审核）:8080"]
+        JC["AiController / QuestionController"]
+        ORCH["★ AiQaService<br/>编排 + 五层降级<br/>（扩展：双通道调度）"]
+        RET["RetrievalService<br/>ngram 召回 + 五因子重排<br/>（降级为兜底通道）"]
+        PROF["KnowledgeProfileService<br/>学情画像（Java 独有）"]
+        CSYNC["ChunkSyncService<br/>语料抽取 + 幂等同步<br/>（扩展：双写）"]
+        LLMJ["DashScope / Zhipu / Extractive<br/>（保留为兜底生成器）"]
+    end
+
+    subgraph L2["② FastAPI AI 服务 :8000（新增独立进程）"]
+        FA["FastAPI 路由层<br/>/embedding /vector-search /rerank /ocr /llm-proxy"]
+        EMB["Embedding 服务<br/>bge-small-zh ONNX（本地推理）"]
+        VEC["向量检索 + 重排融合"]
+        OCRM["OCR 识别 + 题目结构化"]
+        LLMF["大模型代理（可选）"]
+    end
+
+    subgraph L3["③ 存储层"]
+        MINIO["MinIO :9000<br/>对象存储（桶 exam-prep）"]
+        QDR["Qdrant :6333<br/>向量库（collection exam_chunks）"]
+        MYSQL["MySQL 8.0<br/>业务数据 + ai_chunk<br/>+ ngram 全文索引"]
+    end
+
+    APP -->|"HTTPS /api/ai/ask"| JC
+    JC --> ORCH
+    ORCH --> RET
+    ORCH --> PROF
+    ORCH -->|"① 主通道<br/>向量检索+生成"| FA
+    ORCH -->|"② 超时/失败<br/>降级 ngram 检索"| RET
+    RET --> MYSQL
+    ORCH -.->|"③ 双兜底"| LLMJ
+    RET -.->|"兜底召回结果"| ORCH
+
+    FA --> EMB
+    FA --> VEC
+    FA --> OCRM
+    FA -.-> LLMF
+    VEC --> QDR
+    EMB -->|"① 索引时用"| QDR
+    CSYNC -->|"审核通过后触发"| MYSQL
+    CSYNC -.->|"推送待向量化 chunk"| FA
+    OCRM -->|"图片/PDF"| MINIO
+    JC -->|"资料/题目文件"| MINIO
+
+    style ORCH fill:#fff3cd
+    style FA fill:#d1ecf1
+    style L2 fill:#e6f3ff
+    style L3 fill:#f0fff0

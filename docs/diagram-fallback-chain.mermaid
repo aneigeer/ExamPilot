@@ -1,0 +1,25 @@
+%% AI 降级链流程图 —— 来源 docs/AI模块设计方案.md 章节 B.4
+flowchart TD
+    START["POST /api/ai/ask"] --> R{"网络可达？<br/>App 端已拦截则不发起"}
+    R -->|否| E0["返回 503 + 友好文案<br/>引导使用题库/搜索"]
+    R -->|是| S["RetrievalService<br/>召回+重排 Top-5"]
+    S --> H{"命中且 finalScore ≥ 0.15 ?"}
+    H -->|否| E1["拒答：未找到相关资料<br/>sources=[] generator=none"]
+    H -->|是| T{"userId 传入？<br/>(游客不建画像)"}
+    T -->|是| P["KnowledgeProfileService<br/>薄弱知识点加权 +0.15"]
+    T -->|否| C["组装上下文<br/>编号 [1][2][3]"]
+    P --> C
+    C --> L{"LlmClient.available() ?"}
+    L -->|否| X["ExtractiveAnswerClient"]
+    L -->|是| G["大模型调用<br/>超时 8s / 熔断 60s"]
+    G -->|成功| V{"L3 校验<br/>引用编号与 sources 是否自洽"}
+    V -->|通过| OK["返回答案 + sources[]"]
+    V -->|不通过| X
+    G -->|超时/5xx| F["熔断计数 +1<br/>连续 3 次 → 熔断 60s"]
+    F --> X
+    X --> OK
+
+    style E0 fill:#ffe6e6
+    style E1 fill:#fff4e6
+    style X fill:#e6f3ff
+    style OK fill:#e6ffe6

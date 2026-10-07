@@ -1,0 +1,29 @@
+%% AI 语料与索引数据流图 —— 来源 docs/AI模块设计方案.md 章节 A.2
+flowchart LR
+    subgraph SRC["语料来源（已审核 APPROVED）"]
+        Q["question<br/>stem / analysis / material / tags"]
+        QA["question_answer<br/>reference / keywords"]
+        R["resource<br/>title / description / tags"]
+        K["knowledge_point<br/>name"]
+        F["file_record (ext=pdf)<br/>⚠️ 当前为 0 行"]
+    end
+
+    subgraph IDX["索引层"]
+        EX["ChunkExtractor<br/>抽取+切块300-500字/重叠80"]
+        CH["ai_chunk 表<br/>+ FULLTEXT(title,content) WITH PARSER ngram"]
+    end
+
+    subgraph RT["检索层 RetrievalService"]
+        Q1["① 全文召回<br/>BOOLEAN AND Top-50"]
+        Q2["② 相关度归一化<br/>score/maxScore"]
+        Q3["③ 字段加权<br/>title×3 / kp×2.5"]
+        Q4["④ 时间衰减+热度<br/>×(0.85^ageDays) ×log(1+热度)"]
+        Q5["⑤ Top-K 截断 K=5"]
+    end
+
+    SRC --> EX --> CH --> Q1 --> Q2 --> Q3 --> Q4 --> Q5
+    F -.->|"ext=pdf 时<br/>PDFTextStripper<br/>零新增依赖"| EX
+
+    style F stroke-dasharray: 5 5,opacity:.5
+    style CH fill:#e8f4ff
+    style RT fill:#f0fff0

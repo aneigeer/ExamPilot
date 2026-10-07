@@ -9,6 +9,7 @@ import com.examprep.common.ResultCode;
 import com.examprep.dto.ReportHandleRequest;
 import com.examprep.dto.ResourceVO;
 import com.examprep.entity.AuditRecord;
+import com.examprep.entity.AiChunk;
 import com.examprep.entity.ExamCategory;
 import com.examprep.common.QuestionType;
 import com.examprep.dto.QuestionVO;
@@ -24,6 +25,7 @@ import com.examprep.mapper.ReportMapper;
 import com.examprep.mapper.ResourceMapper;
 import com.examprep.mapper.SubjectMapper;
 import com.examprep.mapper.UserMapper;
+import com.examprep.service.ai.ChunkSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -61,6 +63,7 @@ public class AuditService {
     private final UserMapper userMapper;
     private final NoticeService noticeService;
     private final OperationLogService logService;
+    private final ChunkSyncService chunkSyncService;
 
     // ==================================================================
     // 待审核列表
@@ -105,6 +108,9 @@ public class AuditService {
                 "RESOURCE", resourceId);
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "RESOURCE", resourceId,
                 "审核通过：" + resource.getTitle());
+        // AI 索引同步：挂 afterCommit 钩子，事务提交后才写索引（避免脏读与回滚残留脏块）
+        chunkSyncService.runAfterCommit(
+                () -> chunkSyncService.syncResource(resourceId), "approveResource#" + resourceId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -143,6 +149,10 @@ public class AuditService {
                 "RESOURCE", resourceId);
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "RESOURCE", resourceId,
                 "下架：" + resource.getTitle());
+        // 来源下架 → 索引块置 INVALID（不物理删，保留可追溯性）
+        chunkSyncService.runAfterCommit(
+                () -> chunkSyncService.invalidateSource(AiChunk.SOURCE_RESOURCE, resourceId),
+                "offlineResource#" + resourceId);
     }
 
     private Resource requireAuditable(Long resourceId, Long auditorId, String expectedStatus) {
@@ -302,6 +312,9 @@ public class AuditService {
         writeAuditRecord("QUESTION", questionId, auditorId, APPROVED, reason);
         logService.record(OperationLogService.MODULE_AUDIT, "AUDIT", "QUESTION", questionId,
                 "题目审核通过 #" + questionId);
+        // AI 索引同步：afterCommit 钩子
+        chunkSyncService.runAfterCommit(
+                () -> chunkSyncService.syncQuestion(questionId), "approveQuestion#" + questionId);
     }
 
     @Transactional(rollbackFor = Exception.class)
