@@ -236,7 +236,7 @@ app:
       timeout-millis: 3000
       circuit-breaker-threshold: 3
       circuit-breaker-open-millis: 60000
-      # 双写：迁移期同时写本地（安全但冗余，使用后可关）
+      # 双写：迁移期同时写本地（安全但冗余，使用一段时间后可关）
       dual-write-local: true
 
 logging:

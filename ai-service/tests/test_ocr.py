@@ -284,10 +284,10 @@ def test_infer_question_type_multi_choice() -> None:
 
 
 def test_infer_question_type_true_false() -> None:
-    """含"（ ）" + 正确/错误 → 判断题。"""
+    """含"（）" + 正确/错误 → 判断题。"""
     from app.ocr.structure_parser import infer_question_type
 
-    assert infer_question_type("TCP 是面向连接的协议。（ ）", ["正确", "错误"]) == "TRUE_FALSE"
+    assert infer_question_type("TCP 是面向连接的协议。（）", ["正确", "错误"]) == "TRUE_FALSE"
 
 
 def test_infer_question_type_fill_blank() -> None:

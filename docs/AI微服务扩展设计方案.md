@@ -487,7 +487,7 @@ app:
     timeout-millis: 3000
     circuit-breaker-threshold: 3
     circuit-breaker-open-millis: 60000
-    # 双轨开关：迁移期同时写本地（true=安全但冗余，使用后关掉）
+    # 双轨开关：迁移期同时写本地（true=安全但冗余，使用一段时间后关掉）
     dual-write-local: true
 ```
 
@@ -569,7 +569,7 @@ previews/{resourceId}/page-{n}.jpg
 |---|---|---|---|
 | `1.题干... A.xx B.xx C.xx D.xx` | `SINGLE_CHOICE` | 4 条，`sort=1..4` | `{"options":["B"]}` |
 | `1.题干...（多选）` 或含"多选" | `MULTI_CHOICE` | 4+ 条 | `{"options":["ABD"]}` |
-| `（ ）√ ×` 或 A.正确 B.错误 | `TRUE_FALSE` | 2 条 | `{"options":["A"]}` |
+| `（）√ ×` 或 A.正确 B.错误 | `TRUE_FALSE` | 2 条 | `{"options":["A"]}` |
 | `题干____` 下划线 | `FILL_BLANK` | 无 | `{"blanks":["答案1","答案2"]}`（对齐现有 JSON 结构） |
 | 有背景材料 + 若干小题 | `READING`（材料入 `material`） | 小题各自选项 | 各小题独立 answer |
 | 无选项无下划线的问句 | `SHORT_ANSWER` | 无 | `{"reference":"参考答案","keywords":[...]}` |
@@ -891,7 +891,7 @@ graph LR
 
 | 项 | 内容 |
 |---|---|
-| **文件** | ① `docs/AI降级演练手册.md`（新建，**逐步骤可复制粘贴的演练脚本**）<br/>② `docs/环境准备清单.md`（新建，从 D 章整理成用户可执行版）<br/>③ **改** `README.md`（架构图 + 启动顺序 + 降级矩阵）<br/>④ `docs/功能验证脚本.md`（新建，**含使用顺序与话术**） |
+| **文件** | ① `docs/AI降级演练手册.md`（新建，**逐步骤可复制粘贴的演练脚本**）<br/>② `docs/环境准备清单.md`（新建，从 D 章整理成用户可执行版）<br/>③ **改** `README.md`（架构图 + 启动顺序 + 降级矩阵）<br/>④ `docs/功能操作脚本.md`（新建，**含使用顺序与话术**） |
 | **依赖** | T09、T10、T11 |
 | **验收（**必须逐条命令行实测**，这是稳定性交付的最后一关） | **五个降级场景全部通过才算完成：**<br/>① 正常：`ask` → `retrievalMode=VECTOR`，`generator` 为大模型/抽取式，耗时 < 12s<br/>② **杀 FastAPI** → 仍 200，`retrievalMode=FULLTEXT_AND`<br/>③ **杀 Qdrant**（`docker stop examprep-qdrant`）→ 仍 200，降级 ngram<br/>④ **杀 MinIO**（`docker stop examprep-minio`）→ 上传仍成功，落本地<br/>⑤ **断网**（拔网线）→ 仍 200，抽取式<br/>⑥ **重启全部** → `curl /health` 全绿，索引一致（`chunk_synced == chunk_total`）<br/>⑦ App 真机：拔网 → AI 卡片隐藏/降级提示，**题库练习搜索全部正常** |
 | **挂了怎么表现** | 这一步是"验证其他步骤挂了会怎样"。**任何一条降级路径不通过，就地修复后重测，不允许"应该能降级"这种未验证的假设** |

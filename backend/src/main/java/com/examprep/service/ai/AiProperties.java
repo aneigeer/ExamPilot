@@ -84,7 +84,7 @@ public class AiProperties {
         /**
          * 双写开关（迁移期同时写本地）
          *
-         * <p>true = 新文件同时落 MinIO 与本地（安全但冗余，使用后关掉）
+         * <p>true = 新文件同时落 MinIO 与本地（安全但冗余，使用一段时间后关掉）
          */
         private boolean dualWriteLocal = true;
 
