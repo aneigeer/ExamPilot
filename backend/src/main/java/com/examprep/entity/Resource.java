@@ -49,6 +49,9 @@ public class Resource {
     private BigDecimal ratingAvg;
     private Integer ratingCount;
 
+    @Schema(description = "推荐热度分（定时任务物化，替代含 NOW() 的排序表达式，可走索引）")
+    private BigDecimal hotScore;
+
     @Schema(description = "上传人 ID")
     private Long uploaderId;
 

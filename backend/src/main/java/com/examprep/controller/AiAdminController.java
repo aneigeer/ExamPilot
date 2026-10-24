@@ -94,4 +94,28 @@ public class AiAdminController {
     public Result<Map<String, Object>> vectorReconcileAndRepair() {
         return Result.success("向量对账完成", chunkSyncService.reconcileVectorIndex());
     }
+
+    @Operation(summary = "全量同步向量索引（可从假状态位恢复）",
+            description = """
+                    **访问级别：ROLE:AUDITOR / ROLE:ADMIN**。
+
+                    ★ 与 `/vector/sync` 的关键区别：本接口会**先把 `vector_synced` 重置为 0**。
+                    因为待推送的筛选条件是 `vector_synced <> 1` —— 一旦出现
+                    「状态位写成功但向量实际没入库」的假标记，那些块会被永久跳过，
+                    推多少次都推不上去。必须重置才推得动。
+
+                    - `sourceType` 可选：只推某一类型（如先推 `QUESTION`，课件等检索过滤就绪后再推）
+                    - 分批 200 条，逐批推进，单批失败不中断（保持待同步，可再次调用续推）
+                    - `ok=true` 表示已无待同步；否则再调一次即可续推
+                    """)
+    @PostMapping("/vector/full-sync")
+    @PreAuthorize("hasAnyRole('AUDITOR','ADMIN')")
+    public Result<Map<String, Object>> vectorFullSync(
+            @Parameter(description = "只同步该来源类型，如 QUESTION / COURSEWARE；留空为全部")
+            @RequestParam(required = false) String sourceType,
+            @Parameter(description = "最多推多少批（每批 200 条），防止单次请求过久")
+            @RequestParam(defaultValue = "60") int maxBatches) {
+        return Result.success("全量向量同步完成",
+                chunkSyncService.fullVectorSync(sourceType, maxBatches));
+    }
 }

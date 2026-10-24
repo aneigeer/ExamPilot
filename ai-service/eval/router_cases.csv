@@ -1,0 +1,42 @@
+﻿question,expected_skill,note
+值传递和地址传递有什么区别,COURSE_QA,课程题：C语言函数传参
+什么是二叉树的层序遍历,COURSE_QA,课程题：数据结构
+进程和线程的区别是什么,COURSE_QA,课程题：操作系统
+数据库索引为什么能加快查询,COURSE_QA,课程题：数据库
+快速排序的时间复杂度是多少,COURSE_QA,课程题：算法
+TCP 三次握手的过程讲一下,COURSE_QA,课程题：计算机网络
+死锁产生的四个必要条件,COURSE_QA,课程题：操作系统
+哈希表和红黑树该怎么选,COURSE_QA,课程题：数据结构
+Agent Skill 的原理是什么,COURSEWARE_QA,课件：Agent 专题
+17 种 RAG 优化策略有哪些,COURSEWARE_QA,课件：RAG 专题
+Rerank 模型是怎么工作的,COURSEWARE_QA,课件：检索重排
+多智能体架构怎么设计,COURSEWARE_QA,课件：多智能体
+大模型微调有哪几种方式,COURSEWARE_QA,课件：微调
+Transformer 自注意力机制怎么理解,COURSEWARE_QA,课件：模型原理
+大厂面试一般会问哪些架构问题,COURSEWARE_QA,课件：面试+架构
+这道题为什么选 B,EXERCISE_EXPLAIN,题目讲解
+帮我看看这题错在哪,EXERCISE_EXPLAIN,题目讲解
+第 12 题的解析是什么意思,EXERCISE_EXPLAIN,题目讲解
+有没有相关的复习资料,RESOURCE_RECOMMEND,资料推荐
+推荐几份数据结构的讲义,RESOURCE_RECOMMEND,资料推荐
+给我一些练习题的推荐,RESOURCE_RECOMMEND,资料推荐
+帮我安排一个两周的复习计划,STUDY_PLAN,学习计划
+每天只有一小时该怎么安排复习,STUDY_PLAN,学习计划
+我应该先学哪一章,STUDY_PLAN,学习计划
+我的薄弱环节在哪,WRONG_BOOK_REVIEW,错题分析
+分析一下我最近的错题,WRONG_BOOK_REVIEW,错题分析
+我总是在哪些知识点上出错,WRONG_BOOK_REVIEW,错题分析
+帮我改一下这道简答题,GRADING,判分
+我的答案和参考答案差在哪,GRADING,判分
+这道主观题能得几分,GRADING,判分
+你好,SMALLTALK,寒暄
+你是谁,SMALLTALK,寒暄
+谢谢你,SMALLTALK,寒暄
+帮我订一张明天去北京的机票,REFUSE,域外：不可作答
+今天天气怎么样,REFUSE,域外：不可作答
+推荐一部好看的电影,REFUSE,域外：不可作答
+帮我写一首诗,REFUSE,域外：不可作答
+股票明天会涨吗,REFUSE,域外：不可作答
+帮我翻译这段英文,REFUSE,域外：不可作答
+给我讲个笑话,REFUSE,域外：不可作答
+红烧肉怎么做,REFUSE,域外：不可作答

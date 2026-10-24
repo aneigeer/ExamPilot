@@ -1,0 +1,214 @@
+{"id": "s01", "question": "C语言的 int 类型一般占多少字节？", "expected_chunk_ids": [1], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 1 正文后撰写"}
+{"id": "s02", "question": "32 位系统里一个整型变量占多大内存？", "expected_chunk_ids": [1], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 1 正文后撰写"}
+{"id": "s03", "question": "为什么同样写 int 在不同平台占用的空间不一样？", "expected_chunk_ids": [1], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 1 正文后撰写"}
+{"id": "s04", "question": "C语言里哪些单词是保留关键字？", "expected_chunk_ids": [2], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 2 正文后撰写"}
+{"id": "s05", "question": "写代码时变量名不能用哪些词？", "expected_chunk_ids": [2], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 2 正文后撰写"}
+{"id": "s06", "question": "C语言关键字和普通标识符怎么区分？", "expected_chunk_ids": [2], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 2 正文后撰写"}
+{"id": "s07", "question": "C语言数组下标是从 1 开始数吗？", "expected_chunk_ids": [3], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 3 正文后撰写"}
+{"id": "s08", "question": "数组第一个元素的下标是多少？", "expected_chunk_ids": [3], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 3 正文后撰写"}
+{"id": "s09", "question": "为什么访问数组时要从 0 开始计数？", "expected_chunk_ids": [3], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 3 正文后撰写"}
+{"id": "s10", "question": "C语言里把变量打印到屏幕上用哪个函数？", "expected_chunk_ids": [4], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 4 正文后撰写"}
+{"id": "s11", "question": "格式化输出应该调用什么库函数？", "expected_chunk_ids": [4], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 4 正文后撰写"}
+{"id": "s12", "question": "向控制台输出格式化文本用哪个函数？", "expected_chunk_ids": [4], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 4 正文后撰写"}
+{"id": "s13", "question": "函数传参时值传递和地址传递有什么不同？", "expected_chunk_ids": [5], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 5 正文后撰写"}
+{"id": "s14", "question": "为什么通过指针能修改函数外部的变量？", "expected_chunk_ids": [5], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 5 正文后撰写"}
+{"id": "s15", "question": "C语言调用函数时参数是怎么传进去的？", "expected_chunk_ids": [5], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 5 正文后撰写"}
+{"id": "s16", "question": "C语言动态申请内存用哪个函数？", "expected_chunk_ids": [6, 7], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 6/7 正文后撰写；两块的 content_hash 相同"}
+{"id": "s17", "question": "堆上的内存怎么分配和释放？", "expected_chunk_ids": [6, 7], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 6/7 正文后撰写"}
+{"id": "s18", "question": "malloc 和 free 分别起什么作用？", "expected_chunk_ids": [6, 7], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 6/7 正文后撰写"}
+{"id": "s19", "question": "顺序存储和链式存储各有什么优缺点？", "expected_chunk_ids": [43], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 43 正文后撰写"}
+{"id": "s20", "question": "数组实现的线性表和链表在插入删除时差别在哪？", "expected_chunk_ids": [43], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 43 正文后撰写"}
+{"id": "s21", "question": "什么时候该用顺序表什么时候该用链表？", "expected_chunk_ids": [43], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 43 正文后撰写"}
+{"id": "s22", "question": "栈和队列的进出规则有什么不同？", "expected_chunk_ids": [44], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 44 正文后撰写"}
+{"id": "s23", "question": "先进先出和后进先出分别对应哪种数据结构？", "expected_chunk_ids": [44], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 44 正文后撰写"}
+{"id": "s24", "question": "栈和队列分别适合什么场景？", "expected_chunk_ids": [44], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 44 正文后撰写"}
+{"id": "s25", "question": "二叉树有哪几种遍历顺序？", "expected_chunk_ids": [45], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 45 正文后撰写"}
+{"id": "s26", "question": "前序中序后序遍历分别怎么走？", "expected_chunk_ids": [45], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 45 正文后撰写"}
+{"id": "s27", "question": "层序遍历和深度优先遍历有什么区别？", "expected_chunk_ids": [45], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 45 正文后撰写"}
+{"id": "s28", "question": "满二叉树和完全二叉树怎么区分？", "expected_chunk_ids": [46], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 46 正文后撰写"}
+{"id": "s29", "question": "完全二叉树允许最后一层不满吗？", "expected_chunk_ids": [46], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 46 正文后撰写"}
+{"id": "s30", "question": "什么样的二叉树叫满二叉树？", "expected_chunk_ids": [46], "subject_id": 4, "expect_refusal": false, "source": "人工读 chunk 46 正文后撰写"}
+{"id": "s31", "question": "什么是野指针？怎么避免？", "expected_chunk_ids": [47], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 47 正文后撰写"}
+{"id": "s32", "question": "指针没有初始化会带来什么问题？", "expected_chunk_ids": [47], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 47 正文后撰写"}
+{"id": "s33", "question": "free 之后还需要把指针置空吗？", "expected_chunk_ids": [47], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 47 正文后撰写"}
+{"id": "s34", "question": "写递归函数必须满足哪些条件？", "expected_chunk_ids": [48], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 48 正文后撰写"}
+{"id": "s35", "question": "递归为什么一定要有终止条件？", "expected_chunk_ids": [48], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 48 正文后撰写"}
+{"id": "s36", "question": "递归调用缺少边界会怎样？", "expected_chunk_ids": [48], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 48 正文后撰写"}
+{"id": "s37", "question": "C语言函数参数按值传递意味着什么？", "expected_chunk_ids": [49], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 49 正文后撰写"}
+{"id": "s38", "question": "地址传递为什么能改变实参的值？", "expected_chunk_ids": [49], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 49 正文后撰写"}
+{"id": "s39", "question": "两种传参方式在内存上有什么区别？", "expected_chunk_ids": [49], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 49 正文后撰写"}
+{"id": "s40", "question": "指针和数组是什么关系？", "expected_chunk_ids": [50], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 50 正文后撰写"}
+{"id": "s41", "question": "数组名可以当成指针用吗？", "expected_chunk_ids": [50], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 50 正文后撰写"}
+{"id": "s42", "question": "指针和数组在内存访问上有什么联系？", "expected_chunk_ids": [50], "subject_id": 5, "expect_refusal": false, "source": "人工读 chunk 50 正文后撰写"}
+{"id": "s43", "question": "函数在某一点连续的定义是什么？", "expected_chunk_ids": [51], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 51 正文后撰写"}
+{"id": "s44", "question": "怎么用极限描述函数连续？", "expected_chunk_ids": [51], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 51 正文后撰写"}
+{"id": "s45", "question": "函数连续需要满足哪几个条件？", "expected_chunk_ids": [51], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 51 正文后撰写"}
+{"id": "s46", "question": "导数的几何意义是什么？", "expected_chunk_ids": [52], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 52 正文后撰写"}
+{"id": "s47", "question": "切线斜率与导数有什么关系？", "expected_chunk_ids": [52], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 52 正文后撰写"}
+{"id": "s48", "question": "为什么导数能表示函数的变化率？", "expected_chunk_ids": [52], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 52 正文后撰写"}
+{"id": "s49", "question": "复合函数怎么求导？", "expected_chunk_ids": [53], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 53 正文后撰写"}
+{"id": "s50", "question": "链式法则的公式是什么？", "expected_chunk_ids": [53], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 53 正文后撰写"}
+{"id": "s51", "question": "多层复合函数求导要注意什么？", "expected_chunk_ids": [53], "subject_id": 1, "expect_refusal": false, "source": "人工读 chunk 53 正文后撰写"}
+{"id": "s52", "question": "n 阶方阵可逆的充要条件有哪些？", "expected_chunk_ids": [54], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 54 正文后撰写"}
+{"id": "s53", "question": "行列式不为零和矩阵可逆是什么关系？", "expected_chunk_ids": [54], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 54 正文后撰写"}
+{"id": "s54", "question": "怎么判断一个矩阵有没有逆矩阵？", "expected_chunk_ids": [54], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 54 正文后撰写"}
+{"id": "s55", "question": "行列式有哪些常用性质？", "expected_chunk_ids": [55], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 55 正文后撰写"}
+{"id": "s56", "question": "行列式交换两行会怎样变化？", "expected_chunk_ids": [55], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 55 正文后撰写"}
+{"id": "s57", "question": "行列式按行展开的规则是什么？", "expected_chunk_ids": [55], "subject_id": 2, "expect_refusal": false, "source": "人工读 chunk 55 正文后撰写"}
+{"id": "s58", "question": "数列极限的 ε-N 定义怎么叙述？", "expected_chunk_ids": [56], "subject_id": 104, "expect_refusal": false, "source": "人工读 chunk 56 正文后撰写"}
+{"id": "s59", "question": "用 ε-N 语言怎么证明数列收敛？", "expected_chunk_ids": [56], "subject_id": 104, "expect_refusal": false, "source": "人工读 chunk 56 正文后撰写"}
+{"id": "s60", "question": "极限定义里 N 和 ε 的关系是什么？", "expected_chunk_ids": [56], "subject_id": 104, "expect_refusal": false, "source": "人工读 chunk 56 正文后撰写"}
+{"id": "s61", "question": "C++ 中引用和指针有什么区别？", "expected_chunk_ids": [57], "subject_id": 114, "expect_refusal": false, "source": "人工读 chunk 57 正文后撰写"}
+{"id": "s62", "question": "引用为什么必须初始化？", "expected_chunk_ids": [57], "subject_id": 114, "expect_refusal": false, "source": "人工读 chunk 57 正文后撰写"}
+{"id": "s63", "question": "指针和引用在底层实现上一样吗？", "expected_chunk_ids": [57], "subject_id": 114, "expect_refusal": false, "source": "人工读 chunk 57 正文后撰写"}
+{"id": "s64", "question": "动量守恒定律的内容和成立条件是什么？", "expected_chunk_ids": [58], "subject_id": 115, "expect_refusal": false, "source": "人工读 chunk 58 正文后撰写"}
+{"id": "s65", "question": "什么时候系统的总动量保持不变？", "expected_chunk_ids": [58], "subject_id": 115, "expect_refusal": false, "source": "人工读 chunk 58 正文后撰写"}
+{"id": "s66", "question": "动量守恒需要满足哪些前提？", "expected_chunk_ids": [58], "subject_id": 115, "expect_refusal": false, "source": "人工读 chunk 58 正文后撰写"}
+{"id": "s67", "question": "冯·诺依曼体系结构的核心思想是什么？", "expected_chunk_ids": [59], "subject_id": 100, "expect_refusal": false, "source": "人工读 chunk 59 正文后撰写"}
+{"id": "s68", "question": "存储程序计算机的基本组成有哪些？", "expected_chunk_ids": [59], "subject_id": 100, "expect_refusal": false, "source": "人工读 chunk 59 正文后撰写"}
+{"id": "s69", "question": "冯·诺依曼结构为什么把程序和数据放在一起？", "expected_chunk_ids": [59], "subject_id": 100, "expect_refusal": false, "source": "人工读 chunk 59 正文后撰写"}
+{"id": "g01", "question": "矛盾的普遍性和客观性是什么意思？", "expected_chunk_ids": [2454], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2454 正文后撰写"}
+{"id": "g02", "question": "为什么说矛盾无处不在无时不有？", "expected_chunk_ids": [2454], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2454 正文后撰写"}
+{"id": "g03", "question": "马克思主义政治经济学主要研究什么？", "expected_chunk_ids": [2455], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2455 正文后撰写"}
+{"id": "g04", "question": "剩余价值理论属于哪一套经济学体系？", "expected_chunk_ids": [2455], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2455 正文后撰写"}
+{"id": "g05", "question": "中国共产党人的理想信念建立在什么基础上？", "expected_chunk_ids": [2456], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2456 正文后撰写"}
+{"id": "g06", "question": "为什么说马克思主义揭示了人类社会发展规律？", "expected_chunk_ids": [2456], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2456 正文后撰写"}
+{"id": "g07", "question": "高质量发展为什么是首要任务？", "expected_chunk_ids": [2457], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2457 正文后撰写"}
+{"id": "g08", "question": "金融怎么服务经济社会发展？", "expected_chunk_ids": [2457], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2457 正文后撰写"}
+{"id": "g09", "question": "保障粮食安全有哪些举措？", "expected_chunk_ids": [2458], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2458 正文后撰写"}
+{"id": "g10", "question": "为什么说粮食安全是国之大者？", "expected_chunk_ids": [2458], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2458 正文后撰写"}
+{"id": "g11", "question": "高质量充分就业的含义是什么？", "expected_chunk_ids": [2459], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2459 正文后撰写"}
+{"id": "g12", "question": "新发展理念下就业优先怎么落实？", "expected_chunk_ids": [2459], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2459 正文后撰写"}
+{"id": "g13", "question": "全面从严治党为什么要跳出历史周期率？", "expected_chunk_ids": [2460], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2460 正文后撰写"}
+{"id": "g14", "question": "党的自我革命第二个答案指什么？", "expected_chunk_ids": [2460], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2460 正文后撰写"}
+{"id": "g15", "question": "深化科技体制改革有哪些举措？", "expected_chunk_ids": [2461], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2461 正文后撰写"}
+{"id": "g16", "question": "科技基础能力建设包括什么？", "expected_chunk_ids": [2461], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2461 正文后撰写"}
+{"id": "g17", "question": "初次分配再分配和第三次分配怎么协调？", "expected_chunk_ids": [2462], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2462 正文后撰写"}
+{"id": "g18", "question": "完善收入分配制度要做什么？", "expected_chunk_ids": [2462], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2462 正文后撰写"}
+{"id": "g19", "question": "自主创新为什么是牛鼻子？", "expected_chunk_ids": [2463], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2463 正文后撰写"}
+{"id": "g20", "question": "提升自主创新能力有哪些做法？", "expected_chunk_ids": [2463], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2463 正文后撰写"}
+{"id": "g21", "question": "制度型开放包括哪些内容？", "expected_chunk_ids": [2464], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2464 正文后撰写"}
+{"id": "g22", "question": "稳步扩大制度型开放要怎么做？", "expected_chunk_ids": [2464], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2464 正文后撰写"}
+{"id": "g23", "question": "宣传思想文化工作的首要政治任务是什么？", "expected_chunk_ids": [2465], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2465 正文后撰写"}
+{"id": "g24", "question": "为什么说宣传思想文化工作极端重要？", "expected_chunk_ids": [2465], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2465 正文后撰写"}
+{"id": "g25", "question": "新时代统一战线工作怎么完善？", "expected_chunk_ids": [2466], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2466 正文后撰写"}
+{"id": "g26", "question": "大统战工作格局包含哪些方面？", "expected_chunk_ids": [2466], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2466 正文后撰写"}
+{"id": "g27", "question": "健全绿色低碳发展机制有哪些政策？", "expected_chunk_ids": [2467], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2467 正文后撰写"}
+{"id": "g28", "question": "绿色低碳产业怎么发展？", "expected_chunk_ids": [2467], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2467 正文后撰写"}
+{"id": "g29", "question": "深化医药卫生体制改革有哪些举措？", "expected_chunk_ids": [2468], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2468 正文后撰写"}
+{"id": "g30", "question": "医改的重点任务是什么？", "expected_chunk_ids": [2468], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2468 正文后撰写"}
+{"id": "g31", "question": "完善市场经济基础制度包括哪些内容？", "expected_chunk_ids": [2469], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2469 正文后撰写"}
+{"id": "g32", "question": "高标准市场体系需要哪些基础制度？", "expected_chunk_ids": [2469], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2469 正文后撰写"}
+{"id": "g33", "question": "党风廉政建设怎么一体推进三不腐？", "expected_chunk_ids": [2470], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2470 正文后撰写"}
+{"id": "g34", "question": "中央八项规定精神是什么？", "expected_chunk_ids": [2470], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2470 正文后撰写"}
+{"id": "g35", "question": "正确政绩观要求干部怎么做？", "expected_chunk_ids": [2471], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2471 正文后撰写"}
+{"id": "g36", "question": "为什么不能只追求表面政绩？", "expected_chunk_ids": [2471], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2471 正文后撰写"}
+{"id": "g37", "question": "西部大开发新格局包括哪些方面？", "expected_chunk_ids": [2472], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2472 正文后撰写"}
+{"id": "g38", "question": "西部地区发展为什么要大保护大开放？", "expected_chunk_ids": [2472], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 2472 正文后撰写"}
+{"id": "g39", "question": "四个全面战略布局包括哪些内容？", "expected_chunk_ids": [60], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 60 正文后撰写"}
+{"id": "g40", "question": "全面从严治党是什么时候加入四个全面的？", "expected_chunk_ids": [60], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 60 正文后撰写"}
+{"id": "g41", "question": "我国农业国情有哪些特点？", "expected_chunk_ids": [61], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 61 正文后撰写"}
+{"id": "g42", "question": "关于我国耕地和农业的说法哪些正确？", "expected_chunk_ids": [61], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 61 正文后撰写"}
+{"id": "g43", "question": "历史人物和他们的擅长领域怎么对应？", "expected_chunk_ids": [62], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 62 正文后撰写"}
+{"id": "g44", "question": "古代历史人物与其艺术成就怎么对应？", "expected_chunk_ids": [62], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 62 正文后撰写"}
+{"id": "g45", "question": "行政机关为什么不能法外设定权力？", "expected_chunk_ids": [63], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 63 正文后撰写"}
+{"id": "g46", "question": "没有法律依据能设定公民义务吗？", "expected_chunk_ids": [63], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 63 正文后撰写"}
+{"id": "g47", "question": "哪些俗语对应经济学概念？", "expected_chunk_ids": [64], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 64 正文后撰写"}
+{"id": "g48", "question": "常见俗语和经济学名词怎么匹配？", "expected_chunk_ids": [64], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 64 正文后撰写"}
+{"id": "g49", "question": "对联的平仄和对仗有什么要求？", "expected_chunk_ids": [65], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 65 正文后撰写"}
+{"id": "g50", "question": "关于对联的说法哪些正确？", "expected_chunk_ids": [65], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 65 正文后撰写"}
+{"id": "g51", "question": "哪些文学作品以第二次世界大战为背景？", "expected_chunk_ids": [66], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 66 正文后撰写"}
+{"id": "g52", "question": "二战题材的代表作品有哪些？", "expected_chunk_ids": [66], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 66 正文后撰写"}
+{"id": "g53", "question": "什么是非战争军事行动？", "expected_chunk_ids": [67], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 67 正文后撰写"}
+{"id": "g54", "question": "抢险救灾属于非战争军事行动吗？", "expected_chunk_ids": [67], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 67 正文后撰写"}
+{"id": "g55", "question": "历史人物和他们的名言怎么对应？", "expected_chunk_ids": [68], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 68 正文后撰写"}
+{"id": "g56", "question": "下列言论分别出自哪位历史人物？", "expected_chunk_ids": [68], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 68 正文后撰写"}
+{"id": "g57", "question": "乐以天下忧以天下属于哪个学派？", "expected_chunk_ids": [69], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 69 正文后撰写"}
+{"id": "g58", "question": "儒家和道家观点怎么区分？", "expected_chunk_ids": [69], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 69 正文后撰写"}
+{"id": "g59", "question": "下列哪种自然现象可能发生？", "expected_chunk_ids": [70], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 70 正文后撰写"}
+{"id": "g60", "question": "地理常识中哪些现象符合实际？", "expected_chunk_ids": [70], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 70 正文后撰写"}
+{"id": "g61", "question": "关于恐龙的说法哪些正确？", "expected_chunk_ids": [71], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 71 正文后撰写"}
+{"id": "g62", "question": "恐龙是爬行动物吗？", "expected_chunk_ids": [71], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 71 正文后撰写"}
+{"id": "g63", "question": "企业执行力为什么重要？", "expected_chunk_ids": [79], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 79 正文后撰写"}
+{"id": "g64", "question": "战略规划怎么才能真正落地？", "expected_chunk_ids": [79], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 79 正文后撰写"}
+{"id": "g65", "question": "博物馆收藏化石对化石资源保护有什么影响？", "expected_chunk_ids": [80], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 80 正文后撰写"}
+{"id": "g66", "question": "私人收藏化石有哪些争议？", "expected_chunk_ids": [80], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 80 正文后撰写"}
+{"id": "g67", "question": "中国教育面临哪些批评？", "expected_chunk_ids": [81], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 81 正文后撰写"}
+{"id": "g68", "question": "教育改革要解决什么问题？", "expected_chunk_ids": [81], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 81 正文后撰写"}
+{"id": "g69", "question": "雾霾形成的原因有哪些？", "expected_chunk_ids": [82], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 82 正文后撰写"}
+{"id": "g70", "question": "京津冀大气污染怎么治理？", "expected_chunk_ids": [82], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 82 正文后撰写"}
+{"id": "g71", "question": "筹算对中国古代数学有什么贡献？", "expected_chunk_ids": [83], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 83 正文后撰写"}
+{"id": "g72", "question": "筹算的缺点是什么？", "expected_chunk_ids": [83], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 83 正文后撰写"}
+{"id": "g73", "question": "量子理论中的负能量是什么？", "expected_chunk_ids": [84], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 84 正文后撰写"}
+{"id": "g74", "question": "真空能量为什么不能简单定为零？", "expected_chunk_ids": [84], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 84 正文后撰写"}
+{"id": "g75", "question": "改进作风要克服哪些问题？", "expected_chunk_ids": [85], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 85 正文后撰写"}
+{"id": "g76", "question": "形式主义官僚主义怎么整治？", "expected_chunk_ids": [85], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 85 正文后撰写"}
+{"id": "g77", "question": "狄德罗百科全书的意义是什么？", "expected_chunk_ids": [86], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 86 正文后撰写"}
+{"id": "g78", "question": "中西文化交流在十八世纪有哪些表现？", "expected_chunk_ids": [86], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 86 正文后撰写"}
+{"id": "g79", "question": "高枕无忧这个说法科学吗？", "expected_chunk_ids": [87], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 87 正文后撰写"}
+{"id": "g80", "question": "枕头高度对健康有什么影响？", "expected_chunk_ids": [87], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 87 正文后撰写"}
+{"id": "g81", "question": "资源开发为什么要提高生态补偿基金？", "expected_chunk_ids": [88], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 88 正文后撰写"}
+{"id": "g82", "question": "资源开发收益怎么分配更合理？", "expected_chunk_ids": [88], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 88 正文后撰写"}
+{"id": "g83", "question": "心理弹性来自哪些因素？", "expected_chunk_ids": [89], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 89 正文后撰写"}
+{"id": "g84", "question": "心理弹性对情绪调节有什么作用？", "expected_chunk_ids": [89], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 89 正文后撰写"}
+{"id": "g85", "question": "物品的预设用途怎么影响使用？", "expected_chunk_ids": [90], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 90 正文后撰写"}
+{"id": "g86", "question": "设计中的可供性是什么意思？", "expected_chunk_ids": [90], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 90 正文后撰写"}
+{"id": "g87", "question": "羽毛球组是乒乓球组两倍足球组是篮球组三倍怎么求人数？", "expected_chunk_ids": [117], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 117 正文后撰写"}
+{"id": "g88", "question": "四个兴趣小组人数比例问题怎么解？", "expected_chunk_ids": [117], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 117 正文后撰写"}
+{"id": "g89", "question": "二十人买机票共两万七千元全价票和折扣票怎么算？", "expected_chunk_ids": [118], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 118 正文后撰写"}
+{"id": "g90", "question": "机票打折问题怎么列方程？", "expected_chunk_ids": [118], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 118 正文后撰写"}
+{"id": "g91", "question": "晴天浇水量是阴雨天二点五倍水箱能用几天？", "expected_chunk_ids": [119], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 119 正文后撰写"}
+{"id": "g92", "question": "根据天气调节浇水量的应用题怎么算？", "expected_chunk_ids": [119], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 119 正文后撰写"}
+{"id": "g93", "question": "甲部门每隔两天乙部门每隔三天发布消息多久同时发布？", "expected_chunk_ids": [120], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 120 正文后撰写"}
+{"id": "g94", "question": "两个周期事件同时发生的时间怎么求？", "expected_chunk_ids": [120], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 120 正文后撰写"}
+{"id": "g95", "question": "小周从 A 到 B 下坡骑车速度和时间怎么算？", "expected_chunk_ids": [121], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 121 正文后撰写"}
+{"id": "g96", "question": "行程问题中上下坡速度不同怎么处理？", "expected_chunk_ids": [121], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 121 正文后撰写"}
+{"id": "g97", "question": "三个部门分别派三四名选手比赛安排有多少种？", "expected_chunk_ids": [122], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 122 正文后撰写"}
+{"id": "g98", "question": "排列组合中部门选手出场顺序怎么算？", "expected_chunk_ids": [122], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 122 正文后撰写"}
+{"id": "g99", "question": "八点三十分之后时针和分针什么时候成一百二十度？", "expected_chunk_ids": [123], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 123 正文后撰写"}
+{"id": "g100", "question": "钟表指针夹角问题怎么解？", "expected_chunk_ids": [123], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 123 正文后撰写"}
+{"id": "g101", "question": "百岁老人出生于二十世纪年龄数字之和怎么推？", "expected_chunk_ids": [124], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 124 正文后撰写"}
+{"id": "g102", "question": "年龄数字和问题是哪一年的？", "expected_chunk_ids": [124], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 124 正文后撰写"}
+{"id": "g103", "question": "A 公司销售任务是 B 公司一点二倍前三季度完成情况怎么算？", "expected_chunk_ids": [125], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 125 正文后撰写"}
+{"id": "g104", "question": "全年销售任务完成率怎么求？", "expected_chunk_ids": [125], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 125 正文后撰写"}
+{"id": "g105", "question": "十名编辑中英法日方向各有多少人？", "expected_chunk_ids": [126], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 126 正文后撰写"}
+{"id": "g106", "question": "集合容斥问题怎么解？", "expected_chunk_ids": [126], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 126 正文后撰写"}
+{"id": "g107", "question": "女职员调出两人后比重下降三个百分点原来多少人？", "expected_chunk_ids": [127], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 127 正文后撰写"}
+{"id": "g108", "question": "比例变化问题怎么列方程？", "expected_chunk_ids": [127], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 127 正文后撰写"}
+{"id": "g109", "question": "八乘八乘一的长方体涂色后切成六十四块有多少块有颜色？", "expected_chunk_ids": [128], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 128 正文后撰写"}
+{"id": "g110", "question": "涂色正方体切割问题怎么算？", "expected_chunk_ids": [128], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 128 正文后撰写"}
+{"id": "g111", "question": "土壤是怎么形成的？", "expected_chunk_ids": [134], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 134 正文后撰写"}
+{"id": "g112", "question": "风化壳和土壤有什么关系？", "expected_chunk_ids": [134], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 134 正文后撰写"}
+{"id": "g113", "question": "党政机关公文中的命令适用于什么？", "expected_chunk_ids": [135], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 135 正文后撰写"}
+{"id": "g114", "question": "命令这种公文怎么用？", "expected_chunk_ids": [135], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 135 正文后撰写"}
+{"id": "g115", "question": "什么是合成字？", "expected_chunk_ids": [136], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 136 正文后撰写"}
+{"id": "g116", "question": "合成字和普通合体字有什么区别？", "expected_chunk_ids": [136], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 136 正文后撰写"}
+{"id": "g117", "question": "理性真理和事实真理怎么区分？", "expected_chunk_ids": [137], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 137 正文后撰写"}
+{"id": "g118", "question": "真理的定义是什么？", "expected_chunk_ids": [137], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 137 正文后撰写"}
+{"id": "g119", "question": "直观教学是什么意思？", "expected_chunk_ids": [138], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 138 正文后撰写"}
+{"id": "g120", "question": "直观教学有什么作用？", "expected_chunk_ids": [138], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 138 正文后撰写"}
+{"id": "g121", "question": "负启动效应是什么心理现象？", "expected_chunk_ids": [139], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 139 正文后撰写"}
+{"id": "g122", "question": "先前的刺激为什么会干扰后续加工？", "expected_chunk_ids": [139], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 139 正文后撰写"}
+{"id": "g123", "question": "数字鸿沟指什么？", "expected_chunk_ids": [140], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 140 正文后撰写"}
+{"id": "g124", "question": "信息化为什么会造成信息获取差距？", "expected_chunk_ids": [140], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 140 正文后撰写"}
+{"id": "g125", "question": "叶龄指数怎么定义？", "expected_chunk_ids": [141], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 141 正文后撰写"}
+{"id": "g126", "question": "叶龄指数能反映作物什么状态？", "expected_chunk_ids": [141], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 141 正文后撰写"}
+{"id": "g127", "question": "图灵测试怎么判断机器是否具有智能？", "expected_chunk_ids": [142], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 142 正文后撰写"}
+{"id": "g128", "question": "图灵测试的提问方式是什么？", "expected_chunk_ids": [142], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 142 正文后撰写"}
+{"id": "g129", "question": "产品责任指什么？", "expected_chunk_ids": [143], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 143 正文后撰写"}
+{"id": "g130", "question": "产品有缺陷造成损害由谁负责？", "expected_chunk_ids": [143], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 143 正文后撰写"}
+{"id": "g131", "question": "佩刀和刀鞘是什么关系？", "expected_chunk_ids": [144], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 144 正文后撰写"}
+{"id": "g132", "question": "类比推理中配套关系怎么判断？", "expected_chunk_ids": [144], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 144 正文后撰写"}
+{"id": "g133", "question": "琴棋书画和经史子集是什么关系？", "expected_chunk_ids": [145], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 145 正文后撰写"}
+{"id": "g134", "question": "并列关系在类比推理中怎么用？", "expected_chunk_ids": [145], "subject_id": 190, "expect_refusal": false, "source": "人工读 chunk 145 正文后撰写"}
+{"id": "r01", "question": "量子纠缠实验怎么做？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：题库无相关语料"}
+{"id": "r02", "question": "如何用 Python 训练一个图像分类模型？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：题库无相关语料"}
+{"id": "r03", "question": "今天北京天气怎么样？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r04", "question": "红烧肉怎么做？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r05", "question": "股票明天会涨吗？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：无法预测"}
+{"id": "r06", "question": "如何申请出国留学签证？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r07", "question": "iPhone 15 的电池容量是多少？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r08", "question": "2026 年世界杯冠军是谁？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r09", "question": "怎么修理汽车发动机？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r10", "question": "推荐几部好看的科幻电影", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}
+{"id": "r11", "question": "如何学习吉他弹唱？", "expected_chunk_ids": [], "subject_id": null, "expect_refusal": true, "source": "拒答用例：站外语料"}

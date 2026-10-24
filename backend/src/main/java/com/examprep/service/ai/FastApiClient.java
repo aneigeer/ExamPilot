@@ -284,6 +284,61 @@ public class FastApiClient {
     }
 
     /**
+     * 删除指定 chunk 的向量点（来源下架 / 分块变少后的孤儿清理）
+     *
+     * <p><b>为什么必须显式删除，光靠过滤不够</b>：
+     * Qdrant 里每个点的 {@code payload.status} 是<b>入库那一刻的快照</b>，
+     * 一直是 {@code ACTIVE}。MySQL 侧把 {@code ai_chunk.status} 置成 INVALID 后，
+     * {@code /v1/search} 的 {@code status='ACTIVE'} 过滤条件<b>拦不住它</b>——
+     * 这些孤儿向量会继续参与相似度排序、挤占 top-K 名额，
+     * 把真正有效的块挤出候选集（表现为「明明有资料却答不出来」）。
+     *
+     * <p><b>失败不影响主业务</b>：删除失败只记日志并返回 0，
+     * 因为 MySQL 侧已经置 INVALID，Java 侧 {@code hydrate} 回表时会把它们过滤掉
+     * （<b>用户不会看到脏数据</b>，只是浪费一点向量库空间与 top-K 名额）。
+     *
+     * @param chunkIds 待删除的 {@code ai_chunk.id} 列表，单次最多 500 条
+     * @return 实际请求删除的条数；不可用 / 失败时返回 0
+     */
+    public int deleteChunks(List<Long> chunkIds) {
+        if (!properties.getFastapi().isEnabled() || chunkIds == null || chunkIds.isEmpty()) {
+            return 0;
+        }
+        if (!breaker.canUse()) {
+            log.info("[AI] FastAPI 熔断中，跳过向量删除（MySQL 已置 INVALID，用户侧无影响）");
+            return 0;
+        }
+        // Python 侧单次上限 500，超出需分批
+        int total = 0;
+        for (int from = 0; from < chunkIds.size(); from += 500) {
+            List<Long> batch = chunkIds.subList(from, Math.min(from + 500, chunkIds.size()));
+            total += deleteBatch(batch);
+        }
+        return total;
+    }
+
+    private int deleteBatch(List<Long> batch) {
+        try {
+            String raw = indexClient.post()
+                    .uri(properties.getFastapi().path("/index/delete"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    // Python 侧字段名是 chunk_ids（snake_case），这里显式写死避免命名策略不一致
+                    .body(Map.of("chunk_ids", batch))
+                    .retrieve()
+                    .body(String.class);
+            breaker.onSuccess();
+            JsonNode root = objectMapper.readTree(raw == null ? "{}" : raw);
+            int deleted = root.path("deleted").asInt(0);
+            log.info("[AI] 孤儿向量已清理 {} 条（请求 {}）", deleted, batch.size());
+            return deleted;
+        } catch (Exception e) {
+            // 不计入熔断：删除失败不该影响检索通道的可用性判定
+            log.warn("[AI] 删除孤儿向量失败（不影响主业务，仅浪费向量库空间）: {}", e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * 大模型代理：POST {@code /v1/llm}
      *
      * <p>供 {@link FastApiLlmClient} 调用。失败时抛
@@ -378,9 +433,12 @@ public class FastApiClient {
                     root.path("synced").asInt(0),
                     root.path("skipped").asInt(0),
                     root.path("failed").asInt(0),
-                    root.path("took_ms").asInt(0));
-            log.info("[AI] 向量索引同步完成：synced={} skipped={} failed={}",
-                    result.synced(), result.skipped(), result.failed());
+                    root.path("took_ms").asInt(0),
+                    asLongList(root.path("rejected_ids")),
+                    asLongList(root.path("mismatched_ids")));
+            log.info("[AI] 向量索引同步完成：synced={} skipped={} failed={}（拒收 {} / 校准不通过 {}）",
+                    result.synced(), result.skipped(), result.failed(),
+                    result.rejectedIds().size(), result.mismatchedIds().size());
             return result;
         } catch (RestClientResponseException e) {
             // ★ 4xx/5xx 必须把状态码与响应体带出来：契约不匹配（如字段命名不符）
@@ -462,6 +520,177 @@ public class FastApiClient {
         } catch (Exception e) {
             log.debug("[AI] 查询向量索引状态失败: {}", e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * 通知 FastAPI 删除指定语料块的向量点（孤儿向量清理）
+     *
+     * <p>★ 为什么需要「删除」而不是「重新推送一个 status=INVALID 的 payload」：
+     * Qdrant 检索用的是 payload 快照，改写 payload 虽然也能绕过过滤，
+     * 但会让 collection 里堆满永远不会被命中的死点；直接删点才能让
+     * 「MySQL ACTIVE 已向量化数 == Qdrant points」这条核心一致性断言<b>字面成立</b>。
+     *
+     * @param chunkIds 待删除的 ai_chunk 主键（单批 ≤500）
+     * @return 删除结果；通道未开启 / 熔断 / 出错时返回 {@code null}（调用方保留状态位，下次重试）
+     */
+    public IndexDeleteResult deleteIndex(List<Long> chunkIds) {
+        if (!properties.getFastapi().isEnabled() || chunkIds == null || chunkIds.isEmpty()) {
+            return null;
+        }
+        if (!breaker.canUse()) {
+            return null;
+        }
+        try {
+            String raw = indexClient.post()
+                    .uri(properties.getFastapi().path("/index/delete"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("chunk_ids", chunkIds))
+                    .retrieve()
+                    .body(String.class);
+            breaker.onSuccess();
+            JsonNode root = objectMapper.readTree(raw);
+            IndexDeleteResult result = new IndexDeleteResult(
+                    root.path("deleted").asInt(0),
+                    root.path("requested").asInt(0));
+            log.info("[AI] 向量删除完成：deleted={} requested={}",
+                    result.deleted(), result.requested());
+            return result;
+        } catch (Exception e) {
+            breaker.onFailure(e.getMessage());
+            log.warn("[AI] 向量删除失败（不影响主业务，孤儿向量留待下次 reindex 重试）: {}",
+                    e.getMessage());
+            return null;
+        }
+    }
+
+    // ==================================================================
+    // Wiki 热层（独立 collection，与 RAG 向量互不影响）
+    // ==================================================================
+
+    /**
+     * Wiki 向量通道是否可用
+     *
+     * <p>与 {@link #available()} 的区别：后者还要求 {@code app.ai.vector.enabled}。
+     * Wiki 是独立能力，即使 RAG 向量通道关闭，只要 embedding + Qdrant 就绪
+     * 就应该能检索 Wiki 摘要向量。
+     */
+    public boolean wikiAvailable() {
+        if (!properties.getFastapi().isEnabled() || !breaker.canUse()) {
+            return false;
+        }
+        return health().ready();
+    }
+
+    /**
+     * Wiki 页面摘要向量检索
+     *
+     * @param query     用户问题
+     * @param topK      召回条数
+     * @param subjectId 科目过滤，null 不过滤
+     * @return 命中列表；不可用 / 失败时返回空 list（调用方自动降级到 MySQL ngram）
+     */
+    public List<WikiVectorHit> searchWiki(String query, int topK, Long subjectId) {
+        if (!wikiAvailable()) {
+            return List.of();
+        }
+        Map<String, Object> filters = new LinkedHashMap<>();
+        if (subjectId != null) {
+            filters.put("subject_id", subjectId);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("query", query);
+        body.put("top_k", Math.max(1, topK));
+        body.put("filters", filters);
+        try {
+            String raw = searchClient.post()
+                    .uri(properties.getFastapi().path("/wiki/search"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+            breaker.onSuccess();
+            if (!StringUtils.hasText(raw)) {
+                return List.of();
+            }
+            JsonNode root = objectMapper.readTree(raw);
+            List<WikiVectorHit> hits = new ArrayList<>();
+            JsonNode hitsNode = root.path("hits");
+            if (hitsNode.isArray()) {
+                for (JsonNode node : hitsNode) {
+                    if (!node.hasNonNull("page_id")) {
+                        continue;
+                    }
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    node.path("payload").fields().forEachRemaining(e -> payload.put(e.getKey(),
+                            e.getValue().isNumber() ? e.getValue().asDouble()
+                                    : e.getValue().asText(null)));
+                    hits.add(new WikiVectorHit(
+                            node.get("page_id").asLong(),
+                            node.path("score").asDouble(0.0),
+                            payload));
+                }
+            }
+            log.info("[Wiki] 向量检索命中 {} 页", hits.size());
+            return hits;
+        } catch (Exception e) {
+            log.warn("[Wiki] 向量检索失败（降级 ngram）: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * 推送 Wiki 页面到向量集合（审核通过后调用）
+     *
+     * @param pages 页面摘要列表（正文不进向量）
+     * @return 同步结果；不可用 / 失败返回 {@code null}
+     */
+    public WikiIndexResult syncWikiPages(List<WikiPagePayload> pages) {
+        if (!properties.getFastapi().isEnabled() || pages == null || pages.isEmpty()
+                || !breaker.canUse()) {
+            return null;
+        }
+        try {
+            String raw = indexClient.post()
+                    .uri(properties.getFastapi().path("/wiki/index/sync"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("pages", pages))
+                    .retrieve()
+                    .body(String.class);
+            breaker.onSuccess();
+            JsonNode root = objectMapper.readTree(raw == null ? "{}" : raw);
+            WikiIndexResult result = new WikiIndexResult(
+                    root.path("synced").asInt(0),
+                    root.path("skipped").asInt(0),
+                    root.path("failed").asInt(0),
+                    root.path("took_ms").asInt(0));
+            log.info("[Wiki] 页面向量同步完成：synced={} skipped={} failed={}",
+                    result.synced(), result.skipped(), result.failed());
+            return result;
+        } catch (Exception e) {
+            log.warn("[Wiki] 页面向量同步失败（Wiki 仍可凭 ngram 命中）: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 删除 Wiki 页面向量（页面下架时） */
+    public int deleteWikiPages(List<Long> pageIds) {
+        if (!properties.getFastapi().isEnabled() || pageIds == null || pageIds.isEmpty()
+                || !breaker.canUse()) {
+            return 0;
+        }
+        try {
+            String raw = indexClient.post()
+                    .uri(properties.getFastapi().path("/wiki/index/delete"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("page_ids", pageIds))
+                    .retrieve()
+                    .body(String.class);
+            JsonNode root = objectMapper.readTree(raw == null ? "{}" : raw);
+            return root.path("deleted").asInt(0);
+        } catch (Exception e) {
+            log.warn("[Wiki] 删除页面向量失败: {}", e.getMessage());
+            return 0;
         }
     }
 
@@ -587,8 +816,61 @@ public class FastApiClient {
         }
     }
 
-    /** 索引同步结果 */
-    public record IndexSyncResult(int synced, int skipped, int failed, int tookMs) {
+    /**
+     * 索引同步结果
+     *
+     * <p>★ {@code rejectedIds} / {@code mismatchedIds} 是「向量库静默退化」的观测口：
+     * <ul>
+     *   <li>{@code rejectedIds}：写入前被判非法（NaN/Inf/零范数）**未进库**；</li>
+     *   <li>{@code mismatchedIds}：写入后校准发现**存进去的不是这条**——
+     *       这是本地 Qdrant 曾出现过的异常，一旦非空必须置 {@code vector_synced=2} 重试。</li>
+     * </ul>
+     * 只有带上 id 才能「精确」把出问题的块标失败，而不是把整批 500 条一起重推。
+     */
+    public record IndexSyncResult(int synced, int skipped, int failed, int tookMs,
+                                  List<Long> rejectedIds, List<Long> mismatchedIds) {
+    }
+
+    /** 解析 JSON 数字数组为 Long 列表（字段缺失或类型异常时返回空列表） */
+    private static List<Long> asLongList(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<Long> ids = new ArrayList<>(node.size());
+        for (JsonNode item : node) {
+            if (item.canConvertToLong()) {
+                ids.add(item.asLong());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 向量删除结果
+     *
+     * @param deleted   已发起删除的向量点条数（Qdrant 不返回逐点结果，故等价于 requested）
+     * @param requested 请求删除条数
+     */
+    public record IndexDeleteResult(int deleted, int requested) {
+    }
+
+    /** Wiki 向量命中 */
+    public record WikiVectorHit(Long pageId, double score, Map<String, Object> payload) {
+    }
+
+    /** Wiki 页面向量同步结果 */
+    public record WikiIndexResult(int synced, int skipped, int failed, int tookMs) {
+    }
+
+    /**
+     * 推送 Wiki 页面（只送标题 / 摘要 / 要点，正文不进向量）
+     *
+     * <p>字段统一 snake_case，与 Python {@code WikiIndexPage} 契约严格对齐。
+     */
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    public record WikiPagePayload(Long pageId, String title, String summary,
+                                  List<String> keyPoints, Long subjectId,
+                                  Long knowledgeId, Integer version) {
     }
 
     /** FastAPI 侧索引状态 */

@@ -98,6 +98,64 @@ class PaddleOcrEngine:
 
     # ------------------------------------------------------------------ 加载
 
+    @staticmethod
+    def _paddle_major() -> int:
+        """PaddleOCR 主版本号（无法判定时按 2.x 处理）。"""
+        try:
+            import paddleocr  # noqa: PLC0415
+
+            return int(str(getattr(paddleocr, "__version__", "2")).split(".")[0])
+        except Exception:  # noqa: BLE001
+            return 2
+
+    def _build_engine_kwargs(self) -> dict:
+        """按 PaddleOCR 主版本构造初始化参数。
+
+        2.x 与 3.x 的参数名不同，硬编码任一版本都会在另一版本上直接报错
+        （实测 3.7.0 下传 ``show_log`` → ``Unknown argument: show_log``）：
+          * 3.x：``use_angle_cls`` → ``use_textline_orientation``；
+                 ``det/rec/cls_model_dir`` → ``text_detection/recognition/textline_orientation_model_dir``；
+                 ``show_log`` 已移除
+          * 2.x：保留 ``use_angle_cls`` / ``*_model_dir`` / ``show_log``
+
+        显式指定模型目录（离线部署）时优先使用；目录不存在则交给 PaddleOCR 自行下载。
+        """
+        model_dir = Path(self.settings.model_dir)
+        det_dir, rec_dir, cls_dir = model_dir / "det", model_dir / "rec", model_dir / "cls"
+        has_det_rec = det_dir.is_dir() and rec_dir.is_dir()
+
+        if self._paddle_major() >= 3:
+            kwargs: dict = {
+                "lang": self.settings.lang,
+                "use_textline_orientation": self.settings.use_angle_cls,
+                # ★ 兼容性必需（实测 paddlepaddle 3.3.0 + oneDNN 下会抛
+                #   NotImplementedError: ConvertPirAttribute2RuntimeAttribute not support）：
+                #   关闭文档方向分类与文档矫正（UVDoc），并关掉 oneDNN 加速，
+                #   否则 PP-OCRv6 流水线在 CPU 上直接推理失败。
+                #   试卷识别是平面扫描件，本就不需要 UVDoc 矫正。
+                "use_doc_orientation_classify": False,
+                "use_doc_unwarping": False,
+                "enable_mkldnn": False,
+            }
+            if has_det_rec:
+                kwargs["text_detection_model_dir"] = str(det_dir)
+                kwargs["text_recognition_model_dir"] = str(rec_dir)
+                if self.settings.use_angle_cls and cls_dir.is_dir():
+                    kwargs["textline_orientation_model_dir"] = str(cls_dir)
+            return kwargs
+
+        kwargs = {
+            "lang": self.settings.lang,
+            "use_angle_cls": self.settings.use_angle_cls,
+            "show_log": False,
+        }
+        if has_det_rec:
+            kwargs["det_model_dir"] = str(det_dir)
+            kwargs["rec_model_dir"] = str(rec_dir)
+            if self.settings.use_angle_cls and cls_dir.is_dir():
+                kwargs["cls_model_dir"] = str(cls_dir)
+        return kwargs
+
     def ensure_loaded(self) -> None:
         """确保 OCR 引擎已加载（并发安全）。
 
@@ -125,24 +183,20 @@ class PaddleOcrEngine:
                     "请执行 install-ocr.bat 后重启服务；Java 侧请降级为人工录入"
                 ) from exc
 
-            kwargs: dict = {
-                "lang": self.settings.lang,
-                "use_angle_cls": self.settings.use_angle_cls,
-                "show_log": False,
-            }
-            # 显式指定模型目录时优先使用（离线部署）
-            model_dir = Path(self.settings.model_dir)
-            if model_dir.is_dir():
-                det_dir = model_dir / "det"
-                rec_dir = model_dir / "rec"
-                cls_dir = model_dir / "cls"
-                if det_dir.is_dir() and rec_dir.is_dir():
-                    kwargs["det_model_dir"] = str(det_dir)
-                    kwargs["rec_model_dir"] = str(rec_dir)
-                    if self.settings.use_angle_cls and cls_dir.is_dir():
-                        kwargs["cls_model_dir"] = str(cls_dir)
             try:
-                self._engine = PaddleOCR(**kwargs)
+                self._engine = PaddleOCR(**self._build_engine_kwargs())
+            except (TypeError, ValueError) as exc:
+                # 参数名跨版本漂移（例如 3.x 移除 show_log、use_angle_cls 改名）：
+                # 退化为最小参数集再试一次，避免「装了却完全不可用」
+                logger.warning("[OCR] PaddleOCR 初始化参数不被接受（%s），改用最小参数集重试", exc)
+                try:
+                    self._engine = PaddleOCR(lang=self.settings.lang)
+                except Exception as inner:  # noqa: BLE001
+                    self._load_error = f"模型加载失败：{type(inner).__name__}"
+                    raise OcrUnavailableError(
+                        f"OCR 模型加载失败：{type(inner).__name__}；Java 侧请降级为人工录入",
+                        detail=str(inner),
+                    ) from inner
             except Exception as exc:  # noqa: BLE001
                 self._load_error = f"模型加载失败：{type(exc).__name__}"
                 raise OcrUnavailableError(

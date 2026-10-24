@@ -21,4 +21,8 @@
     <string name="hint_grade">年级（可选，如 2025）</string>
     <string name="hint_select_school">选择学校</string>
     <string name="hint_select_college">选择学院</string>
+
+    <!-- 无障碍描述（TalkBack 朗读） -->
+    <string name="cd_upload">上传资料</string>
+    <string name="cd_avatar">头像</string>
 </resources>

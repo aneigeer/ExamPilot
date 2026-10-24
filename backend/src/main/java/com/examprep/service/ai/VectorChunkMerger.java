@@ -61,6 +61,20 @@ public class VectorChunkMerger {
                                     List<ChunkContext> ngramContexts,
                                     String query,
                                     Set<Long> weakKpIds) {
+        return merge(vectorContexts, ngramContexts, query, weakKpIds,
+                properties.getRetrieval().getTopK());
+    }
+
+    /**
+     * 融合两路结果（可显式指定 Top-K）
+     *
+     * <p>离线评估需要 Top-10 复算 Recall，生产仍取配置里的 Top-5。
+     */
+    public List<ChunkContext> merge(List<ChunkContext> vectorContexts,
+                                    List<ChunkContext> ngramContexts,
+                                    String query,
+                                    Set<Long> weakKpIds,
+                                    int topK) {
         if (vectorContexts == null) {
             vectorContexts = List.of();
         }
@@ -139,9 +153,9 @@ public class VectorChunkMerger {
         }
 
         ranked.sort(Comparator.comparingDouble(ChunkContext::finalScore).reversed());
-        int topK = r.getTopK();
-        List<ChunkContext> top = ranked.size() > topK
-                ? ranked.subList(0, topK)
+        int limit = Math.max(1, topK);
+        List<ChunkContext> top = ranked.size() > limit
+                ? ranked.subList(0, limit)
                 : ranked;
         log.info("[AI] 双通道融合：向量 {} 块 + ngram {} 块 → 去重后 {} 块（双通道命中 {} 块）→ Top-{}",
                 vectorContexts.size(), ngramContexts.size(), merged.size(), dualHitIds.size(), top.size());

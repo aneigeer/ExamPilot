@@ -47,24 +47,26 @@ def test_health_ready_flag_is_bool(client: Any) -> None:
         assert isinstance(data[key]["ready"], bool), f"{key}.ready 不是布尔值"
 
 
-def test_health_llm_not_ready_without_key(client: Any) -> None:
+def test_health_llm_not_ready_without_key(client: Any, llm_unconfigured: Any) -> None:
     """未配置 LLM_API_KEY 时 llm.ready 必须为 false（而不是报错）。"""
     data = client.get("/v1/health").json()
     assert data["llm"]["ready"] is False
     assert "LLM_API_KEY" in data["llm"]["detail"]
 
 
-def test_health_survives_missing_optional_deps(raw_client: Any) -> None:
-    """**核心安全属性**：不替换任何桩、依赖可能缺失时，健康检查仍必须 200。
+def test_health_survives_missing_optional_deps(embedding_down: Any) -> None:
+    """**核心安全属性**：依赖缺失时健康检查仍必须 200。
 
     这是 Java 侧降级链路成立的前提 —— 服务起不来就谈不上降级。
+    用 embedding_down 显式制造「模型缺失」，与机器上是否真放了模型解耦。
     """
-    response = raw_client.get("/v1/health")
+    with embedding_down() as test_client:
+        response = test_client.get("/v1/health")
     assert response.status_code == 200, (
         f"缺依赖时健康检查应仍返回 200，实际 {response.status_code}：{response.text}"
     )
     data = response.json()
-    assert data["embedding"]["ready"] is False, "本机未放模型，embedding 应为未就绪"
+    assert data["embedding"]["ready"] is False, "模型缺失时 embedding 应为未就绪"
     assert data["embedding"]["dim"] == 0, "未就绪时 dim 应为 0"
     assert data["status"] == "degraded"
 

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 头部搜索胶囊条：半透明白圆角 -->
+<!-- 头部搜索胶囊条：浅蓝底（配 @color/primary_dark 文字，对比度 7.7:1）。
+     原 #33FFFFFF 半透明白叠加后白字仅 3.84:1，13sp/14sp 不满足 WCAG AA -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#33FFFFFF" />
+    <solid android:color="@color/banner_bg" />
     <corners android:radius="23dp" />
 </shape>

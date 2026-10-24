@@ -67,15 +67,17 @@ def test_ocr_engine_module_imports_without_paddleocr() -> None:
 
 
 def test_embedding_client_import_error_is_actionable() -> None:
-    """缺 onnxruntime 时抛的错必须说清"怎么办"，而不是裸 ImportError。"""
+    """缺 onnxruntime / 模型文件时抛的错必须说清"怎么办"，而不是裸 ImportError。"""
+    from pathlib import Path
+
     from app.clients.embedding_client import EmbeddingClient
     from app.config import EmbeddingSettings
     from app.errors import CapabilityUnavailableError
 
-    client = EmbeddingClient(EmbeddingSettings())
+    # 指向不存在的模型目录 → 无论本机是否装了 onnxruntime/是否放了模型，都确定性触发 5201
+    client = EmbeddingClient(EmbeddingSettings(models_dir=Path("Z:/不存在-模型目录")))
     with pytest.raises(CapabilityUnavailableError) as excinfo:
         client.ensure_loaded()
-    # 本机未装依赖时才会是这个错；装了但没模型则是另一个错，两者都必须是 AiServiceError
     assert excinfo.value.http_status == 503
     assert excinfo.value.degraded is True
 
@@ -85,14 +87,20 @@ def test_embedding_client_import_error_is_actionable() -> None:
 # --------------------------------------------------------------------------------------
 
 
-def test_embedding_reports_not_ready_without_model() -> None:
-    """未加载模型时 ``ready=False`` 且诊断可读。"""
+def test_embedding_reports_not_capable_without_model() -> None:
+    """模型文件缺失时 ``capable/ready=False`` 且诊断可操作。"""
     from app.clients.embedding_client import EmbeddingClient
     from app.config import EmbeddingSettings
 
-    client = EmbeddingClient(EmbeddingSettings(models_dir=__import__("pathlib").Path("Z:/不存在")))
-    assert client.ready is False
-    assert "未加载" in client.health_detail() or "未就绪" in client.health_detail()
+    client = EmbeddingClient(
+        EmbeddingSettings(models_dir=__import__("pathlib").Path("Z:/不存在"))
+    )
+    assert client.capable is False
+    assert client.loaded is False
+    assert client.ready is False, "ready 语义 = capable，缺模型时必须为 False"
+    detail = client.health_detail()
+    # 提示必须说清「缺什么、放哪」，而不是一句"未就绪"
+    assert "模型文件缺失" in detail or "不可用" in detail
 
 
 def test_ocr_reports_not_available_without_paddleocr() -> None:
@@ -129,11 +137,13 @@ def test_llm_reports_not_ready_without_key() -> None:
 # --------------------------------------------------------------------------------------
 
 
-def test_all_endpoints_degrade_gracefully(raw_client: Any) -> None:
-    """**核心用例**：一个依赖都不装时，所有能力接口都返回 503 而非 5xx 崩溃。
+def test_all_endpoints_degrade_gracefully(embedding_down: Any) -> None:
+    """**核心用例**：依赖不可用时，所有能力接口都返回 503 而非 5xx 崩溃。
 
     逐个检查：HTTP 状态码是 503、错误体是 ``{code, message, degraded}``、
     ``degraded=True``、错误码在 52xx 段、消息里没有堆栈。
+    用 embedding_down(disable_ocr=True) 显式制造「embedding + OCR 都不可用」，
+    避免因本机已装依赖/已放模型而使断言失真。
     """
     cases = [
         ("POST", "/v1/embed", {"texts": ["测试"]}),
@@ -142,24 +152,30 @@ def test_all_endpoints_degrade_gracefully(raw_client: Any) -> None:
         ("POST", "/v1/ocr", {"image_base64": "aGVsbG8="}),
         ("POST", "/v1/llm", {"question": "问题", "contexts": ["上下文"]}),
     ]
-    for method, path, payload in cases:
-        response = raw_client.request(method, path, json=payload)
-        assert response.status_code == 503, (
-            f"{path} 应返回 503，实际 {response.status_code}：{response.text}"
-        )
-        body = response.json()
-        assert set(body.keys()) == {"code", "message", "degraded"}, f"{path} 错误体结构不符：{body}"
-        assert body["degraded"] is True, f"{path} 未标记 degraded"
-        assert 5200 <= body["code"] <= 5299, f"{path} 错误码越界：{body['code']}"
-        assert "Traceback" not in body["message"], f"{path} 消息里含堆栈"
+    with embedding_down(disable_ocr=True) as test_client:
+        for method, path, payload in cases:
+            response = test_client.request(method, path, json=payload)
+            assert response.status_code == 503, (
+                f"{path} 应返回 503，实际 {response.status_code}：{response.text}"
+            )
+            body = response.json()
+            assert set(body.keys()) == {"code", "message", "degraded"}, (
+                f"{path} 错误体结构不符：{body}"
+            )
+            assert body["degraded"] is True, f"{path} 未标记 degraded"
+            assert 5200 <= body["code"] <= 5299, f"{path} 错误码越界：{body['code']}"
+            assert "Traceback" not in body["message"], f"{path} 消息里含堆栈"
 
 
-def test_health_is_200_even_with_zero_dependencies(raw_client: Any) -> None:
-    """**安全底线**：什么依赖都没有时，``/v1/health`` 仍 200。
+def test_health_is_200_even_with_zero_dependencies(
+    embedding_down: Any, llm_unconfigured: Any
+) -> None:
+    """**安全底线**：依赖不可用时，``/v1/health`` 仍 200。
 
     没有这条，Java 侧连"探测 AI 服务是否可用"都做不到，降级链路的起点就断了。
     """
-    response = raw_client.get("/v1/health")
+    with embedding_down() as test_client:
+        response = test_client.get("/v1/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "degraded"

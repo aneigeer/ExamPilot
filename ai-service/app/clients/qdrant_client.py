@@ -16,8 +16,10 @@
 from __future__ import annotations
 
 import logging
+import math
 import threading
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from ..config import QdrantSettings
 from ..errors import CapabilityUnavailableError, VectorIndexStaleError, VectorSearchError
@@ -30,11 +32,139 @@ logger = logging.getLogger(__name__)
 #: 记录 collection 元信息的点 ID（固定 UUID，便于反复覆盖）
 _META_POINT_ID = "00000000-0000-0000-0000-00000000cafe"
 
+#: 写入后校准阈值：读回的存储向量与输入向量的余弦必须 ≥ 该值。
+#: 0.9999 而不是 1.0 —— 浮点往返（float32 存储）会有 1e-7 级误差。
+_VERIFY_MIN_COS = 0.9999
+
 #: 集合不存在 / 模型不匹配时的状态常量
 STATUS_READY = "READY"
 STATUS_COLLECTION_MISSING = "COLLECTION_MISSING"
 STATUS_MODEL_MISMATCH = "MODEL_MISMATCH"
 STATUS_ERROR = "ERROR"
+
+
+def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
+    """纯 Python 余弦相似度（不依赖 numpy，也不原地修改入参）。
+
+    ★ 刻意不复用 qdrant 本地实现的 ``cosine_similarity``：那个函数会**原地归一化**
+    传入矩阵，正是需要绕开的对象。
+
+    Args:
+        a: 向量 A。
+        b: 向量 B。
+
+    Returns:
+        余弦相似度；任一向量长度为 0 或含非有限值时返回 0.0。
+    """
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = 0.0
+    na = 0.0
+    nb = 0.0
+    for x, y in zip(a, b):
+        if not (math.isfinite(x) and math.isfinite(y)):
+            return 0.0
+        dot += x * y
+        na += x * x
+        nb += y * y
+    if na <= 0.0 or nb <= 0.0:
+        return 0.0
+    return dot / math.sqrt(na * nb)
+
+
+def _vector_reject_reason(vector: Sequence[float]) -> Optional[str]:
+    """判断向量是否不可入库。
+
+    ★ 为什么零范数必须拒绝：余弦检索对零向量无定义。本地模式的实现会
+    ``query /= max(norm, EPSILON)``，零行保持全 0，看似无害；
+    但只要库里混入损坏行，不同 query 的打分就失去可比性，
+    检索会**静默退化**成「永远返回同一批结果」。写入侧拦掉是最省事的治本点。
+
+    Args:
+        vector: 待写入向量。
+
+    Returns:
+        不可入库的原因（中文）；合法时返回 ``None``。
+    """
+    if not vector:
+        return "空向量"
+    for value in vector:
+        if not math.isfinite(value):
+            return "含 NaN/Inf"
+    norm_sq = sum(v * v for v in vector)
+    if norm_sq <= 0.0:
+        return "零范数向量（余弦检索无定义）"
+    return None
+
+
+@dataclass
+class UpsertResult:
+    """批量写入结果。
+
+    Attributes:
+        written: 实际写入条数（已通过校验与校准）。
+        rejected: ``chunk_id -> 拒绝原因``（写入前校验未通过，未进库）。
+        mismatched: 写入后校准不通过的 chunk_id（已进库但读回不一致）。
+    """
+
+    written: int = 0
+    rejected: Dict[int, str] = field(default_factory=dict)
+    mismatched: List[int] = field(default_factory=list)
+
+
+
+def _local_location(url: str) -> Optional[str]:
+    """把「本地模式」写法映射为 qdrant-client 的本地位置（免 Docker 运行）。
+
+    - ``:memory:``                     → 进程内内存模式（重启即失，适合演示/测试）
+    - ``local:<路径>`` / ``file:<路径>`` → 本地目录持久化（单进程独占）
+
+    返回 ``None`` 表示走常规远程 ``url`` 模式（http(s)://host:port）。
+
+    注：qdrant-client 对本地路径只接受 ``path=`` 参数（``location=`` 会把它当 URL 解析，
+    报 "Unknown scheme"），因此调用方需按返回值分流。
+    """
+    u = (url or "").strip()
+    if u == ":memory:":
+        return ":memory:"
+    for prefix in ("local:", "file:"):
+        if u.startswith(prefix):
+            return u[len(prefix):].strip() or ":memory:"
+    return None
+
+
+def _to_qdrant_filter(query_filter: Optional[Any]) -> Optional[Any]:
+    """把 schemas 层产出的 filter **dict** 转成 qdrant-client 的 ``models.Filter``。
+
+    真实 ``QdrantClient.search`` 只接受 ``models.Filter`` 对象；直接传 dict 会报
+    ``'dict' object has no attribute 'must'``（该坑此前未被真实运行暴露）。
+    已是 Filter 对象或 None 时原样返回。
+    """
+    if query_filter is None or not isinstance(query_filter, dict):
+        return query_filter
+    from qdrant_client import models as qmodels  # type: ignore[import-not-found]  # noqa: PLC0415
+
+    must = []
+    for cond in query_filter.get("must", []) or []:
+        match = cond.get("match") or {}
+        # 支持两种写法：
+        #   {"value": x}      → 单值匹配（历史用法，所有既有调用方不受影响）
+        #   {"any": [x, y]}   → 多值匹配（Router 分流用：如 QUESTION + KNOWLEDGE）
+        if "any" in match:
+            must.append(
+                qmodels.FieldCondition(
+                    key=cond.get("key"),
+                    match=qmodels.MatchAny(any=list(match["any"])),
+                )
+            )
+        else:
+            must.append(
+                qmodels.FieldCondition(
+                    key=cond.get("key"),
+                    match=qmodels.MatchValue(value=match.get("value")),
+                )
+            )
+    return qmodels.Filter(must=must) if must else None
 
 
 class QdrantClientWrapper:
@@ -55,6 +185,9 @@ class QdrantClientWrapper:
         self.settings: QdrantSettings = settings
         self._client: Optional[Any] = None
         self._lock: threading.Lock = threading.Lock()
+        #: 串行化向量读写：本地模式底层是 SQLite/文件，多线程并发访问不稳定；
+        #: 生产上单个 AI 服务的检索吞吐远低于该锁的成本，稳定性优先。
+        self._op_lock: threading.RLock = threading.RLock()
         self._last_error: str = ""
 
     # ------------------------------------------------------------------ 健康检查
@@ -69,8 +202,16 @@ class QdrantClientWrapper:
         if not self.ready:
             if self._last_error:
                 return f"不可用：{self._last_error}"
-            return f"未连接（懒加载，{self.settings.url}）"
-        return f"collection={self.settings.collection} url={self.settings.url}"
+            return f"未连接（懒加载，{self._mode_desc()}）"
+        return f"collection={self.settings.collection} {self._mode_desc()}"
+
+    def _mode_desc(self) -> str:
+        """当前连接模式的可读描述（远程 url / 本地模式）。"""
+        loc = _local_location(self.settings.url)
+        if loc is None:
+            return f"url={self.settings.url}"
+        kind = "内存" if loc == ":memory:" else "本地持久化"
+        return f"本地模式（{kind} {loc}）"
 
     def probe(self) -> bool:
         """主动探活 Qdrant（供 ``/v1/health`` 调用）。
@@ -111,12 +252,20 @@ class QdrantClientWrapper:
                     "向量库能力不可用：未安装 qdrant-client，请执行 install.bat 后重启服务"
                 ) from exc
             try:
-                self._client = QdrantClient(
-                    url=self.settings.url,
-                    api_key=self.settings.api_key or None,
-                    timeout=self.settings.timeout_seconds,
-                    prefer_grpc=self.settings.prefer_grpc,
-                )
+                location = _local_location(self.settings.url)
+                if location == ":memory:":
+                    # 进程内内存模式（qdrant-client 内置实现）
+                    self._client = QdrantClient(location=":memory:")
+                elif location is not None:
+                    # 本地目录持久化（path= 为本地模式入口，免 Docker 与 Qdrant 服务）
+                    self._client = QdrantClient(path=location)
+                else:
+                    self._client = QdrantClient(
+                        url=self.settings.url,
+                        api_key=self.settings.api_key or None,
+                        timeout=self.settings.timeout_seconds,
+                        prefer_grpc=self.settings.prefer_grpc,
+                    )
                 self._last_error = ""
             except Exception as exc:  # noqa: BLE001
                 raise VectorSearchError(
@@ -159,6 +308,166 @@ class QdrantClientWrapper:
             ) from exc
         return collection
 
+    # ------------------------------------------------------------------ Wiki 独立集合
+
+    def ensure_named_collection(self, collection: str, dim: Optional[int] = None,
+                                *, force_recreate: bool = False) -> str:
+        """确保指定集合存在（Wiki 热层独立于 RAG 的 exam_chunks）。
+
+        ★ 复用同一个 QdrantClient 实例：本地目录模式（``local:./data/qdrant``）
+        对同一路径是**单进程独占**的，再 new 一个 client 会直接报
+        "already accessed by another instance"。因此这里只切换 collection 名。
+        """
+        from qdrant_client import models as qmodels  # type: ignore[import-not-found]
+
+        client = self._ensure_client()
+        size = int(dim or self.settings.dim)
+        try:
+            if force_recreate and client.collection_exists(collection_name=collection):
+                client.delete_collection(collection_name=collection)
+            if not client.collection_exists(collection_name=collection):
+                client.create_collection(
+                    collection_name=collection,
+                    vectors_config=qmodels.VectorParams(
+                        size=size, distance=qmodels.Distance.COSINE
+                    ),
+                )
+                logger.info("[Qdrant] 已创建集合 %s dim=%d", collection, size)
+        except Exception as exc:  # noqa: BLE001
+            raise VectorSearchError(
+                f"Wiki 向量集合操作失败（{collection}）：{type(exc).__name__}", detail=str(exc)
+            ) from exc
+        return collection
+
+    def upsert_wiki_pages(
+        self,
+        collection: str,
+        pages: Sequence[Dict[str, Any]],
+        vectors: Sequence[Sequence[float]],
+        dim: Optional[int] = None,
+    ) -> int:
+        """写入 Wiki 页面摘要向量。
+
+        Args:
+            collection: 目标集合（默认配置里的 wiki_pages）。
+            pages: 每页 ``{page_id, title, subject_id?, knowledge_id?, version?}``。
+            vectors: 与 pages 一一对应的向量。
+            dim: 向量维度，缺省用配置维度。
+
+        Returns:
+            实际写入条数。
+
+        Raises:
+            VectorSearchError: 数量 / 维度不匹配或写入失败。
+        """
+        from qdrant_client import models as qmodels  # type: ignore[import-not-found]
+
+        if len(pages) != len(vectors):
+            raise VectorSearchError(
+                f"Wiki 向量数量与页面数量不一致（{len(vectors)} vs {len(pages)}）"
+            )
+        if not pages:
+            return 0
+        size = int(dim or self.settings.dim)
+        self.ensure_named_collection(collection, size)
+        client = self._ensure_client()
+        points: List[Any] = []
+        for page, vector in zip(pages, vectors):
+            values = [float(x) for x in vector]
+            if len(values) != size:
+                raise VectorSearchError(
+                    f"Wiki 向量维度不匹配：期望 {size}，实际 {len(values)}"
+                )
+            reason = _vector_reject_reason(values)
+            if reason is not None:
+                logger.warning("[Qdrant] 拒绝写入非法 Wiki 向量 page_id=%s 原因=%s",
+                               page.get("page_id"), reason)
+                continue
+            payload = {k: v for k, v in page.items() if v is not None}
+            payload["page_id"] = int(page["page_id"])
+            points.append(
+                qmodels.PointStruct(
+                    id=int(page["page_id"]), vector=values, payload=payload
+                )
+            )
+        if not points:
+            return 0
+        with self._op_lock:
+            try:
+                client.upsert(collection_name=collection, points=points, wait=True)
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"Wiki 向量写入失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+        return len(points)
+
+    def delete_wiki_pages(self, collection: str, page_ids: Sequence[int]) -> int:
+        """按 page_id 删除 Wiki 向量（先 retrieve 过滤，兼容本地模式）。"""
+        from qdrant_client import models as qmodels  # type: ignore[import-not-found]
+
+        ids = [int(i) for i in page_ids]
+        if not ids:
+            return 0
+        client = self._ensure_client()
+        with self._op_lock:
+            try:
+                if not client.collection_exists(collection_name=collection):
+                    return 0
+                points = client.retrieve(
+                    collection_name=collection, ids=ids,
+                    with_payload=False, with_vectors=False,
+                )
+                existing = [int(point.id) for point in points]
+                if not existing:
+                    return 0
+                client.delete(
+                    collection_name=collection,
+                    points_selector=qmodels.PointIdsList(points=existing),
+                    wait=True,
+                )
+                return len(existing)
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"Wiki 向量删除失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+
+    def search_wiki(self, collection: str, vector: Sequence[float], *,
+                    top_k: int = 5,
+                    query_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Wiki 页面摘要向量检索（返回 ``page_id`` 而非 chunk_id）。"""
+        client = self._ensure_client()
+        with self._op_lock:
+            try:
+                if not client.collection_exists(collection_name=collection):
+                    raise VectorSearchError(
+                        f"Wiki 向量集合不存在（{collection}），请先发布页面或调用 /v1/wiki/index/sync"
+                    )
+                hits = client.search(
+                    collection_name=collection,
+                    query_vector=list(vector),
+                    limit=top_k,
+                    query_filter=_to_qdrant_filter(query_filter),
+                    with_payload=True,
+                )
+            except VectorSearchError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"Wiki 向量检索失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+        results: List[Dict[str, Any]] = []
+        for hit in hits:
+            payload = dict(getattr(hit, "payload", None) or {})
+            page_id = payload.get("page_id", getattr(hit, "id", None))
+            if page_id is None:
+                continue
+            results.append({
+                "page_id": int(page_id),
+                "score": float(getattr(hit, "score", 0.0) or 0.0),
+                "payload": payload,
+            })
+        return results
+
     def count_points(self) -> int:
         """统计集合内点数；集合不存在返回 0。
 
@@ -169,15 +478,16 @@ class QdrantClientWrapper:
             VectorSearchError: 统计失败。
         """
         client = self._ensure_client()
-        try:
-            if not client.collection_exists(collection_name=self.settings.collection):
-                return 0
-            result = client.count(collection_name=self.settings.collection, exact=True)
-            return int(result.count)
-        except Exception as exc:  # noqa: BLE001
-            raise VectorSearchError(
-                f"向量库计数失败：{type(exc).__name__}", detail=str(exc)
-            ) from exc
+        with self._op_lock:
+            try:
+                if not client.collection_exists(collection_name=self.settings.collection):
+                    return 0
+                result = client.count(collection_name=self.settings.collection, exact=True)
+                return int(result.count)
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"向量库计数失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
 
     def upsert_meta(self, model_id: str, dim: int) -> None:
         """写入集合元信息（模型标识 + 维度），用于检测模型不一致。
@@ -255,18 +565,30 @@ class QdrantClientWrapper:
 
     def upsert_chunks(
         self, chunks: Sequence["IndexChunk"], vectors: Sequence[Sequence[float]]
-    ) -> int:
-        """批量写入向量点。
+    ) -> "UpsertResult":
+        """批量写入向量点（**带写入侧校验 + 写入后校准**）。
+
+        ★ 为什么必须在写入侧拦住坏向量：
+        Qdrant 本地模式的检索是「暴力余弦」，一旦库里存在非法/损坏的向量行，
+        **整库检索会静默退化**（表现为「无论问什么都返回同一批结果」），
+        而现有对账只比对**数量**，发现不了。所以坏向量绝不允许进库。
+
+        两道关：
+        1. **写入前校验**：NaN / Inf / 零范数向量直接拒绝（不进库）；
+        2. **写入后校准**：读回存储向量与输入逐一比余弦，低于
+           :data:`_VERIFY_MIN_COS` 即判定「写了但存进去的不是这条」，
+           返回其 id 交由调用方置 ``vector_synced=2`` 重试。
 
         Args:
             chunks: 语料块列表。
             vectors: 与 ``chunks`` 一一对应的向量。
 
         Returns:
-            成功写入条数。
+            :class:`UpsertResult`：``written`` / ``rejected``（id→原因） /
+            ``mismatched``（校准不通过的 id）。
 
         Raises:
-            VectorSearchError: 数量不匹配或写入失败。
+            VectorSearchError: 数量不匹配、维度不匹配或写入失败。
         """
         from qdrant_client import models as qmodels  # type: ignore[import-not-found]  # noqa: PLC0415
 
@@ -275,40 +597,110 @@ class QdrantClientWrapper:
                 f"向量数量与语料块数量不一致（{len(vectors)} vs {len(chunks)}）"
             )
         if not chunks:
-            return 0
+            return UpsertResult(written=0, rejected={}, mismatched=[])
+
         self.ensure_collection()
         client = self._ensure_client()
+
         points: List[Any] = []
+        accepted: List[Tuple[int, List[float]]] = []
+        rejected: Dict[int, str] = {}
         for index, chunk in enumerate(chunks):
-            vector = list(vectors[index])
+            chunk_id = int(chunk.chunk_id)
+            vector = [float(x) for x in vectors[index]]
             if len(vector) != self.settings.dim:
                 raise VectorSearchError(
-                    f"向量维度不匹配：期望 {self.settings.dim}，实际 {len(vector)}", detail=str(chunk.chunk_id)
+                    f"向量维度不匹配：期望 {self.settings.dim}，实际 {len(vector)}",
+                    detail=str(chunk_id),
                 )
+            reason = _vector_reject_reason(vector)
+            if reason is not None:
+                rejected[chunk_id] = reason
+                logger.warning(
+                    "[Qdrant] 拒绝写入非法向量 chunk_id=%s 原因=%s（该块不会进向量库）",
+                    chunk_id, reason,
+                )
+                continue
+            accepted.append((chunk_id, vector))
             points.append(
                 qmodels.PointStruct(
                     # chunk_id 复用为 point id（int），Qdrant 支持 uint64/uuid
-                    id=int(chunk.chunk_id),
+                    id=chunk_id,
                     vector=vector,
                     payload=build_payload(chunk),
                 )
             )
+        if not points:
+            return UpsertResult(written=0, rejected=rejected, mismatched=[])
+
+        with self._op_lock:
+            try:
+                client.upsert(collection_name=self.settings.collection, points=points, wait=True)
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"向量写入失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+
+            mismatched = self._verify_written(client, accepted)
+        if mismatched:
+            logger.error(
+                "[Qdrant] 写入后校准不通过 %d/%d 条（存储向量与输入不一致）：%s"
+                "——这属于向量库写入异常，调用方应将这批块置 vector_synced=2 重试；"
+                "若反复出现需删除向量库目录后全量重建",
+                len(mismatched), len(accepted), mismatched[:10],
+            )
+        return UpsertResult(written=len(points), rejected=rejected, mismatched=mismatched)
+
+    def _verify_written(
+        self, client: Any, accepted: Sequence[Tuple[int, List[float]]]
+    ) -> List[int]:
+        """写入后校准：读回存储向量，与输入比余弦，返回不一致的 chunk_id。
+
+        Args:
+            client: 已建立的 Qdrant 客户端。
+            accepted: ``(chunk_id, 向量)`` 列表。
+
+        Returns:
+            校准不通过的 chunk_id 列表（读不回来也算不通过）。
+        """
+        if not accepted:
+            return []
+        ids = [cid for cid, _ in accepted]
         try:
-            client.upsert(collection_name=self.settings.collection, points=points, wait=True)
+            points = client.retrieve(
+                collection_name=self.settings.collection,
+                ids=ids,
+                with_vectors=True,
+                with_payload=False,
+            )
         except Exception as exc:  # noqa: BLE001
-            raise VectorSearchError(
-                f"向量写入失败：{type(exc).__name__}", detail=str(exc)
-            ) from exc
-        return len(points)
+            # 校准本身失败不该阻断写入（数据已落库），但要明确报出来
+            logger.warning(
+                "[Qdrant] 写入后校准读取失败：%s——本批按「未校准」处理",
+                type(exc).__name__,
+            )
+            return ids
+        stored = {int(point.id): list(point.vector or []) for point in points}
+        bad: List[int] = []
+        for chunk_id, vector in accepted:
+            got = stored.get(chunk_id)
+            if not got or _cosine(vector, got) < _VERIFY_MIN_COS:
+                bad.append(chunk_id)
+        return bad
 
     def delete_chunks(self, chunk_ids: Sequence[int]) -> int:
         """按 chunk_id 删除向量点。
+
+        ★ 为什么要先 ``retrieve`` 过滤：**Qdrant 本地模式对不存在的 point id 会抛
+        ``KeyError``**（云端实现是静默忽略）。孤儿清理天然会出现「这一批里有的点已被删过」
+        的情况，直接 ``delete`` 会让整批失败；先取出真实存在的点再删，
+        既避免报错，也让「重复清理」保持幂等。
 
         Args:
             chunk_ids: 待删除的 ``ai_chunk`` 主键列表。
 
         Returns:
-            请求删除的条数。
+            实际发起删除的条数（不存在的点不计入）。
 
         Raises:
             VectorSearchError: 删除失败。
@@ -317,18 +709,34 @@ class QdrantClientWrapper:
 
         if not chunk_ids:
             return 0
+        ids = [int(i) for i in chunk_ids]
         client = self._ensure_client()
-        try:
-            client.delete(
-                collection_name=self.settings.collection,
-                points_selector=qmodels.PointIdsList(points=[int(i) for i in chunk_ids]),
-                wait=True,
-            )
-        except Exception as exc:  # noqa: BLE001
-            raise VectorSearchError(
-                f"向量删除失败：{type(exc).__name__}", detail=str(exc)
-            ) from exc
-        return len(chunk_ids)
+        with self._op_lock:
+            try:
+                points = client.retrieve(
+                    collection_name=self.settings.collection,
+                    ids=ids,
+                    with_payload=False,
+                    with_vectors=False,
+                )
+                ids = [int(point.id) for point in points]
+                if not ids:
+                    return 0
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"向量删除前查询失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+            try:
+                client.delete(
+                    collection_name=self.settings.collection,
+                    points_selector=qmodels.PointIdsList(points=ids),
+                    wait=True,
+                )
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"向量删除失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
+        return len(ids)
 
     # ------------------------------------------------------------------ 检索
 
@@ -354,24 +762,25 @@ class QdrantClientWrapper:
         """
         client = self._ensure_client()
         collection = self.settings.collection
-        try:
-            if not client.collection_exists(collection_name=collection):
-                raise VectorSearchError(
-                    f"向量集合不存在（{collection}），请先调用 POST /v1/index/rebuild 或 /v1/index/sync"
+        with self._op_lock:
+            try:
+                if not client.collection_exists(collection_name=collection):
+                    raise VectorSearchError(
+                        f"向量集合不存在（{collection}），请先调用 POST /v1/index/rebuild 或 /v1/index/sync"
+                    )
+                hits = client.search(
+                    collection_name=collection,
+                    query_vector=list(vector),
+                    limit=top_k,
+                    query_filter=_to_qdrant_filter(query_filter),
+                    with_payload=True,
                 )
-            hits = client.search(
-                collection_name=collection,
-                query_vector=list(vector),
-                limit=top_k,
-                query_filter=query_filter,
-                with_payload=True,
-            )
-        except VectorSearchError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            raise VectorSearchError(
-                f"向量检索失败：{type(exc).__name__}", detail=str(exc)
-            ) from exc
+            except VectorSearchError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                raise VectorSearchError(
+                    f"向量检索失败：{type(exc).__name__}", detail=str(exc)
+                ) from exc
 
         results: List[Dict[str, Any]] = []
         for hit in hits:

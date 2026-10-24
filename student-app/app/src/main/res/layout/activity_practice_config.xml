@@ -46,6 +46,14 @@
             android:inputType="number" android:text="10"
             android:background="@android:drawable/editbox_background" android:padding="10dp" />
 
+        <TextView
+            android:id="@+id/tvPresetHint"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@color/card" android:padding="10dp"
+            android:textColor="@color/text_sub" android:textSize="13sp"
+            android:visibility="gone" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGo"
             android:layout_width="match_parent" android:layout_height="52dp"

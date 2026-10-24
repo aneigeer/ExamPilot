@@ -39,7 +39,17 @@ public record ChunkContext(
         double finalScore
 ) {
 
-    /** App 端跳转路径：题目 /questions/{id}、资料 /resources/{id}、知识点 /knowledge/{id} */
+    /**
+     * App 端跳转路径
+     *
+     * <p>题目 {@code /questions/{id}}、资料 {@code /resources/{id}}、
+     * 知识点 {@code /knowledge/{id}}、课件 {@code /courseware/{id}}、
+     * Wiki 主题页 {@code /wiki/{id}}。
+     *
+     * <p>⚠️ <b>新增 source_type 时必须在这里加分支</b>，否则会落到
+     * {@code default → /home}：客户端点「来源」会跳到首页而不是原文，
+     * 且这种 bug 不会报错、极难发现。
+     */
     public String refPath() {
         if (refId == null) {
             return "/home";
@@ -48,9 +58,13 @@ public record ChunkContext(
             case "QUESTION" -> "/questions/";
             case "RESOURCE" -> "/resources/";
             case "KNOWLEDGE" -> "/knowledge/";
-            default -> "/home";
+            case "COURSEWARE" -> "/courseware/";
+            // Wiki 主题页：Agent 工具 search_wiki 返回的上下文也走这里
+            case "WIKI" -> "/wiki/";
+            default -> null;
         };
-        return prefix + refId;
+        // 未知类型不能拼出 "/home8" 这种畸形路径（客户端会 404），直接回首页
+        return prefix == null ? "/home" : prefix + refId;
     }
 
     /** 带最终分的新实例（重排阶段使用） */

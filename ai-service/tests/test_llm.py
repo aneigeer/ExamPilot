@@ -58,8 +58,10 @@ def test_llm_503_never_leaks_key_value(monkeypatch: pytest.MonkeyPatch) -> None:
             body = test_client.post(
                 "/v1/llm", json={"question": "问题", "contexts": ["上下文"]}
             ).json()
-            assert "LLM_API_KEY" in body["message"]
+            # 安全红线：响应绝不回显 Key 的值
             assert "sk-do-not-leak-me" not in body["message"]
+            # 且必须给出可执行的降级指引（变量名或"抽取式"）
+            assert "LLM_API_KEY" in body["message"] or "抽取式" in body["message"]
     finally:
         object.__setattr__(settings.llm, "api_key", "")
         llm_module.reset_llm_client()
@@ -105,8 +107,8 @@ def test_llm_upstream_failure_returns_503(monkeypatch: pytest.MonkeyPatch) -> No
         reset_settings()
 
 
-def test_llm_health_reports_not_configured(raw_client: Any) -> None:
-    """健康检查如实报告大模型未配置。"""
+def test_llm_health_reports_not_configured(raw_client: Any, llm_unconfigured: Any) -> None:
+    """健康检查如实报告大模型未配置（显式清空 Key，与机器环境解耦）。"""
     llm_health = raw_client.get("/v1/health").json()["llm"]
     assert llm_health["ready"] is False
     assert "LLM_API_KEY" in llm_health["detail"]

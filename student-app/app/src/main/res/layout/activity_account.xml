@@ -8,6 +8,7 @@
         android:background="@color/primary" android:gravity="center_vertical"
         android:orientation="horizontal" android:padding="14dp">
         <TextView
+            style="@style/TopAction"
             android:id="@+id/btnBack"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:padding="6dp" android:text="← 返回"
@@ -19,33 +20,66 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="16dp">
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
 
-        <TextView style="@style/CardTitle" android:text="修改密码" android:textSize="16sp" />
-
-        <EditText
-            android:id="@+id/etOld"
+        <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:hint="原密码" android:inputType="textPassword"
-            android:background="@android:drawable/editbox_background" android:padding="10dp" />
+            android:orientation="vertical" android:padding="16dp">
 
-        <EditText
-            android:id="@+id/etNew"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:hint="新密码（至少 6 位）" android:inputType="textPassword"
-            android:background="@android:drawable/editbox_background" android:padding="10dp" />
+            <TextView style="@style/CardTitle" android:text="修改密码" android:textSize="16sp" />
 
-        <EditText
-            android:id="@+id/etConfirm"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:hint="确认新密码" android:inputType="textPassword"
-            android:background="@android:drawable/editbox_background" android:padding="10dp" />
+            <EditText
+                android:id="@+id/etOld"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:hint="原密码" android:inputType="textPassword"
+                android:background="@android:drawable/editbox_background" android:padding="10dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnChange"
-            android:layout_width="match_parent" android:layout_height="50dp"
-            android:layout_marginTop="16dp" android:text="确认修改" />
-    </LinearLayout>
+            <EditText
+                android:id="@+id/etNew"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:hint="新密码（至少 8 位，含字母和数字）" android:inputType="textPassword"
+                android:background="@android:drawable/editbox_background" android:padding="10dp" />
+
+            <EditText
+                android:id="@+id/etConfirm"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:hint="确认新密码" android:inputType="textPassword"
+                android:background="@android:drawable/editbox_background" android:padding="10dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChange"
+                android:layout_width="match_parent" android:layout_height="50dp"
+                android:layout_marginTop="16dp" android:text="确认修改" />
+
+            <TextView style="@style/CardTitle" android:layout_marginTop="24dp"
+                android:text="数据与隐私" android:textSize="16sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnExport"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="12dp" android:text="导出个人数据" />
+
+            <TextView
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="导出的 JSON 包含你的账号资料、答题统计、错题本、练习记录、收藏与笔记，可自行留存。"
+                android:textColor="@color/text_sub" android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDeactivate"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent" android:layout_height="48dp"
+                android:layout_marginTop="14dp" android:text="注销账号"
+                android:textColor="@color/wrong" />
+
+            <TextView
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:layout_marginBottom="16dp"
+                android:text="注销后个人身份信息将即刻匿名化且不可恢复，历史答题记录将去标识化保留。"
+                android:textColor="@color/text_sub" android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>

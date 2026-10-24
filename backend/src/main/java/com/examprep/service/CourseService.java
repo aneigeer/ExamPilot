@@ -1,6 +1,7 @@
 package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.examprep.common.BatchLookup;
 import com.examprep.common.BizException;
 import com.examprep.common.ResultCode;
 import com.examprep.dto.CourseVO;
@@ -23,7 +24,6 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * 课程库服务（校内课程维度：学院 / 学期 / 课程）
@@ -89,20 +89,24 @@ public class CourseService {
     }
 
     /**
-     * 批量补齐关联名称（一次查全表做 Map，数据量小，避免 N+1）
+     * 批量补齐关联名称（只查本页引用到的 ID，避免 N+1 也避免整表加载）
      */
     private List<CourseVO> toVOs(List<Course> courses) {
         if (courses.isEmpty()) {
             return List.of();
         }
-        Map<Long, String> collegeNames = collegeMapper.selectList(null).stream()
-                .collect(Collectors.toMap(College::getId, College::getName, (a, b) -> a));
-        Map<Long, String> teacherNames = teacherMapper.selectList(null).stream()
-                .collect(Collectors.toMap(Teacher::getId, Teacher::getName, (a, b) -> a));
-        Map<Long, String> semesterNames = semesterMapper.selectList(null).stream()
-                .collect(Collectors.toMap(Semester::getId, Semester::getName, (a, b) -> a));
-        Map<Long, String> subjectNames = subjectMapper.selectList(null).stream()
-                .collect(Collectors.toMap(Subject::getId, Subject::getName, (a, b) -> a));
+        Map<Long, String> collegeNames = BatchLookup.nameMap(collegeMapper,
+                courses.stream().map(Course::getCollegeId).toList(),
+                College::getId, College::getName);
+        Map<Long, String> teacherNames = BatchLookup.nameMap(teacherMapper,
+                courses.stream().map(Course::getTeacherId).toList(),
+                Teacher::getId, Teacher::getName);
+        Map<Long, String> semesterNames = BatchLookup.nameMap(semesterMapper,
+                courses.stream().map(Course::getSemesterId).toList(),
+                Semester::getId, Semester::getName);
+        Map<Long, String> subjectNames = BatchLookup.nameMap(subjectMapper,
+                courses.stream().map(Course::getSubjectId).toList(),
+                Subject::getId, Subject::getName);
 
         return courses.stream()
                 .map(c -> CourseVO.from(c,

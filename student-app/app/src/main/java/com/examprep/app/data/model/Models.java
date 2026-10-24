@@ -228,6 +228,46 @@ public class Models {
         public Object gradingPoints;
     }
 
+    /** 主观题 AI 判分结果（与服务端 AiGradingService.GradeResult 字段一一对应） */
+    public static class GradeResult {
+        /** 判分是否真的执行了；false 时应回退到自评 */
+        public boolean available;
+        /** EXCELLENT / GOOD / PARTIAL / POOR / INVALID / UNAVAILABLE */
+        public String level;
+        /** 参考得分率 0~1，不是精确分数 */
+        public double scoreRate;
+        public java.util.List<String> hitPoints;
+        public java.util.List<String> missedPoints;
+        public String comment;
+        public String generator;
+        public String reason;
+    }
+
+    /** 今日学习计划 */
+    public static class StudyPlan {
+        public String date;
+        public Integer dailyTarget;
+        public Long subjectId;
+        public Integer plannedCount;
+        public Integer doneCount;
+        public Integer completionPercent;
+        public java.util.List<StudyPlanItem> items;
+        public java.util.List<String> notes;
+    }
+
+    /** 学习计划中的一条任务 */
+    public static class StudyPlanItem {
+        public String type;
+        public Long knowledgeId;
+        public String knowledgeName;
+        public Integer targetCount;
+        public Integer doneCount;
+        public Boolean completed;
+        public String reason;
+        public Integer estimatedMinutes;
+        public String practiceMode;
+    }
+
     public static class Report implements java.io.Serializable {
         public Long practiceId;
         public String status;
@@ -287,6 +327,28 @@ public class Models {
         public int wrongCount;
         public String lastWrongAt;
         public Question question;
+    }
+
+    // ---------- 错题间隔重复复习（SRS） ----------
+
+    public static class ReviewItem {
+        public Long questionId;
+        public String stem;
+        public String type;
+        public Long subjectId;
+        public int wrongCount;
+        public int reviewStage;
+        public int totalStages;
+        public String lastWrongAt;
+        public String nextReviewAt;
+    }
+
+    public static class ReviewResult {
+        public Long questionId;
+        public int reviewStage;
+        public String nextReviewAt;
+        public Boolean mastered;
+        public String message;
     }
 
     // ---------- 模拟考试（P1） ----------
@@ -369,5 +431,45 @@ public class Models {
         public String content;
         public String createdAt;
         public String updatedAt;
+    }
+
+    // ---------- LLM Wiki 主题页 ----------
+
+    public static class WikiPage {
+        public Long id;
+        public String slug;
+        public String title;
+        public Long subjectId;
+        public Long knowledgeId;
+        public String summary;
+        public String content;
+        public List<String> keyPoints;
+        public List<Long> sourceChunkIds;
+        public Integer version;
+        public Double qualityScore;
+        public String updatedAt;
+        public List<WikiPage> relatedPages;
+    }
+
+    public static class WikiGraph {
+        public List<WikiNode> nodes;
+        public List<WikiEdge> edges;
+    }
+
+    public static class WikiNode {
+        public Long id;
+        public String slug;
+        public String title;
+        public Long subjectId;
+        public Long knowledgeId;
+        public double qualityScore;
+        public int degree;
+    }
+
+    public static class WikiEdge {
+        public Long source;
+        public Long target;
+        public String relation;
+        public double weight;
     }
 }

@@ -2,21 +2,29 @@ package com.examprep.config;
 
 import com.examprep.common.Result;
 import com.examprep.common.ResultCode;
+import com.examprep.security.InternalTokenFilter;
 import com.examprep.security.JwtAuthenticationFilter;
+import com.examprep.service.ai.AiProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -24,6 +32,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -38,6 +47,17 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+    private final AiProperties aiProperties;
+
+    /**
+     * 允许跨域的来源（逗号分隔）。
+     *
+     * <p>默认仅本机：管理端与后端同源部署，App 端为原生 OkHttp 无跨域需求。
+     * 部署到正式域名后，用 {@code app.cors.allowed-origins} 或环境变量
+     * {@code APP_CORS_ALLOWED_ORIGINS} 注入实际域名——否则从其它源发起的浏览器请求会被拦。
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:8080}")
+    private String allowedOrigins;
 
     /** 匿名可读白名单（PUBLIC）：只读的 GET 接口 */
     private static final String[] PUBLIC_GET = {
@@ -59,6 +79,8 @@ public class SecurityConfig {
             "/courses/**",
             // AI 导学：能力探测需匿名可调（App 未登录时也要能判断是否显示 AI 入口）
             "/ai/capability",
+            // Wiki 主题页浏览与导航图（公开知识内容，匿名可读）
+            "/wiki/**",
             // 其他
             "/announcements/**",
             "/search/**",
@@ -89,16 +111,80 @@ public class SecurityConfig {
             "/swagger-resources/**",
             "/webjars/**",
             "/error",
-            "/favicon.ico"
+            "/favicon.ico",
+            // 健康探活：供负载均衡/容器编排匿名探测；details 已在配置中关闭
+            "/actuator/health",
+            "/actuator/health/**"
     };
 
+    /*
+     * 关于 CSP（内容安全策略）—— 暂不启用，原因如下：
+     *
+     * 管理端是「零构建」单页应用，用的是 Vue **全局版**（含运行时模板编译器），
+     * 编译器在运行时通过 new Function() 生成渲染函数，因此 CSP 的 script-src
+     * 必须显式允许 'unsafe-eval'，否则整页不会初始化（页面只剩 {{ }} 模板占位符）。
+     * 已实测：仅用 script-src 'self' 时管理端不渲染；加入 'unsafe-eval' 后组件可渲染，
+     * 但当前环境缺少可信的浏览器复验手段（自动化代理多次结论不一致），
+     * 按「未测试不下发」的原则，先不启用 CSP。
+     *
+     * 需要启用时（建议先在本机真浏览器验证登录页与各管理页正常，再上线）：
+     *   String CSP = "default-src 'self'; script-src 'self' 'unsafe-eval'; "
+     *       + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; "
+     *       + "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+     *       + "frame-ancestors 'none'; form-action 'self'";
+     *   并在此处 headers 块内加：headers.contentSecurityPolicy(csp -> csp.policyDirectives(CSP));
+     *
+     * 彻底方案（可去掉 'unsafe-eval'）：给管理端引入 Vue 构建步骤，把模板预编译，
+     * 代价是放弃「零构建」的部署便利，属较大改动，暂不做。
+     */
+
+    /**
+     * 内部接口安全链（Java ↔ Python 专用）
+     *
+     * <p>用 {@code securityMatcher} 完全隔离 JWT/session 体系，不依赖主链的规则书写顺序。
+     * 令牌未配置时 {@link InternalTokenFilter} 一律返回 403。
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain internalFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/internal/**")
+                .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
+                        .anyRequest().permitAll())
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> headers.frameOptions(frame -> frame.deny()))
+                .addFilterBefore(new InternalTokenFilter(aiProperties),
+                        UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                // 安全响应头：防点击劫持 / MIME 嗅探 / 信息泄露（等保与上架审核常用项）
+                // 注意：各子配置方法返回的是子配置对象而非 HeadersConfigurer，
+                //      因此用语句块逐个设置，不能链式调用。
+                .headers(headers -> {
+                    headers.frameOptions(frame -> frame.deny());
+                    headers.contentTypeOptions(Customizer.withDefaults());
+                    headers.referrerPolicy(referrer -> referrer.policy(
+                            ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+                    headers.permissionsPolicy(permissions -> permissions.policy(
+                            "geolocation=(), microphone=(), camera=()"));
+                    // CSP 暂不启用，原因见类内注释（零构建 Vue 需要 'unsafe-eval'，暂缺可信复验）
+                    // TLS 由 nginx 终止并下发 HSTS；后端自身走明文，不重复发 HSTS
+                    headers.httpStrictTransportSecurity(hsts -> hsts.disable());
+                })
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE / 异步响应：原请求已完成鉴权，ASYNC/ERROR 二次分派不能再被拦截，
+                        // 否则流结束后会抛 AuthorizationDeniedException（响应已提交，无法回滚）
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         // 预检请求
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 认证与文档
@@ -151,8 +237,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        // 收紧同源白名单：管理端与后端同源部署（/api/admin/index.html），App 端为原生 OkHttp 无跨域需求
-        cfg.setAllowedOrigins(List.of("http://localhost:8080"));
+        // 收紧同源白名单：管理端与后端同源部署（/api/admin/index.html），App 端为原生 OkHttp 无跨域需求。
+        // 来源通过 app.cors.allowed-origins 配置，便于部署到正式域名后按需放开。
+        cfg.setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList());
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Authorization"));

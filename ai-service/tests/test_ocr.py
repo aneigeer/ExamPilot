@@ -12,7 +12,8 @@
 from __future__ import annotations
 
 import base64
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 import pytest
 
@@ -22,16 +23,49 @@ TINY_PNG_B64 = (
 )
 
 
+@contextmanager
+def _ocr_unavailable_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """构造一个"OCR 能力不可用"的 ``TestClient``。
+
+    本仓库的测试设计前提是「只装 requirements.txt、不装 paddleocr」；一旦机器上真的
+    装了 paddleocr（本机即如此），原先"未装依赖必返回 503"的断言就会失真。
+    这里显式用 ``OCR_ENABLED=false`` 把能力关掉，使降级契约的验证与机器环境解耦、
+    无论在装与不装的机器上都可复现。
+
+    Args:
+        monkeypatch: pytest 夹具。
+
+    Yields:
+        ``TestClient``，其 OCR 能力被显式关闭。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.config import reset_settings
+    from app.main import app
+    from app.ocr.paddle_ocr_engine import reset_ocr_engine
+
+    monkeypatch.setenv("OCR_ENABLED", "false")
+    reset_settings()
+    reset_ocr_engine()
+    try:
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            yield test_client
+    finally:
+        reset_settings()
+        reset_ocr_engine()
+
+
 # --------------------------------------------------------------------------------------
 # 降级用例
 # --------------------------------------------------------------------------------------
 
 
-def test_ocr_returns_503_when_paddleocr_missing(raw_client: Any) -> None:
-    """**T11 验收项①**：不装 PaddleOCR 时必须 503，而不是崩溃或 500。"""
-    response = raw_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64})
+def test_ocr_returns_503_when_paddleocr_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """**T11 验收项①**：OCR 能力不可用（未装 PaddleOCR / 未启用）时必须 503，而不是崩溃或 500。"""
+    with _ocr_unavailable_client(monkeypatch) as test_client:
+        response = test_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64})
     assert response.status_code == 503, (
-        f"未装 PaddleOCR 应返回 503，实际 {response.status_code}：{response.text}"
+        f"OCR 能力不可用时应返回 503，实际 {response.status_code}：{response.text}"
     )
     body = response.json()
     assert body["degraded"] is True
@@ -73,6 +107,7 @@ def test_ocr_missing_file_maps_to_5205() -> None:
     """文件不存在属"能力不可用/请求不可满足"，重试同样无用。"""
     import pathlib
 
+    from app.config import OcrSettings
     from app.errors import OcrUnavailableError
     from app.ocr.paddle_ocr_engine import PaddleOcrEngine
 
@@ -83,6 +118,7 @@ def test_ocr_missing_file_maps_to_5205() -> None:
 
 def test_ocr_bad_base64_maps_to_5205() -> None:
     """base64 解码失败属输入不可满足，归 5205。"""
+    from app.config import OcrSettings
     from app.errors import OcrUnavailableError
     from app.ocr.paddle_ocr_engine import PaddleOcrEngine
 
@@ -109,15 +145,17 @@ def test_pdf_without_text_layer_maps_to_5207(tmp_path: Any) -> None:
     assert excinfo.value.degraded is True
 
 
-def test_ocr_degradation_message_mentions_manual_input(raw_client: Any) -> None:
+def test_ocr_degradation_message_mentions_manual_input(monkeypatch: pytest.MonkeyPatch) -> None:
     """降级提示必须明确指向"人工录入"，让 Java 侧知道该做什么。"""
-    body = raw_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64}).json()
+    with _ocr_unavailable_client(monkeypatch) as test_client:
+        body = test_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64}).json()
     assert "人工录入" in body["message"] or "paddleocr" in body["message"].lower()
 
 
-def test_ocr_503_has_no_traceback(raw_client: Any) -> None:
+def test_ocr_503_has_no_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
     """503 响应不含堆栈。"""
-    body = raw_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64}).json()
+    with _ocr_unavailable_client(monkeypatch) as test_client:
+        body = test_client.post("/v1/ocr", json={"image_base64": TINY_PNG_B64}).json()
     assert "Traceback" not in body["message"]
 
 
@@ -207,9 +245,26 @@ def test_ocr_engine_not_loaded_after_embed(raw_client: Any) -> None:
     assert engine.loaded is False
 
 
-def test_ocr_health_reports_not_loaded(raw_client: Any) -> None:
-    """健康检查如实报告"未加载"而非谎报就绪。"""
-    ocr_health = raw_client.get("/v1/health").json()["ocr"]
+def test_ocr_health_reports_not_loaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """健康检查如实报告"未加载"而非谎报就绪。
+
+    本机可能已装 paddleocr（此时 ready=True 表示"能力可用"）；这里显式把探针置为不可用，
+    使"未就绪"这一分支在任何机器上都能复现，而不是依赖"机器是否装了依赖"。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.config import OcrSettings
+    from app.main import app
+    from app.ocr.paddle_ocr_engine import PaddleOcrEngine
+
+    import app.routers.health as health_module
+
+    # 模拟"依赖缺失"（is_available=False）而非"被关闭"，以走"懒加载未加载"这条分支
+    engine = PaddleOcrEngine(OcrSettings(enabled=True))
+    monkeypatch.setattr(engine, "is_available", lambda: False)
+    monkeypatch.setattr(health_module, "get_ocr_engine", lambda: engine)
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        ocr_health = test_client.get("/v1/health").json()["ocr"]
     assert ocr_health["ready"] is False
     assert "懒加载" in ocr_health["detail"] or "未就绪" in ocr_health["detail"]
 
@@ -245,10 +300,22 @@ def test_classify_stem_line() -> None:
 
 
 def test_classify_respects_type_hint() -> None:
-    """题型提示可消歧。"""
-    from app.ocr.structure_parser import TYPE_STEM, classify_block
+    """题型提示可消歧。
 
-    assert classify_block("A.正确", question_type_hint="TRUE_FALSE") == TYPE_STEM
+    注意两条规则的优先级（这是解析器刻意的契约）：
+    1) 带 A./（B）/C、 前缀的行**一律**判为选项 —— 判断题的「A.正确 / B.错误」本就是选项行，
+       即便题型提示是 TRUE_FALSE 也不该被当成题干；
+    2) 提示真正生效的场景是「短行 + 无选项前缀 + 无题号」：无提示时归 unknown，
+       给了题型提示才判为题干。
+    """
+    from app.ocr.structure_parser import TYPE_OPTION, TYPE_STEM, TYPE_UNKNOWN, classify_block
+
+    # 选项优先：判断题的选项行不被提示改写
+    assert classify_block("A.正确", question_type_hint="TRUE_FALSE") == TYPE_OPTION
+    assert classify_block("A.正确") == TYPE_OPTION
+    # 提示真正消歧：短且无前缀无题号时，无提示为 unknown，给提示才成题干
+    assert classify_block("正确（）") == TYPE_UNKNOWN
+    assert classify_block("正确（）", question_type_hint="TRUE_FALSE") == TYPE_STEM
 
 
 def test_classify_blank_line_is_unknown() -> None:

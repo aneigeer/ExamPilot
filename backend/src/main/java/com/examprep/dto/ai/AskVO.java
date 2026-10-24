@@ -18,9 +18,24 @@ public class AskVO {
     @Schema(description = "答案正文（拒答时为「未找到相关资料」）")
     private String answer;
 
-    @Schema(description = "生成器：dashscope / zhipu / extractive / none（拒答时）",
+    @Schema(description = "生成器：wiki / dashscope / zhipu / extractive / none（拒答时）",
             example = "extractive")
     private String generator;
+
+    @Schema(description = "回答引擎：WIKI（热层预编译页）/ RAG（冷层检索增强）")
+    private String engine;
+
+    @Schema(description = "是否从 Wiki 热层降级到 RAG（Wiki 未命中时为 true）")
+    private Boolean fallbackFromWiki;
+
+    @Schema(description = "命中的 Wiki 页面 ID（engine=WIKI 时有值）")
+    private Long wikiPageId;
+
+    @Schema(description = "命中的 Wiki 页面 slug")
+    private String wikiPageSlug;
+
+    @Schema(description = "命中的 Wiki 页面标题")
+    private String wikiTitle;
 
     @Schema(description = "是否处于降级状态（true 表示主生成器不可用，已走本地抽取）")
     private Boolean degraded;

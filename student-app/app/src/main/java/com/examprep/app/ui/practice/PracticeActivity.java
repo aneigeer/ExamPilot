@@ -381,6 +381,7 @@ public class PracticeActivity extends AppCompatActivity {
         binding.tvAnalysis.setVisibility(result.analysis == null || result.analysis.isEmpty()
                 ? View.GONE : View.VISIBLE);
         binding.tvAnalysis.setText("解析：" + (result.analysis == null ? "" : result.analysis));
+        binding.tvAiGrade.setVisibility(View.GONE);
 
         boolean selfEval = needSelfEval;
         binding.tvSelfEvalTip.setVisibility(selfEval ? View.VISIBLE : View.GONE);
@@ -388,11 +389,103 @@ public class PracticeActivity extends AppCompatActivity {
         pendingSelfEval = selfEval ? 1 : 0;
 
         if (selfEval) {
-            binding.tvJudge.setText("✍ 已提交，请对照参考答案自评");
+            binding.tvJudge.setText("✍ 已提交，正在对照参考答案判分…");
             binding.tvJudge.setTextColor(0xFF7A8190);
+            // 自评仍然保留：AI 判分只是辅助，最终由用户确认掌握程度
+            requestAiGrade(result.questionId, userAnswer);
         }
         binding.btnAction.setText(needSelfEval ? "提交自评后下一题" : "下一题");
         binding.btnAction.setEnabled(!needSelfEval);
+
+        // 无障碍：判分结果区是动态出现的，主动播报一次，令视障用户无需手动滑动即可听到对错
+        binding.tvJudge.announceForAccessibility(binding.tvJudge.getText());
+    }
+
+    /**
+     * 请求 AI 判分（主观题）
+     *
+     * <p>★ 三条硬约束：
+     * <ul>
+     *   <li><b>不阻塞作答</b>：判分失败只是不显示结果，自评入口始终可用；</li>
+     *   <li><b>不伪造分数</b>：服务端返回 available=false 时明确提示「暂不可用」，
+     *       而不是自己算一个百分比糊弄用户；</li>
+     *   <li><b>不覆盖用户操作</b>：用户可能已经点了自评，异步结果回来只更新文案，
+     *       不改变当前题目的流程状态。</li>
+     * </ul>
+     */
+    private void requestAiGrade(Long questionId, String userAnswer) {
+        if (questionId == null) {
+            return;
+        }
+        final Long askedId = questionId;
+        api.gradeQuestion(questionId, new ApiService.GradeBody(userAnswer))
+                .enqueue(new Callback<Models.ApiResult<Models.GradeResult>>() {
+                    @Override
+                    public void onResponse(Call<Models.ApiResult<Models.GradeResult>> call,
+                                           Response<Models.ApiResult<Models.GradeResult>> resp) {
+                        Models.ApiResult<Models.GradeResult> r = resp.body();
+                        // 用户可能已翻到下一题：此时不能把判分结果写进新题目
+                        if (r == null || r.data == null || current == null
+                                || !askedId.equals(current.id)) {
+                            return;
+                        }
+                        renderAiGrade(r.data);
+                    }
+
+                    @Override
+                    public void onFailure(Call<Models.ApiResult<Models.GradeResult>> call,
+                                          Throwable t) {
+                        // 网络失败静默：自评入口仍在，不影响作答
+                    }
+                });
+    }
+
+    /** 渲染 AI 判分结果（不可用时明确提示并保留自评） */
+    private void renderAiGrade(Models.GradeResult grade) {
+        if (!grade.available) {
+            binding.tvJudge.setText("✍ 已提交，AI 判分暂不可用，请对照参考答案自评");
+            binding.tvJudge.setTextColor(0xFF7A8190);
+            return;
+        }
+        StringBuilder sb = new StringBuilder("AI 判分：")
+                .append(levelLabel(grade.level))
+                .append("（参考得分率 ").append(Math.round(grade.scoreRate * 100)).append("%）");
+        if (grade.hitPoints != null && !grade.hitPoints.isEmpty()) {
+            sb.append("\n命中：").append(String.join("；", grade.hitPoints));
+        }
+        if (grade.missedPoints != null && !grade.missedPoints.isEmpty()) {
+            sb.append("\n遗漏：").append(String.join("；", grade.missedPoints));
+        }
+        if (grade.comment != null && !grade.comment.isEmpty()) {
+            sb.append("\n").append(grade.comment);
+        }
+        binding.tvAiGrade.setText(sb.toString());
+        binding.tvAiGrade.setVisibility(View.VISIBLE);
+        binding.tvJudge.setText("✍ 已提交，AI 已判分（仍可自评调整）");
+        binding.tvJudge.setTextColor(0xFF7A8190);
+        // 无障碍：判分结果是异步出现的，主动播报结论与遗漏点
+        binding.tvAiGrade.announceForAccessibility(binding.tvAiGrade.getText());
+    }
+
+    /** 等级中文标签（集中一处，避免各页面各写一套） */
+    static String levelLabel(String level) {
+        if (level == null) {
+            return "已完成";
+        }
+        switch (level) {
+            case "EXCELLENT":
+                return "优秀";
+            case "GOOD":
+                return "良好";
+            case "PARTIAL":
+                return "部分掌握";
+            case "POOR":
+                return "掌握不足";
+            case "INVALID":
+                return "作答无效";
+            default:
+                return "已完成";
+        }
     }
 
     private void selfEval(String result) {

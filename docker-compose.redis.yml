@@ -1,0 +1,27 @@
+# ============================================================
+# Redis 7（异步任务队列：Java 生产 → Python 消费）
+#
+# 启动：docker compose -f docker-compose.redis.yml up -d
+# 验证：docker exec -it examprep-redis redis-cli ping
+#
+# 说明：Redis 是可选组件。未启动时后端仍可正常使用，
+#      仅 /admin/ai/jobs 相关接口返回 503。
+# ============================================================
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: examprep-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:

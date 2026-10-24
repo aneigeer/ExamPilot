@@ -1,0 +1,2 @@
+# 离线评估专用依赖（不进入主服务 requirements）
+pymysql==1.1.1

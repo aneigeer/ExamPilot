@@ -56,6 +56,12 @@ public class User {
     @Schema(description = "最后登录时间")
     private LocalDateTime lastLoginAt;
 
+    @Schema(description = "学习计划：每日目标题量（1-100）", example = "20")
+    private Integer studyDailyTarget;
+
+    @Schema(description = "学习计划：目标科目 ID，NULL 表示不限")
+    private Long studyTargetSubjectId;
+
     @Schema(description = "创建时间")
     private LocalDateTime createdAt;
 

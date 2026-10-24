@@ -13,6 +13,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -129,6 +130,44 @@ class FastApiClientTest {
 
         assertNotNull(hits, "必须返回非 null（上层按空 list 判断降级）");
         assertTrue(hits.isEmpty(), "FastAPI 不可用时应返回空 list，实际 " + hits.size());
+        f.server().verify();
+    }
+
+    @Test
+    @DisplayName("①-b 孤儿向量删除：成功解析 deleted，失败不抛异常也不计熔断")
+    void 删除孤儿向量() {
+        AiProperties props = new AiProperties();
+        props.getVector().setEnabled(true);
+        Fixture f = fixture(props);
+
+        f.server().expect(once(), requestTo("/v1/index/delete"))
+                .andExpect(method(POST))
+                .andRespond(withSuccess("{\"deleted\":2,\"requested\":2}",
+                        MediaType.APPLICATION_JSON));
+        // MockRestServiceServer 不允许请求发生后追加期望，故第二个期望必须提前声明
+        f.server().expect(once(), requestTo("/v1/index/delete"))
+                .andRespond(withServerError());
+
+        assertEquals(2, f.client().deleteChunks(List.of(11L, 12L)),
+                "应返回 Python 侧报告的 deleted 条数");
+
+        // 失败路径：删除失败必须吞掉异常（下架主流程不能被向量清理拖垮）
+        assertEquals(0, f.client().deleteChunks(List.of(13L)),
+                "删除失败应返回 0，而不是抛异常");
+        assertEquals(0, f.client().breaker().consecutiveFailures(),
+                "删除失败【不应】计入熔断——它不该影响检索通道的可用性判定");
+        f.server().verify();
+    }
+
+    @Test
+    @DisplayName("①-c 空列表不发起请求（避免无谓往返）")
+    void 空列表不删向量() {
+        AiProperties props = new AiProperties();
+        props.getVector().setEnabled(true);
+        Fixture f = fixture(props);
+        // 不设任何期望：一旦发请求就会失败
+        assertEquals(0, f.client().deleteChunks(List.of()));
+        assertEquals(0, f.client().deleteChunks(null));
         f.server().verify();
     }
 
@@ -359,5 +398,46 @@ class FastApiClientTest {
         return new ChunkContext(id, "QUESTION", id, title,
                 title + " 的正文内容", 5L, knowledgeId, 3, "QUESTION", id, null,
                 java.time.LocalDateTime.now().minusDays(1), 0L, ftScore, ftScore);
+    }
+
+    // ==================================================================
+    // ⑬⑭ 孤儿向量清理：块置 INVALID 后必须把 Qdrant 里的向量点也删掉
+    //
+    // ★ 为什么必须删而不是改写 payload：Qdrant 检索按 payload 快照过滤，
+    //   块 INVALID 后 payload 里的 status 仍是 ACTIVE，过滤拦不住它，
+    //   孤儿会占掉 top-K 名额。实测 80 个命中里 32 个是已失效块。
+    // ==================================================================
+
+    @Test
+    @DisplayName("⑬ 向量删除成功：解析 deleted/requested，不抛异常")
+    void 向量删除成功() {
+        AiProperties props = new AiProperties();
+        props.getVector().setEnabled(true);
+        Fixture f = fixture(props);
+
+        f.server().expect(once(), requestTo("/v1/index/delete"))
+                .andRespond(withSuccess("{\"deleted\":2,\"requested\":2}",
+                        MediaType.APPLICATION_JSON));
+
+        FastApiClient.IndexDeleteResult result = f.client().deleteIndex(List.of(1L, 2L));
+
+        assertNotNull(result, "成功时应返回结果对象");
+        assertEquals(2, result.deleted());
+        assertEquals(2, result.requested());
+        f.server().verify();
+    }
+
+    @Test
+    @DisplayName("⑭ 向量删除失败：返回 null（保留状态位，下次 reindex 重试清理）")
+    void 向量删除失败返回null() {
+        AiProperties props = new AiProperties();
+        props.getVector().setEnabled(true);
+        Fixture f = fixture(props);
+
+        f.server().expect(once(), requestTo("/v1/index/delete"))
+                .andRespond(withServerError());
+
+        assertNull(f.client().deleteIndex(List.of(1L)), "删除失败必须返回 null 而不是抛异常");
+        f.server().verify();
     }
 }

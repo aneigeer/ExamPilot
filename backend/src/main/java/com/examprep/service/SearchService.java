@@ -3,6 +3,7 @@ package com.examprep.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.examprep.common.BatchLookup;
 import com.examprep.common.PageResult;
 import com.examprep.common.QuestionType;
 import com.examprep.dto.HomeVO;
@@ -188,12 +189,15 @@ public class SearchService {
         if (resources.isEmpty()) {
             return List.of();
         }
-        Map<Long, String> subjectNames = subjectMapper.selectList(null).stream()
-                .collect(Collectors.toMap(Subject::getId, Subject::getName, (a, b) -> a));
-        Map<Long, String> examNames = examCategoryMapper.selectList(null).stream()
-                .collect(Collectors.toMap(ExamCategory::getId, ExamCategory::getName, (a, b) -> a));
-        Map<Long, String> userNames = userMapper.selectList(null).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname, (a, b) -> a));
+        Map<Long, String> subjectNames = BatchLookup.nameMap(subjectMapper,
+                resources.stream().map(Resource::getSubjectId).toList(),
+                Subject::getId, Subject::getName);
+        Map<Long, String> examNames = BatchLookup.nameMap(examCategoryMapper,
+                resources.stream().map(Resource::getExamCategoryId).toList(),
+                ExamCategory::getId, ExamCategory::getName);
+        Map<Long, String> userNames = BatchLookup.nameMap(userMapper,
+                resources.stream().map(Resource::getUploaderId).toList(),
+                User::getId, User::getNickname);
 
         return resources.stream().map(r -> {
             ResourceVO vo = ResourceVO.from(r);

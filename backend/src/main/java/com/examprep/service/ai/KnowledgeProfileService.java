@@ -2,7 +2,6 @@ package com.examprep.service.ai;
 
 import com.examprep.dto.ai.KnowledgeWeakVO;
 import com.examprep.mapper.AnswerDetailMapper;
-import com.examprep.mapper.SubjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,7 +43,6 @@ public class KnowledgeProfileService {
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AnswerDetailMapper answerDetailMapper;
-    private final SubjectMapper subjectMapper;
     private final AiProperties properties;
 
     /**
@@ -136,15 +134,6 @@ public class KnowledgeProfileService {
             }
         }
         return map;
-    }
-
-    /** 科目 ID → 科目名（推荐 VO 展示用，避免为一条推荐多查一次） */
-    public Map<Long, String> subjectNames() {
-        return subjectMapper.selectList(null).stream()
-                .filter(s -> s.getId() != null)
-                .collect(java.util.stream.Collectors.toMap(
-                        s -> s.getId(), s -> s.getName() == null ? "" : s.getName(),
-                        (a, b) -> a));
     }
 
     /** 有效作答总次数（冷启动判定） */

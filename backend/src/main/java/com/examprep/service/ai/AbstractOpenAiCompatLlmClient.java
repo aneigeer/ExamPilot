@@ -46,6 +46,27 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
                                             String model,
                                             String generatorName,
                                             String breakerName) {
+        this(properties, promptBuilder, objectMapper, baseUrl, model,
+                generatorName, breakerName, properties.getLlm().getTimeoutMillis());
+    }
+
+    /**
+     * 带自定义超时的构造器
+     *
+     * <p>★ 为什么需要它：本地模型（Ollama + 7B）生成 300 token 需要 15–25 秒，
+     * 云端 API 的 8 秒超时会把每个回答都掐断。<b>超时必须能按 client 单独配置</b>，
+     * 否则「换本地模型」这个动作在代码层就做不成。
+     *
+     * @param timeoutMillis 本客户端专用的读超时（毫秒）
+     */
+    protected AbstractOpenAiCompatLlmClient(AiProperties properties,
+                                            PromptBuilder promptBuilder,
+                                            ObjectMapper objectMapper,
+                                            String baseUrl,
+                                            String model,
+                                            String generatorName,
+                                            String breakerName,
+                                            int timeoutMillis) {
         this.properties = properties;
         this.promptBuilder = promptBuilder;
         this.objectMapper = objectMapper;
@@ -57,8 +78,29 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
                 properties.getLlm().getCircuitBreakerOpenMillis());
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
-                .requestFactory(requestFactory(properties.getLlm().getTimeoutMillis()))
+                .requestFactory(requestFactory(timeoutMillis))
                 .build();
+    }
+
+    /**
+     * 是否具备调用凭据
+     *
+     * <p>默认要求 API Key 非空。**本地模型（Ollama）不需要 Key**，
+     * 子类覆盖本方法返回 {@code true} 即可接入，
+     * 而无需在基类里塞满 {@code if (isLocal)} 之类的分支。
+     */
+    protected boolean hasCredentials() {
+        return properties.getLlm().hasKey();
+    }
+
+    /**
+     * Authorization 头的值
+     *
+     * <p>Ollama 不校验该头，但 OpenAI 兼容协议要求它存在，
+     * 因此本地模型返回一个占位串（注释说明原因，避免后人困惑）。
+     */
+    protected String authorizationHeader() {
+        return "Bearer " + properties.getLlm().keyOrEmpty();
     }
 
     private final String baseUrl;
@@ -76,7 +118,7 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
      */
     @Override
     public boolean available() {
-        return properties.getLlm().hasKey() && circuitBreaker.canUse();
+        return hasCredentials() && circuitBreaker.canUse();
     }
 
     @Override
@@ -105,7 +147,7 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
 
     @Override
     public LlmAnswer ask(String question, List<ChunkContext> contexts) {
-        if (!properties.getLlm().hasKey()) {
+        if (!hasCredentials()) {
             throw new AiUnavailableException(generatorName + " 未配置 API Key");
         }
         if (!circuitBreaker.canUse()) {
@@ -122,7 +164,7 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
             String raw = restClient.post()
                     .uri("/chat/completions")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Authorization", "Bearer " + properties.getLlm().keyOrEmpty())
+                    .header("Authorization", authorizationHeader())
                     .body(body)
                     .retrieve()
                     .body(String.class);
@@ -156,7 +198,62 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
         messages.add(Map.of("role", "system", "content", promptBuilder.systemPrompt()));
         messages.add(Map.of("role", "user", "content", promptBuilder.userPrompt(question, contexts)));
         body.put("messages", messages);
+        // 厂商私有字段（如 Ollama 的 keep_alive），默认无 —— 云端 API 不认识未知字段会报错
+        body.putAll(extraBodyParams());
         return objectMapper.writeValueAsString(body);
+    }
+
+    /**
+     * 厂商私有请求字段（默认空）
+     *
+     * <p>★ 为什么单独开一个钩子而不是直接写进基类：
+     * 云端 OpenAI 兼容端点对<b>未知字段</b>的处理不一致（有的直接 400），
+     * 所以这些字段只能由「明确知道该端点支持它」的子类提供。
+     */
+    protected Map<String, Object> extraBodyParams() {
+        return Map.of();
+    }
+
+    /**
+     * 非检索类结构化生成（判分等）
+     *
+     * <p>与 {@link #ask} 的差别只有 System Prompt：这里用调用方给的提示词，
+     * 不套用「基于资料作答 + 强制引用」的问答 Prompt。
+     * 温度取 0——判分这类任务需要可复现，不要随机发挥。
+     */
+    @Override
+    public String complete(String systemPrompt, String userPrompt) {
+        if (!hasCredentials()) {
+            throw new AiUnavailableException(generatorName + " 未配置 API Key");
+        }
+        if (!circuitBreaker.canUse()) {
+            throw new AiUnavailableException(generatorName + " 处于熔断状态（剩余 "
+                    + circuitBreaker.remainingOpenMillis() + " ms）");
+        }
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("model", model);
+            body.put("temperature", 0);
+            body.put("max_tokens", properties.getPrompt().getMaxTokens());
+            body.put("messages", List.of(
+                    Map.of("role", "system", "content", systemPrompt),
+                    Map.of("role", "user", "content", userPrompt)));
+            String raw = restClient.post()
+                    .uri("/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Authorization", authorizationHeader())
+                    .body(objectMapper.writeValueAsString(body))
+                    .retrieve()
+                    .body(String.class);
+            String content = extractContent(raw);
+            circuitBreaker.onSuccess();
+            return content;
+        } catch (AiUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            circuitBreaker.onFailure(e.getMessage());
+            throw new AiUnavailableException(generatorName + " 结构化生成失败：" + e.getMessage());
+        }
     }
 
     /** 从 OpenAI 兼容响应中取 {@code choices[0].message.content} */

@@ -14,9 +14,11 @@ paddleocr / httpx）时**必须仍能正常启动**，只有 ``/v1/health`` 起�
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable
 
 from fastapi import FastAPI, Request
@@ -25,15 +27,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .clients.java_bridge import JavaBridge
 from .config import get_settings
 from .errors import AiServiceError, ErrorCode
+from .routers import agent as agent_router
+from .routers import ask as ask_router
 from .routers import embed as embed_router
 from .routers import health as health_router
 from .routers import index as index_router
 from .routers import llm as llm_router
 from .routers import ocr as ocr_router
 from .routers import search as search_router
+from .routers import wiki as wiki_router
 from .schemas import ErrorResponse
+from .worker.job_worker import start_workers
 
 # --------------------------------------------------------------------------------------
 # 日志
@@ -74,6 +81,31 @@ def configure_logging(level: str = "INFO") -> None:
     )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动/停止 Redis Stream worker。
+
+    worker 未启用或 Redis 不可用时只告警，不影响 FastAPI 启动与其余路由。
+    """
+    settings = get_settings()
+    tasks: list[asyncio.Task] = []
+    if (settings.jobs.worker_enabled or settings.jobs.eval_worker_enabled
+            or settings.jobs.wiki_worker_enabled):
+        if not settings.agent.internal_token:
+            logger.warning(
+                "[启动] AI_INTERNAL_TOKEN 未配置：任务回调与 Agent 工具调用将被 Java 拒绝（403）"
+            )
+        bridge = JavaBridge(settings.agent)
+        tasks = await start_workers(settings.jobs, bridge)
+    try:
+        yield
+    finally:
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
 def create_app() -> FastAPI:
     """创建并配置 FastAPI 应用。
 
@@ -90,6 +122,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # —— CORS：本机使用放开，生产按 CORS_ORIGINS 收紧
@@ -113,6 +146,9 @@ def create_app() -> FastAPI:
     app.include_router(index_router.router)
     app.include_router(ocr_router.router)
     app.include_router(llm_router.router)
+    app.include_router(agent_router.router)
+    app.include_router(ask_router.router)
+    app.include_router(wiki_router.router)
 
     # —— 全局异常处理器
     register_exception_handlers(app)

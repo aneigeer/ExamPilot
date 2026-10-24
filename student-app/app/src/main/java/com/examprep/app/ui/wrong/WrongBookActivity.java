@@ -26,7 +26,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-/** 错题本：列表 + 长按移出 + 点击重做（跳转刷题配置的错题重做模式） */
+/** 错题本：列表 + 长按移出 + 点击查看 + 顶部「复习」进入间隔重复（SRS）队列 */
 public class WrongBookActivity extends AppCompatActivity {
 
     private ActivityWrongBookBinding binding;
@@ -43,6 +43,8 @@ public class WrongBookActivity extends AppCompatActivity {
         binding.rvWrong.setLayoutManager(new LinearLayoutManager(this));
         binding.rvWrong.setAdapter(adapter);
         binding.btnBack.setOnClickListener(v -> finish());
+        binding.btnReview.setOnClickListener(v -> startActivity(
+                new Intent(this, WrongReviewActivity.class)));
         load();
     }
 

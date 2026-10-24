@@ -30,5 +30,11 @@ public class WrongBook {
     @Schema(description = "是否已掌握：0 否，1 是（重做答对后置 1）")
     private Integer mastered;
 
+    @Schema(description = "下次复习时间（SRS 调度，NULL 视为立即到期）")
+    private LocalDateTime nextReviewAt;
+
+    @Schema(description = "SRS 复习阶段：连续答对次数，决定下次间隔")
+    private Integer reviewStage;
+
     private LocalDateTime createdAt;
 }

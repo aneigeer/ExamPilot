@@ -20,6 +20,8 @@ from typing import Any
 
 def test_search_empty_result_returns_200(client: Any) -> None:
     """**关键契约**：检索无命中返回 200 + 空 hits，而不是 404/500。"""
+    # 先建一个「存在但为空」的集合：否则会命中"集合不存在"这条独立的 503 契约
+    client.post("/v1/index/rebuild", json={})
     response = client.post("/v1/search", json={"query": "完全不相关的问题xyz", "top_k": 5})
     assert response.status_code == 200, response.text
     data = response.json()
@@ -157,9 +159,13 @@ def test_search_returns_503_when_model_mismatch(client: Any, fake_qdrant: Any) -
     assert "rebuild" in body["message"]
 
 
-def test_search_returns_503_when_embedding_unavailable(raw_client: Any) -> None:
-    """模型缺失 → /v1/search 同样 503（Java 侧降级 ngram）。"""
-    response = raw_client.post("/v1/search", json={"query": "值传递", "top_k": 5})
+def test_search_returns_503_when_embedding_unavailable(embedding_down: Any) -> None:
+    """模型缺失 → /v1/search 同样 503（Java 侧降级 ngram）。
+
+    用 embedding_down 显式制造「模型缺失」，与机器上是否真装了模型解耦。
+    """
+    with embedding_down() as test_client:
+        response = test_client.post("/v1/search", json={"query": "值传递", "top_k": 5})
     assert response.status_code == 503, f"实际 {response.status_code}：{response.text}"
     body = response.json()
     assert body["degraded"] is True
@@ -214,13 +220,231 @@ def test_index_sync_too_many_returns_400(client: Any) -> None:
     assert response.json()["code"] == 5200
 
 
-def test_index_sync_returns_503_when_embedding_unavailable(raw_client: Any) -> None:
+def test_index_sync_returns_503_when_embedding_unavailable(embedding_down: Any) -> None:
     """模型缺失 → 同步 503，Java 侧置 vector_synced=2 待重试。"""
-    response = raw_client.post(
-        "/v1/index/sync", json={"chunks": [{"chunk_id": 1, "content": "内容"}]}
-    )
+    with embedding_down() as test_client:
+        response = test_client.post(
+            "/v1/index/sync", json={"chunks": [{"chunk_id": 1, "content": "内容"}]}
+        )
     assert response.status_code == 503
     assert response.json()["degraded"] is True
+
+
+# --------------------------------------------------------------------------------------
+# 写入侧校验 + 写入后校准（向量库静默退化的治本点）
+# --------------------------------------------------------------------------------------
+
+
+def test_vector_reject_reason_blocks_bad_vectors() -> None:
+    """★ 非法向量必须在写入前被拦下：NaN / Inf / 零范数。
+
+    背景：Qdrant 本地模式一旦混入坏向量行，**整库检索会静默退化**成
+    「无论问什么都返回同一批结果」，而现有对账只比对数量、发现不了。
+    """
+    from app.clients.qdrant_client import _vector_reject_reason
+
+    assert _vector_reject_reason([0.1, 0.2, 0.3]) is None, "合法向量不应被拒"
+    assert _vector_reject_reason([]) is not None
+    assert _vector_reject_reason([0.0, 0.0, 0.0]) is not None, "零范数向量必须拒绝"
+    assert _vector_reject_reason([float("nan"), 0.1]) is not None
+    assert _vector_reject_reason([float("inf"), 0.1]) is not None
+    assert _vector_reject_reason([float("-inf"), 0.1]) is not None
+
+
+def test_index_sync_rejects_non_finite_vectors(client: Any, fake_embedding: Any,
+                                              monkeypatch: Any) -> None:
+    """接口层：embedding 产出零向量 → 拒收，且**不写进向量库**。"""
+    monkeypatch.setattr(
+        fake_embedding, "encode",
+        lambda texts, *, is_query=False, batch_size=None: [[0.0] * 512 for _ in texts],
+    )
+    response = client.post(
+        "/v1/index/sync", json={"chunks": [{"chunk_id": 771, "content": "内容"}]}
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["synced"] == 0
+    assert data["rejected"] == 1
+    assert data["rejected_ids"] == [771]
+    assert data["mismatched"] == 0
+    assert data["failed"] == 1, "failed 应等于 rejected + mismatched"
+
+
+def test_upsert_chunks_rejects_and_calibrates() -> None:
+    """真实 wrapper：坏向量被拒、好向量写入**且写入后校准通过**。
+
+    用内存 Qdrant（`location=":memory:"`）直接驱动真实 `upsert_chunks`，
+    不依赖 Docker、不依赖模型。
+    """
+    from qdrant_client import QdrantClient, models
+
+    from app.clients.qdrant_client import QdrantClientWrapper
+    from app.config import get_settings
+    from app.schemas import IndexChunk
+
+    wrapper = QdrantClientWrapper(get_settings().qdrant)
+    client = QdrantClient(location=":memory:")
+    client.create_collection(
+        wrapper.settings.collection,
+        vectors_config=models.VectorParams(size=wrapper.settings.dim,
+                                          distance=models.Distance.COSINE),
+    )
+    wrapper._client = client
+
+    good = [0.1] * wrapper.settings.dim
+    chunks = [IndexChunk(chunk_id=1, content="好向量"), IndexChunk(chunk_id=2, content="坏向量")]
+    result = wrapper.upsert_chunks(chunks, [good, [0.0] * wrapper.settings.dim])
+
+    assert result.written == 1, "只有合法向量被写入"
+    assert 2 in result.rejected, "零范数向量必须被拒收"
+    assert result.mismatched == [], "合法写入的点必须通过写入后校准"
+    stored = client.retrieve(wrapper.settings.collection, ids=[1, 2], with_vectors=True)
+    assert [int(p.id) for p in stored] == [1], "被拒的坏向量绝不能进库"
+
+
+def test_upsert_chunks_detects_write_corruption() -> None:
+    """★ 写入后校准必须能发现「写进去了但存错了」。
+
+    用一个「会把向量写歪」的低层客户端模拟未知根因的写入异常
+    （真实场景：本地 Qdrant 持久化曾出现存储向量与输入不一致，
+    导致相同文本的向量余弦只有 0.22–0.45）。校准不通过必须报出来，
+    交由调用方置 vector_synced=2。
+    """
+    from qdrant_client import models
+
+    from app.clients.qdrant_client import QdrantClientWrapper
+    from app.config import get_settings
+    from app.schemas import IndexChunk
+
+    class _CorruptingClient:
+        """写入时把向量换成完全不同的值（模拟存储层写歪）。"""
+
+        def __init__(self, collection: str, dim: int) -> None:
+            self._store: dict[int, list[float]] = {}
+            self._dim = dim
+
+        def upsert(self, collection_name: str, points: Any, wait: bool = True) -> None:
+            for point in points:
+                self._store[int(point.id)] = [0.9 if i % 2 else -0.9 for i in range(self._dim)]
+
+        def retrieve(self, collection_name: str, ids: Any, **kwargs: Any) -> list[Any]:
+            from types import SimpleNamespace
+
+            return [SimpleNamespace(id=i, vector=self._store[i]) for i in ids if i in self._store]
+
+    settings = get_settings().qdrant
+    wrapper = QdrantClientWrapper(settings)
+    wrapper._client = _CorruptingClient(settings.collection, settings.dim)
+    # ensure_collection 对非内存客户端会尝试建表，这里直接跳过它
+    wrapper.ensure_collection = lambda: None  # type: ignore[method-assign]
+
+    chunks = [IndexChunk(chunk_id=9, content="会被写歪的块")]
+    result = wrapper.upsert_chunks(chunks, [[0.1] * settings.dim])
+
+    assert result.written == 1, "数据已落库"
+    assert result.mismatched == [9], "写入后校准必须报出这条——否则静默退化的根因永远查不到"
+
+
+# --------------------------------------------------------------------------------------
+# /v1/index/delete
+# --------------------------------------------------------------------------------------
+
+
+def test_index_delete_removes_vectors_from_search(client: Any) -> None:
+    """**关键契约**：删除后向量点真的消失。
+
+    这条是孤儿清理能生效的前提——Qdrant payload 里的 ``status`` 是入库快照，
+    块置 INVALID 后 ``status='ACTIVE'`` 过滤仍会命中它；只有真删才拦得住。
+    """
+    client.post(
+        "/v1/index/sync",
+        json={
+            "chunks": [
+                {"chunk_id": 1, "content": "资料分析增长率"},
+                {"chunk_id": 2, "content": "言语理解主旨"},
+            ]
+        },
+    )
+    assert client.get("/v1/index/status").json()["chunk_synced"] == 2
+
+    response = client.post("/v1/index/delete", json={"chunk_ids": [1]})
+    assert response.status_code == 200, response.text
+    assert response.json() == {"deleted": 1, "requested": 1}
+
+    assert client.get("/v1/index/status").json()["chunk_synced"] == 1
+    hits = client.post("/v1/search", json={"query": "资料分析增长率", "top_k": 10}).json()["hits"]
+    assert [hit["chunk_id"] for hit in hits] == [2]
+
+
+def test_index_delete_unknown_ids_is_idempotent(client: Any) -> None:
+    """删除不存在的点不报错（幂等，重复清理安全）。"""
+    client.post("/v1/index/rebuild", json={})
+    response = client.post("/v1/index/delete", json={"chunk_ids": [999, 1000]})
+    assert response.status_code == 200
+    assert response.json()["requested"] == 2
+
+
+def test_index_delete_empty_list(client: Any) -> None:
+    """空列表返回 0，不报错。"""
+    response = client.post("/v1/index/delete", json={"chunk_ids": []})
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 0, "requested": 0}
+
+
+def test_index_delete_too_many_returns_400(client: Any) -> None:
+    """超过 500 条上限返回 400。"""
+    response = client.post("/v1/index/delete", json={"chunk_ids": list(range(501))})
+    assert response.status_code == 400
+    assert response.json()["code"] == 5200
+
+
+def test_index_delete_returns_503_when_qdrant_unavailable(qdrant_down: Any) -> None:
+    """Qdrant 不可用 → 503（Java 侧保留 vector_synced=1，下次 reindex 重试清理）。"""
+    with qdrant_down() as test_client:
+        response = test_client.post("/v1/index/delete", json={"chunk_ids": [1]})
+    assert response.status_code == 503
+    assert response.json()["degraded"] is True
+
+
+def test_delete_chunks_skips_missing_ids() -> None:
+    """**回归**：Qdrant 本地模式对不存在的 point id 会抛 ``KeyError``（云端静默忽略）。
+
+    孤儿清理必然出现「这批里有已被删过的点」，若不先 ``retrieve`` 过滤，
+    整批删除都会失败——真机上就表现为 ``orphanPurge.purged`` 恒为 0、返回 503。
+
+    这里用一个复刻本地模式严格语义的低层客户端，直接测真实 ``delete_chunks``。
+    """
+    from types import SimpleNamespace
+
+    from app.clients.qdrant_client import QdrantClientWrapper
+    from app.config import get_settings
+
+    class _StrictLocalClient:
+        """复刻本地模式：删除不存在的 id 抛 ``KeyError``。"""
+
+        def __init__(self, existing: set[int]) -> None:
+            self.existing = set(existing)
+            self.deleted: list[int] = []
+
+        def retrieve(self, collection_name: str, ids: list[int],
+                     with_payload: bool = True, with_vectors: bool = False) -> list[Any]:
+            return [SimpleNamespace(id=i) for i in ids if i in self.existing]
+
+        def delete(self, collection_name: str, points_selector: Any, wait: bool = True) -> None:
+            for pid in points_selector.points:
+                if pid not in self.existing:
+                    raise KeyError(pid)
+            for pid in points_selector.points:
+                self.existing.discard(pid)
+                self.deleted.append(pid)
+
+    wrapper = QdrantClientWrapper(get_settings().qdrant)
+    stub = _StrictLocalClient({1, 2})
+    wrapper._client = stub
+
+    assert wrapper.delete_chunks([1, 999, 2]) == 2, "不存在的 999 应被跳过，而不是让整批失败"
+    assert wrapper.delete_chunks([999]) == 0, "已删过的 id 再删一次必须幂等"
+    assert stub.deleted == [1, 2]
 
 
 # --------------------------------------------------------------------------------------
@@ -270,8 +494,9 @@ def test_index_status_model_mismatch(client: Any, fake_qdrant: Any) -> None:
     assert "重建" in data["message"]
 
 
-def test_index_status_returns_503_when_qdrant_unavailable(raw_client: Any) -> None:
+def test_index_status_returns_503_when_qdrant_unavailable(qdrant_down: Any) -> None:
     """Qdrant 不可用 → 503（Java 侧告警 + 保留旧索引）。"""
-    response = raw_client.get("/v1/index/status")
+    with qdrant_down() as test_client:
+        response = test_client.get("/v1/index/status")
     assert response.status_code == 503
     assert response.json()["degraded"] is True

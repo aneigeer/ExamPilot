@@ -599,7 +599,7 @@ previews/{resourceId}/page-{n}.jpg
 | 5 | `POST /v1/ocr/recognize` | `{file_key \| image_base64, page_from, page_to}` | `{pages:[{page_no, text, confidence, boxes}], took_ms}` | **30000ms**（OCR 慢） | → 人工录入 / 仅归档原图 |
 | 6 | `POST /v1/ocr/structure` | `{raw_text, subject_id}` | `{questions:[{type, stem, options, answer, confidence, knowledge_suggestion}]}` | 5000ms | 同上 |
 | 7 | `POST /v1/llm/proxy` | `{question, contexts, temperature, max_tokens}` | `{content, generator, cost_ms}` | 8000ms | → Java 侧 `ExtractiveAnswerClient` |
-| 8 | `POST /v1/index/sync` | `{chunks:[{chunk_id, content, title, ...payload}]}` | `{synced, skipped, failed}` | 5000ms | 置 `vector_synced=2`，下次重试 |
+| 8 | `POST /v1/index/sync` | `{chunks:[{chunk_id, content, title, ...payload}]}` | `{synced, skipped, failed}` | 60s（CPU 嵌入实测约 12s/500 条，原 5s 会误判超时） | 置 `vector_synced=2`，下次重试 |
 | 9 | `POST /v1/index/rebuild` | `{model_id, dim}` | `{status}` | 30000ms | 保持旧 collection |
 | 10 | `GET /v1/index/status` | 无 | `{collection, model_id, chunk_total, chunk_synced, status}` | 1000ms | 告警 |
 

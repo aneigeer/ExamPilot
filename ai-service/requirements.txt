@@ -42,7 +42,8 @@ tokenizers==0.20.3               # 约 10 MB
 numpy==2.2.1                     # 约 20 MB
 
 # —— 向量库客户端 ——
-qdrant-client==1.12.2            # 约 5 MB
+qdrant-client==1.12.2          # 约 5 MB
+redis==5.2.1                   # 约 2 MB（异步任务队列：redis.asyncio）
 
 # —— 大 PDF 文本抽取（纯 Python，轻量）——
 pypdf==5.1.0                     # 约 3 MB

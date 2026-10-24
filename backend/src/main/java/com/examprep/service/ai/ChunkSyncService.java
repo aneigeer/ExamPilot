@@ -14,10 +14,12 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 语料块同步服务（设计方案 A.6 增量同步策略）
@@ -44,6 +46,14 @@ public class ChunkSyncService {
     private final ChunkExtractor chunkExtractor;
     private final AiProperties properties;
     private final FastApiClient fastApiClient;
+
+    /**
+     * 自查询巡检阈值：用块自己的正文查自己，得分必须 ≥ 该值。
+     *
+     * <p>实测口径：健康库 0.976~0.985；静默退化的库 0.2~0.5。
+     * 取 0.90 而非 0.95 —— 已能明确区分两边，且给短文本留余量。
+     */
+    private static final double SELF_CHECK_MIN_SCORE = 0.90;
 
     // ==================================================================
     // 事务提交后钩子
@@ -143,11 +153,42 @@ public class ChunkSyncService {
         if (!StringUtils.hasText(sourceType) || sourceId == null) {
             return 0;
         }
+        // ★ 顺序很关键：必须先把待失效的块 ID 查出来，再置 INVALID。
+        //   置成 INVALID 之后就再也查不出「刚才是哪些块」，
+        //   而 Qdrant 侧清理孤儿向量恰好需要这批 ID。
+        List<Long> doomedIds = aiChunkMapper.selectActiveIdsBySource(sourceType, sourceId);
         int rows = aiChunkMapper.invalidateBySource(sourceType, sourceId);
         if (rows > 0) {
             log.info("[AI] 来源 {}#{} 已下架，索引块置 INVALID {} 条", sourceType, sourceId, rows);
+            // ★ 清理 Qdrant 孤儿向量：payload.status 是入库快照（恒为 ACTIVE），
+            //   检索过滤拦不住，不删就会挤占 top-K、把有效结果挤出去。
+            deleteOrphanVectors(doomedIds, sourceType + "#" + sourceId);
         }
         return rows;
+    }
+
+    /**
+     * 清理 Qdrant 侧孤儿向量（失败不影响主业务）
+     *
+     * <p>MySQL 已置 INVALID，Java 侧回表会过滤掉这些块，
+     * <b>用户不会看到脏数据</b>；这里做的是「不让脏向量白占 top-K 名额与内存」。
+     *
+     * @param chunkIds 已失效的块 ID
+     * @param scene    日志场景描述（来源 / 分块缩减）
+     */
+    private void deleteOrphanVectors(List<Long> chunkIds, String scene) {
+        if (chunkIds == null || chunkIds.isEmpty()) {
+            return;
+        }
+        try {
+            int deleted = fastApiClient.deleteChunks(chunkIds);
+            if (deleted > 0) {
+                log.info("[AI] {} 清理孤儿向量 {} 条", scene, deleted);
+            }
+        } catch (Exception e) {
+            // 向量清理是「尽力而为」，绝不能影响下架主流程
+            log.warn("[AI] {} 清理孤儿向量异常（已忽略）: {}", scene, e.getMessage());
+        }
     }
 
     // ==================================================================
@@ -199,9 +240,13 @@ public class ChunkSyncService {
 
         // 块数变少（内容改短 / PDF 页数减少）→ 把超出范围的旧块置失效
         if (existing.size() > maxChunkNo + 1) {
+            // 同上：先查 ID 再失效，否则清理向量时无从得知要删哪些
+            List<Long> doomedIds = aiChunkMapper.selectActiveIdsByChunkNoGreaterThan(
+                    sourceType, sourceId, maxChunkNo);
             int invalidated = aiChunkMapper.invalidateChunkNoGreaterThan(sourceType, sourceId, maxChunkNo);
             if (invalidated > 0) {
                 log.info("[AI] 来源 {}#{} 分块数减少，置 INVALID {} 条", sourceType, sourceId, invalidated);
+                deleteOrphanVectors(doomedIds, sourceType + "#" + sourceId + " 分块缩减");
             }
         }
         return written;
@@ -249,6 +294,17 @@ public class ChunkSyncService {
      * @return 统计 {pending, synced, skipped, failed, pushed}
      */
     public Map<String, Object> pushVectorIndex(int limit) {
+        return pushVectorIndex(limit, null);
+    }
+
+    /**
+     * 按来源类型推送待同步块（{@code sourceType} 为 null 时推全部类型）
+     *
+     * <p>★ 为什么需要按类型：课件（COURSEWARE）语料量大（实测 7308 块），
+     * 而检索侧目前还没有 {@code sourceType} 过滤，把它们一起推上去会挤占
+     * 题目/知识点的 top-K 名额。因此要能「先推题目，课件等过滤就绪后再推」。
+     */
+    public Map<String, Object> pushVectorIndex(int limit, String sourceType) {
         Map<String, Object> stats = new LinkedHashMap<>();
         int batch = Math.max(1, Math.min(limit <= 0 ? 200 : limit, 500));
         if (!properties.getFastapi().isEnabled()) {
@@ -257,7 +313,7 @@ public class ChunkSyncService {
             return stats;
         }
         try {
-            List<AiChunk> pending = aiChunkMapper.selectVectorPending(batch);
+            List<AiChunk> pending = aiChunkMapper.selectVectorPendingByType(sourceType, batch);
             stats.put("pending", pending.size());
             if (pending.isEmpty()) {
                 stats.put("pushed", false);
@@ -290,20 +346,36 @@ public class ChunkSyncService {
                 return stats;
             }
             List<Long> syncedIds = pending.stream().map(AiChunk::getId).filter(Objects::nonNull).toList();
-            if (!syncedIds.isEmpty()) {
-                aiChunkMapper.markVectorSynced(syncedIds,
-                        result.failed() > 0 ? AiChunk.VECTOR_FAILED : AiChunk.VECTOR_SYNCED);
+            // ★ 按块的真实结果回写状态位，而不是「整批一起置」：
+            //   - 被拒收（NaN/Inf/零范数）与「写入后校准不通过」的块必须单独置 2，
+            //     否则它们会被误标为已同步，向量库里却是缺的/错的，且再也查不出来。
+            Set<Long> badIds = new HashSet<>(result.rejectedIds());
+            badIds.addAll(result.mismatchedIds());
+            List<Long> okIds = syncedIds.stream().filter(id -> !badIds.contains(id)).toList();
+            List<Long> badIdList = syncedIds.stream().filter(badIds::contains).toList();
+            if (!okIds.isEmpty()) {
+                aiChunkMapper.markVectorSynced(okIds, AiChunk.VECTOR_SYNCED);
+            }
+            if (!badIdList.isEmpty()) {
+                aiChunkMapper.markVectorSynced(badIdList, AiChunk.VECTOR_FAILED);
+                log.warn("[AI] 向量写入异常 {} 条已置 vector_synced=2 待重试：拒收 {}、校准不通过 {}；{}",
+                        badIdList.size(), result.rejectedIds().size(), result.mismatchedIds().size(),
+                        badIdList.subList(0, Math.min(10, badIdList.size())));
             }
             stats.put("synced", result.synced());
             stats.put("skipped", result.skipped());
             stats.put("failed", result.failed());
+            stats.put("rejected", result.rejectedIds().size());
+            stats.put("mismatched", result.mismatchedIds().size());
             stats.put("tookMs", result.tookMs());
             stats.put("pushed", true);
             return stats;
         } catch (Exception e) {
-            log.warn("[AI] 向量索引推送异常（不影响主业务）: {}", e.getMessage());
+            // 只打 getMessage() 时，NPE 之类的异常会留下「异常: null」这种无线索日志，
+            // 故这里带堆栈输出，便于定位状态位回写失败的真实原因。
+            log.warn("[AI] 向量索引推送异常（不影响主业务）: {}", e.getMessage(), e);
             stats.put("pushed", false);
-            stats.put("reason", e.getMessage());
+            stats.put("reason", e.getClass().getSimpleName() + ": " + e.getMessage());
             return stats;
         }
     }
@@ -336,6 +408,69 @@ public class ChunkSyncService {
      *
      * @return {mySqlSynced, qdrantSynced, consistent, modelId, status, message}
      */
+    /**
+     * 全量同步向量索引（<b>可从「假的状态位」中恢复</b>）
+     *
+     * <p><b>为什么需要它，而不是直接循环调 pushVectorIndex：</b>
+     * {@code selectVectorPending} 的条件是 {@code vector_synced <> 1}。
+     * 一旦出现「状态位写成功、向量实际没入库」的假标记（实测遇到过 2433 条），
+     * 这些块会被永久跳过，<b>推多少次都推不上去</b>。
+     * 所以必须先把标记重置为待同步，再分批推。
+     *
+     * <p><b>分批</b>：Python 侧单次上限 500，这里 200 一批，逐批调用直到没有待同步。
+     * 某批失败不中断整体（保持待同步，下次续推）。
+     *
+     * @param sourceType 只同步该类型（null = 全部）。用于「先推题目，课件等过滤就绪后再推」
+     * @param maxBatches 最多推多少批（每批 200 条），防止单次请求跑太久
+     * @return {ok, reset, batches, pushed, failed, remaining, stoppedAtBatch?, reason?}
+     */
+    public Map<String, Object> fullVectorSync(String sourceType, int maxBatches) {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        int batchSize = 200;
+        int limit = Math.max(1, Math.min(maxBatches <= 0 ? 60 : maxBatches, 200));
+
+        if (!properties.getFastapi().isEnabled()) {
+            stats.put("ok", false);
+            stats.put("reason", fastApiClient.unavailableReason());
+            return stats;
+        }
+
+        // ① 重置假标记 —— 本方法存在的核心价值
+        int reset = aiChunkMapper.resetVectorPendingByType(sourceType);
+        stats.put("reset", reset);
+        log.info("[AI] 全量向量同步开始：重置 {} 条为待同步（类型：{}）",
+                reset, sourceType == null ? "全部" : sourceType);
+
+        int batches = 0;
+        int pushed = 0;
+        int failed = 0;
+        for (int i = 0; i < limit; i++) {
+            List<AiChunk> pending = aiChunkMapper.selectVectorPendingByType(sourceType, batchSize);
+            if (pending.isEmpty()) {
+                break;
+            }
+            Map<String, Object> one = pushVectorIndex(batchSize, sourceType);
+            batches++;
+            if (Boolean.TRUE.equals(one.get("pushed"))) {
+                pushed += pending.size();
+                failed += one.get("failed") instanceof Number n ? n.intValue() : 0;
+            } else {
+                stats.put("stoppedAtBatch", batches);
+                stats.put("reason", one.get("reason"));
+                break;
+            }
+        }
+
+        boolean hasMore = !aiChunkMapper.selectVectorPendingByType(sourceType, 1).isEmpty();
+        stats.put("batches", batches);
+        stats.put("pushed", pushed);
+        stats.put("failed", failed);
+        stats.put("remaining", hasMore ? "仍有待同步（再调一次本接口可续推）" : 0);
+        stats.put("ok", !hasMore);
+        log.info("[AI] 全量向量同步结束 {}", stats);
+        return stats;
+    }
+
     public Map<String, Object> reconcileVectorIndex() {
         Map<String, Object> result = new LinkedHashMap<>();
         long mySqlSynced = aiChunkMapper.countVectorSynced();
@@ -376,17 +511,36 @@ public class ChunkSyncService {
             long mySqlActive = aiChunkMapper.countActive();
             result.put("mySqlActive", mySqlActive);
 
-            // ★ 一致性判据是「MySQL 每个 ACTIVE 块都已标记已向量化」，
-            //   而不是「Qdrant 点数 == MySQL 已同步数」。
-            //   因为 Qdrant 里可能残留失效块的孤儿向量（下架/改写的块不会自动删除），
-            //   那属于清理范畴，不该让对账永远报不一致。
+            // ★ 一致性判据必须【双向】比对，只看 MySQL 的状态位是错的。
+            //
+            // 踩过的坑（2026-10 实测）：MySQL 报 2535 条 vector_synced=1，
+            // 而 Qdrant 实际只有 42 个点 —— 也就是 2493 条「自称已同步但根本不在库里」。
+            // 原判据只判 `mySqlSynced >= mySqlActive`，于是报了 consistent=true；
+            // 而且 orphan 用 Math.max(0, qdrant - mysql) 把「缺失」这种情况
+            // 直接夹成 0，方向完全是反的（真相是缺 2493 条，不是有 0 个孤儿）。
+            //
+            // 正确口径：
+            //   missingInQdrant  = mySqlActive - qdrantSynced  > 0 → 向量丢了（严重，检索会漏）
+            //   orphanedInQdrant = qdrantSynced - mySqlActive  > 0 → 孤儿向量（清理范畴）
+            // 两侧都要报，且「缺」必须让 consistent=false。
             boolean allMarked = mySqlSynced >= mySqlActive;
+            int missingInQdrant = (int) Math.max(0, mySqlActive - qdrantSynced);
             int orphans = (int) Math.max(0, qdrantSynced - mySqlActive);
             result.put("orphanedInQdrant", orphans);
-            result.put("consistent", allMarked);
-            if (allMarked) {
+            result.put("missingInQdrant", missingInQdrant);
+
+            // 状态位自洽 ≠ 索引一致。Qdrant 少于 MySQL 视为不一致。
+            boolean consistent = allMarked && missingInQdrant == 0;
+            result.put("consistent", consistent);
+            if (missingInQdrant > 0) {
+                result.put("message", "★ 索引不一致：MySQL 有 " + mySqlActive + " 条 ACTIVE 语料，"
+                        + "但 Qdrant 只有 " + qdrantSynced + " 个点，缺 " + missingInQdrant + " 条。"
+                        + "状态位 vector_synced=1 不可信（回写与实际入库不一致）。"
+                        + "修复：POST /api/admin/ai/reindex 重推，或先 rebuild 再全量推");
+            } else if (allMarked) {
                 result.put("message", orphans > 0
-                        ? "索引一致（Qdrant 有 " + orphans + " 个孤儿向量待清理，不影响检索）"
+                        ? "索引一致（Qdrant 有 " + orphans + " 个孤儿向量待清理，"
+                        + "调 POST /api/admin/ai/reindex 会自动清掉，不影响本次检索一致性）"
                         : "索引一致");
             } else {
                 result.put("message", "仍有 " + (mySqlActive - mySqlSynced)
@@ -414,7 +568,8 @@ public class ChunkSyncService {
      * <p><b>T09 扩展</b>：重建 MySQL 索引后，若 FastAPI 通道开启，
      * 会顺带触发一次向量索引推送（失败不影响返回，异步补推）。
      *
-     * @return 统计 {question, resource, knowledge, chunk, skipped, vector, costMillis}
+     * @return 统计 {question, resource, knowledge, invalidated, chunk, skipped,
+     *         vector, orphanPurge, selfCheck, costMillis}
      */
     public Map<String, Object> reindexAll() {
         long start = System.currentTimeMillis();
@@ -450,12 +605,21 @@ public class ChunkSyncService {
             }
         }
 
+        // ★ 反向对账：上面的遍历只碰到「当前可索引」的来源，
+        //   已转 PENDING/REJECTED/删除的来源的旧块不在其中，会永远留在 ACTIVE。
+        //   这一步把它们置 INVALID，reindex 才是真正的「全量重建」而非「只增不减」。
+        int invalidated = aiChunkMapper.invalidateUnindexableSources();
+        if (invalidated > 0) {
+            log.info("[AI] 反向对账：{} 条来源已不可索引的残留块置为 INVALID", invalidated);
+        }
+
         long cost = System.currentTimeMillis() - start;
         long chunkTotal = aiChunkMapper.countActive();
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("question", question);
         stats.put("resource", resource);
         stats.put("knowledge", knowledge);
+        stats.put("invalidated", invalidated);
         stats.put("chunk", chunkTotal);
         stats.put("skipped", skipped);
         // T09：顺带推送向量索引（失败只记录，不影响 reindex 本身的成功返回）
@@ -466,8 +630,158 @@ public class ChunkSyncService {
                 stats.put("vector", Map.of("pushed", false, "reason", e.getMessage()));
             }
         }
+        // ★ 孤儿向量清理：块置 INVALID 不会连带改动 Qdrant 里的 payload 快照，
+        //   孤儿仍会被 status='ACTIVE' 过滤放过、挤占 top-K 名额，必须显式删点。
+        try {
+            stats.put("orphanPurge", purgeOrphanVectors());
+        } catch (Exception e) {
+            stats.put("orphanPurge", Map.of("purged", 0, "reason", e.getMessage()));
+        }
+        // ★ 自查询一致性巡检：把原来靠人工抽查的「向量库是否静默退化」变成
+        //   每次重建自动跑（reconcile 只比数量，发现不了这个问题）。
+        try {
+            stats.put("selfCheck", selfCheckVectorConsistency(20));
+        } catch (Exception e) {
+            stats.put("selfCheck", Map.of("checked", 0, "skipped", true,
+                    "reason", e.getMessage()));
+        }
         stats.put("costMillis", cost);
         log.info("[AI] 全量重建完成：{}，耗时 {} ms", stats, cost);
+        return stats;
+    }
+
+    /**
+     * 「自查询一致性」巡检：抽若干语料块，**用它的正文去检索它自己**
+     *
+     * <p>★ 为什么必须自动化：向量库的静默退化（本地 Qdrant 持久化曾出现
+     * 「存储向量与输入不一致」）**只影响检索质量，不影响任何计数**——
+     * {@code reconcile} 比对数量会一直显示「索引一致」，
+     * 唯一能发现它的手段就是自查询：健康的块得分 0.97+，
+     * 退化的库则会掉到 0.2~0.5 且不同查询返回同一批结果。
+     *
+     * <p>阈值取 {@link #SELF_CHECK_MIN_SCORE} = 0.90 而不是 0.95：
+     * 实测健康区间是 0.976~0.985、退化区间是 0.2~0.5，0.90 已经能明确区分，
+     * 同时给短文本/前缀影响留出余量，避免噪声告警把真问题淹掉。
+     *
+     * <p>向量通道不可用时返回 {@code skipped}，**不判失败**（不是库坏了，是通道没开）。
+     *
+     * @param sampleSize 抽样条数（0 或负数按默认 20）
+     * @return {checked, passed, failed, minScore, failedIds} 或 {checked, skipped, reason}
+     */
+    public Map<String, Object> selfCheckVectorConsistency(int sampleSize) {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        int size = sampleSize > 0 ? sampleSize : 20;
+        if (!properties.getFastapi().isEnabled() || !properties.getVector().isEnabled()) {
+            stats.put("checked", 0);
+            stats.put("skipped", true);
+            stats.put("reason", "向量通道未开启，跳过自查询巡检");
+            return stats;
+        }
+        List<Map<String, Object>> samples;
+        try {
+            samples = aiChunkMapper.selectRandomActiveSamples(size);
+        } catch (Exception e) {
+            stats.put("checked", 0);
+            stats.put("skipped", true);
+            stats.put("reason", "抽样失败：" + e.getMessage());
+            return stats;
+        }
+        int checked = 0;
+        int passed = 0;
+        double minScore = 1.0;
+        List<Long> failedIds = new ArrayList<>();
+        for (Map<String, Object> row : samples) {
+            Object idValue = row.get("id");
+            Object contentValue = row.get("content");
+            if (idValue == null || contentValue == null) {
+                continue;
+            }
+            long chunkId = ((Number) idValue).longValue();
+            String content = String.valueOf(contentValue);
+            try {
+                List<FastApiClient.VectorHit> hits =
+                        fastApiClient.search(content, 5, null, null);
+                checked++;
+                double selfScore = hits.stream()
+                        .filter(h -> h.chunkId() != null && h.chunkId() == chunkId)
+                        .mapToDouble(FastApiClient.VectorHit::score)
+                        .findFirst()
+                        .orElse(0.0);
+                minScore = Math.min(minScore, selfScore);
+                if (selfScore >= SELF_CHECK_MIN_SCORE) {
+                    passed++;
+                } else {
+                    failedIds.add(chunkId);
+                }
+            } catch (Exception e) {
+                // 单条异常不影响整体巡检结论
+                log.debug("[AI] 自查询巡检单条失败 chunk#{}: {}", chunkId, e.getMessage());
+            }
+        }
+        stats.put("checked", checked);
+        stats.put("passed", passed);
+        stats.put("failed", failedIds.size());
+        stats.put("minScore", checked == 0 ? null : Math.round(minScore * 10000) / 10000.0);
+        if (!failedIds.isEmpty()) {
+            stats.put("failedIds", failedIds.subList(0, Math.min(10, failedIds.size())));
+            log.warn("[AI] 自查询巡检不通过 {}/{} 条（最低分 {}，阈值 {}）——"
+                            + "向量库可能已静默退化，请核对后按需删除向量库目录并全量重建：{}",
+                    failedIds.size(), checked, stats.get("minScore"), SELF_CHECK_MIN_SCORE,
+                    stats.get("failedIds"));
+        }
+        return stats;
+    }
+
+    /**
+     * 清理 Qdrant 里的孤儿向量（MySQL 侧已 INVALID、但向量点还在）
+     *
+     * <p>★ 为什么必须清理：Qdrant 检索按 payload 快照过滤，块被置 {@code INVALID}
+     * 并不会改写 Qdrant 里的 {@code payload.status}，于是 {@code /v1/search} 的
+     * {@code status='ACTIVE'} 过滤<b>拦不住这些孤儿</b>，它们会占掉 top-K 名额、
+     * 把有效结果挤出去。实测 4 组查询各取 top-20，80 个命中里 32 个是已失效块——
+     * 这是会实质拉低检索质量的问题，不是存储洁癖。
+     *
+     * <p><b>幂等</b>：删完把块标为 {@link AiChunk#VECTOR_PURGED}，
+     * 下次重建不会再选到；删除本身对不存在的点也是安全的。
+     *
+     * <p>失败只记录：FastAPI 不可用时保留 {@code vector_synced=1}，下次重建自动重试。
+     *
+     * @return {purged, batches} 或 {purged, reason}
+     */
+    public Map<String, Object> purgeOrphanVectors() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        if (!properties.getFastapi().isEnabled()) {
+            stats.put("purged", 0);
+            stats.put("reason", "FastAPI 通道未开启（app.ai.fastapi.enabled=false）");
+            return stats;
+        }
+        int batchSize = 500;
+        // 上限 20 批（1 万块）：防止「删除成功但状态位回写异常」时陷入死循环
+        int maxBatches = 20;
+        int purged = 0;
+        int batches = 0;
+        for (int i = 0; i < maxBatches; i++) {
+            List<Long> ids = aiChunkMapper.selectOrphanVectorIds(batchSize);
+            if (ids.isEmpty()) {
+                break;
+            }
+            FastApiClient.IndexDeleteResult result = fastApiClient.deleteIndex(ids);
+            if (result == null) {
+                stats.put("purged", purged);
+                stats.put("batches", batches);
+                stats.put("reason", fastApiClient.unavailableReason());
+                return stats;
+            }
+            batches++;
+            purged += ids.size();
+            // 标记为已移除，保证下一次重建不会再选到这批块
+            aiChunkMapper.markVectorSynced(ids, AiChunk.VECTOR_PURGED);
+        }
+        if (purged > 0) {
+            log.info("[AI] 孤儿向量清理：删除 {} 个失效块的向量点（{} 批）", purged, batches);
+        }
+        stats.put("purged", purged);
+        stats.put("batches", batches);
         return stats;
     }
 

@@ -6,4 +6,4 @@
 
 from __future__ import annotations
 
-__all__ = ["health", "embed", "search", "index", "ocr", "llm"]
+__all__ = ["health", "embed", "search", "index", "ocr", "llm", "agent", "ask", "wiki"]

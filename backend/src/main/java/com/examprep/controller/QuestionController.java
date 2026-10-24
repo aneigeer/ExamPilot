@@ -3,14 +3,19 @@ package com.examprep.controller;
 import com.examprep.common.PageResult;
 import com.examprep.common.QuestionType;
 import com.examprep.common.Result;
+import com.examprep.dto.GradeRequest;
 import com.examprep.dto.QuestionVO;
 import com.examprep.service.QuestionService;
+import com.examprep.service.ai.AiGradingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,6 +30,7 @@ import java.util.List;
 public class QuestionController {
 
     private final QuestionService questionService;
+    private final AiGradingService aiGradingService;
 
     @Operation(summary = "已开放题型列表",
             description = "**访问级别：PUBLIC**。返回 P0 已开放的 5 种题型，前端可用于渲染筛选器。")
@@ -58,5 +64,23 @@ public class QuestionController {
 
     @io.swagger.v3.oas.annotations.media.Schema(description = "题型项")
     public record TypeItem(String value, String label) {
+    }
+
+    @Operation(summary = "主观题 AI 判分",
+            description = """
+                    **访问级别：登录用户**。
+
+                    对照参考答案批改学生作答，返回**得分点命中 / 遗漏 + 一句话理由 + 参考得分率**。
+                    - **只给等级与理由，不冒充精确分数**：单轮 Prompt 无法做到 Rubric 级精度
+                    - **绝不阻塞作答**：大模型不可用时返回 `available=false`，前端回退到自评
+                    - 作答过短（< 4 字）直接返回 `level=INVALID`，不浪费一次模型调用
+                    """)
+    @PostMapping("/questions/{id}/grade")
+    public Result<AiGradingService.GradeResult> grade(
+            @Parameter(description = "题目 ID") @PathVariable Long id,
+            @Valid @RequestBody GradeRequest request) {
+        AiGradingService.GradeResult result = aiGradingService.grade(id,
+                request.getAnswer() == null ? "" : request.getAnswer());
+        return Result.success(result.available() ? "判分完成" : "AI 判分暂不可用", result);
     }
 }

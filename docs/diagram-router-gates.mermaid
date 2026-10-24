@@ -1,0 +1,29 @@
+%% Router 三闸门决策流程 —— 来源 docs/Router与Skill架构设计.md 章节 B.3
+flowchart TD
+    Q["学生问题"] --> E["embed(question) 21.6ms"]
+    E --> C["与 57 条原型句算余弦<br/>按 skill 取 max，得 Top1/Top2"]
+
+    C --> G1{"① sim < 0.60 ?"}
+    G1 -->|是| R1["REFUSE<br/>未找到相关资料<br/>不调 7B"]
+    G1 -->|否| G2{"② margin(Top1-Top2)<br/>< 0.05 ?"}
+
+    G2 -->|是| C1["CLARIFY<br/>反问 + 2-3 个候选<br/>不调 7B"]
+    G2 -->|否| ROUTE["路由到 Top1 skill"]
+
+    ROUTE --> G3{"该 skill 属事实类?<br/>COURSE_QA / COURSEWARE_QA<br/>/ EXERCISE_EXPLAIN"}
+    G3 -->|否| EXEC["直接执行 skill<br/>（计划/推荐/画像/判分/闲聊）"]
+    G3 -->|是| RET["HybridRetriever 检索<br/>按 skill 绑定 source_type"]
+
+    RET --> G4{"有命中且过闸门?"}
+    G4 -->|否| R2["REFUSE<br/>★ 检索验证：意图像但无资料"]
+    G4 -->|是| GEN["7B 生成<br/>max_tokens=300 ≈5.8s"]
+
+    GEN --> L3{"L3 校验<br/>[n] 与 sources 自洽?"}
+    L3 -->|否| EXT["丢弃 → 抽取式兜底"]
+    L3 -->|是| OK["返回 answer + sources[]"]
+    EXT --> OK
+
+    style R1 fill:#f5c6cb
+    style R2 fill:#f5c6cb
+    style C1 fill:#fff3cd
+    style G4 fill:#ffe6cc

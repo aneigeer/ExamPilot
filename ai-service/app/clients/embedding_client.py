@@ -57,15 +57,51 @@ class EmbeddingClient:
         self._tokenizer: Optional[Any] = None
         self._input_names: set = set()
         self._lock: threading.Lock = threading.Lock()
+        #: 序列化 ONNX 推理：本地 Qdrant + 多线程请求下，并发 session.run 在
+        #: Windows 上曾触发原生访问冲突（0xC0000005），故串行化换取稳定性。
+        self._infer_lock: threading.Lock = threading.Lock()
         self._load_error: Optional[str] = None
         self._load_ms: int = 0
 
     # ------------------------------------------------------------------ 健康检查
 
     @property
-    def ready(self) -> bool:
-        """模型是否已成功加载（不含"能否加载"的探测，避免健康检查触发重载）。"""
+    def loaded(self) -> bool:
+        """模型是否已在**本进程内**加载完成（真正的推理就绪态）。"""
         return self._session is not None and self._tokenizer is not None
+
+    @property
+    def capable(self) -> bool:
+        """**能力**是否可用：依赖已安装 + 模型文件存在（不加载模型）。
+
+        这是给 Java 侧判断「向量通道能不能用」用的。区别很重要：
+
+        * ``capable=True, loaded=False``：冷启动刚起，首调会花约 0.2-1s 加载模型，
+          但**通道是可用的**，Java 侧不该因此熔断、不该降级。
+        * ``capable=False``：依赖没装或模型文件缺失，重试无用，Java 侧应长期熔断。
+
+        探测成本极低（``importlib.util.find_spec`` + 两次 ``Path.is_file``），
+        可安全地在 ``/v1/health`` 里每次调用。
+        """
+        import importlib.util
+
+        if importlib.util.find_spec("onnxruntime") is None:
+            return False
+        if importlib.util.find_spec("tokenizers") is None:
+            return False
+        return self.settings.onnx_path.is_file() and self.settings.tokenizer_path.is_file()
+
+    @property
+    def ready(self) -> bool:
+        """能力是否可用（等价于 :attr:`capable`）。
+
+        **语义修正说明**：早期版本这里返回「是否已加载模型」（``loaded``），
+        导致冷启动时 ``/v1/health`` 报 ``ready=false``，Java 侧据此误判
+        「向量通道不可用」而提前降级。现改为「能力是否可用」，
+        与 Java ``vectorIndexReady`` 的语义对齐。
+        需要判断是否已加载时请用 :attr:`loaded`。
+        """
+        return self.capable
 
     @property
     def dim(self) -> int:
@@ -79,11 +115,22 @@ class EmbeddingClient:
 
     def health_detail(self) -> str:
         """健康检查诊断信息（不含堆栈）。"""
-        if self.ready:
-            return f"model={self.settings.model_id} load_ms={self._load_ms}"
+        if self.loaded:
+            return f"model={self.settings.model_id} load_ms={self._load_ms} 已加载"
+        if self.capable:
+            # 关键：让读日志的人知道「不是坏了，只是还没加载」
+            return (
+                f"model={self.settings.model_id} 可用但未加载"
+                f"（懒加载，首次调用 /v1/embed 约需 0.2-1s）"
+            )
         if self._load_error:
-            return f"未就绪：{self._load_error}"
-        return f"未加载（懒加载，模型目录 {self.settings.model_dir}）"
+            return f"不可用：{self._load_error}"
+        if not self.settings.onnx_path.is_file() or not self.settings.tokenizer_path.is_file():
+            return (
+                f"不可用：模型文件缺失（{self.settings.onnx_path.name} / "
+                f"{self.settings.tokenizer_path.name}），请放入 {self.settings.model_dir}"
+            )
+        return "不可用：未安装 onnxruntime / tokenizers，请执行 install.bat"
 
     # ------------------------------------------------------------------ 加载
 
@@ -94,10 +141,12 @@ class EmbeddingClient:
             CapabilityUnavailableError: onnxruntime / tokenizers 未安装，或模型文件缺失。
             EmbeddingError: 模型文件存在但加载失败（损坏等）。
         """
-        if self.ready:
+        # ⚠️ 这里必须用 `loaded`（是否已加载）而不是 `ready`（能力是否可用）：
+        # 用 ready 会在"能力可用但尚未加载"时直接 return，导致跳过一次真正的加载。
+        if self.loaded:
             return
         with self._lock:
-            if self.ready:  # 双检：并发下只加载一次
+            if self.loaded:  # 双检：并发下只加载一次
                 return
             started = time.perf_counter()
             try:
@@ -228,8 +277,9 @@ class EmbeddingClient:
         prepared: List[str] = [f"{prefix}{text}" for text in texts]
 
         vectors: List[List[float]] = []
-        for start in range(0, len(prepared), max(1, effective_batch)):
-            vectors.extend(self._encode_batch(prepared[start:start + effective_batch]))
+        with self._infer_lock:
+            for start in range(0, len(prepared), max(1, effective_batch)):
+                vectors.extend(self._encode_batch(prepared[start:start + effective_batch]))
         return vectors
 
     def encode_query(self, query: str) -> List[float]:

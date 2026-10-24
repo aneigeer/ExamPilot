@@ -3,6 +3,7 @@ package com.examprep.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.examprep.common.BatchLookup;
 import com.examprep.common.BizException;
 import com.examprep.common.PageResult;
 import com.examprep.common.ResourceType;
@@ -41,7 +42,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * 资料库服务
@@ -88,12 +88,11 @@ public class ResourceService {
                 .like(StringUtils.hasText(keyword), Resource::getTitle, keyword);
 
         // 排序：recommended = 推荐加权（大纲 4.5 评分下沉 + 时间衰减）
-        // 权重 =（下载量×2 + 有效评分均分×min(评分人数,5)）/（发布天数+7）
-        // 评分人数不足 3 人不计入评分权重（评分下沉），避免少量刷分影响排序
+        // 原先是含 DATEDIFF(NOW(), ...) 的表达式排序 → 索引永远用不上、必然 filesort；
+        // 现改为按物化列 hot_score 排序（公式相同，由 ResourceHotScoreJob 定时重算），
+        // 可命中 idx_res_status_hot 组合索引。
         if ("recommended".equals(sort)) {
-            wrapper.last("ORDER BY (download_count * 2 + IF(rating_count >= 3, "
-                    + "IFNULL(rating_avg, 0) * LEAST(rating_count, 5), 0)) "
-                    + "/ (DATEDIFF(NOW(), created_at) + 7) DESC, id DESC");
+            wrapper.orderByDesc(Resource::getHotScore).orderByDesc(Resource::getId);
         } else {
             wrapper.orderByDesc(Resource::getCreatedAt);
         }
@@ -120,24 +119,30 @@ public class ResourceService {
         return enrich(List.of(resource)).get(0);
     }
 
-    public List<ResourceVO> listMine(Long userId) {
-        List<Resource> list = resourceMapper.selectList(Wrappers.<Resource>lambdaQuery()
-                .eq(Resource::getUploaderId, userId)
-                .orderByDesc(Resource::getCreatedAt));
-        return enrich(list);
+    /** 我的上传（分页）：含未通过审核的资料，按上传时间倒序 */
+    public PageResult<ResourceVO> pageMine(Long userId, long page, long size) {
+        IPage<Resource> result = resourceMapper.selectPage(new Page<>(page, size),
+                Wrappers.<Resource>lambdaQuery()
+                        .eq(Resource::getUploaderId, userId)
+                        .orderByDesc(Resource::getCreatedAt));
+        return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(),
+                enrich(result.getRecords()));
     }
 
-    /** 补齐科目 / 考试类别 / 上传人名称 */
+    /** 补齐科目 / 考试类别 / 上传人名称（只查本页引用到的 ID，避免整表加载） */
     private List<ResourceVO> enrich(List<Resource> resources) {
         if (resources.isEmpty()) {
             return List.of();
         }
-        Map<Long, String> subjectNames = subjectMapper.selectList(null).stream()
-                .collect(Collectors.toMap(Subject::getId, Subject::getName, (a, b) -> a));
-        Map<Long, String> examNames = examCategoryMapper.selectList(null).stream()
-                .collect(Collectors.toMap(ExamCategory::getId, ExamCategory::getName, (a, b) -> a));
-        Map<Long, String> userNames = userMapper.selectList(null).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname, (a, b) -> a));
+        Map<Long, String> subjectNames = BatchLookup.nameMap(subjectMapper,
+                resources.stream().map(Resource::getSubjectId).toList(),
+                Subject::getId, Subject::getName);
+        Map<Long, String> examNames = BatchLookup.nameMap(examCategoryMapper,
+                resources.stream().map(Resource::getExamCategoryId).toList(),
+                ExamCategory::getId, ExamCategory::getName);
+        Map<Long, String> userNames = BatchLookup.nameMap(userMapper,
+                resources.stream().map(Resource::getUploaderId).toList(),
+                User::getId, User::getNickname);
 
         return resources.stream().map(r -> {
             ResourceVO vo = ResourceVO.from(r);

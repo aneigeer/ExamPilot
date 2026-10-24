@@ -9,19 +9,41 @@
 <script src="vendor/element-plus.full.min.js"></script>
 <script src="vendor/element-icons.min.js"></script>
 <style>
-  html,body,#app{height:100%;margin:0;background:#f0f2f5}
-  .login-box{width:380px;margin:12vh auto;padding:36px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
-  .login-title{text-align:center;font-size:20px;font-weight:600;margin-bottom:28px;color:#1b1f27}
-  .aside{background:#001529;min-height:100vh}
-  .logo{color:#fff;text-align:center;padding:18px 0;font-size:16px;font-weight:600;border-bottom:1px solid rgba(255,255,255,.08)}
-  .head{background:#fff;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;box-shadow:0 1px 4px rgba(0,21,41,.08)}
-  .page{padding:16px}
-  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-  .stat-card{flex:1;min-width:150px;background:#fff;border-radius:8px;padding:18px;text-align:center}
-  .stat-num{font-size:26px;font-weight:700;color:#2962FF}
-  .stat-label{font-size:13px;color:#7a8190;margin-top:4px}
-  .pager{margin-top:12px;display:flex;justify-content:flex-end}
-  .stem-cell{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  :root{--brand:#315fea;--brand-soft:#edf2ff;--ink:#182230;--muted:#5c6472;--line:#e7ebf2;--canvas:#f4f6fa}
+  *{box-sizing:border-box}html,body,#app{height:100%;margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif}
+  [v-cloak]{display:none}.login-box{width:min(420px,calc(100% - 32px));margin:10vh auto;padding:34px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 60px rgba(29,48,82,.12)}
+  .login-box:before{content:"知";display:grid;place-items:center;width:48px;height:48px;margin:0 auto 14px;border-radius:15px;background:linear-gradient(145deg,#4b7aff,#315fea);color:#fff;font-size:23px;font-weight:800;box-shadow:0 8px 18px #315fea35}
+  .login-title{text-align:center;font-size:21px;font-weight:750;margin-bottom:26px;color:var(--ink);letter-spacing:-.04em}
+  .el-container[style*="height:100vh"]{height:100vh;min-height:600px;background:var(--canvas)}
+  .aside{background:#fff;border-right:1px solid var(--line);min-height:100vh;overflow:auto}
+  .logo{color:#202c40;text-align:left;padding:19px 16px;font-size:14px;font-weight:750;border-bottom:1px solid #edf0f5;letter-spacing:-.02em}
+  .el-menu{padding:10px 9px!important}.el-menu-item{height:43px!important;line-height:43px!important;margin:3px 0;border-radius:9px;font-size:13px!important}.el-menu-item:hover{background:#f5f7fc!important}.el-menu-item.is-active{background:var(--brand-soft)!important;color:var(--brand)!important;font-weight:700}.el-menu-item [class^=el-icon]{font-size:16px}
+  .head{background:#fff;padding:0 25px;display:flex;align-items:center;justify-content:space-between;height:62px!important;border-bottom:1px solid var(--line)}
+  .el-main{background:var(--canvas)}.page{padding:25px;max-width:1600px;margin:0 auto}.el-card{border:1px solid var(--line)!important;border-radius:13px!important}.el-card__header{font-size:13px;font-weight:700;color:#29364a;border-bottom:1px solid #edf0f4!important;padding:14px 16px!important}.el-card__body{padding:16px!important}
+  .dashboard-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}.dashboard-heading h1{font-size:24px;letter-spacing:-.04em;margin:0;color:#19263a}.dashboard-heading p{margin:5px 0 0;color:#697589;font-size:13px}.dashboard-date{border:1px solid var(--line);background:#fff;color:#56647a;padding:8px 12px;border-radius:8px;font-size:12px}
+  .stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:14px}.stat-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 17px;text-align:left;min-height:105px;box-shadow:0 3px 10px rgba(29,48,82,.025);transition:transform .16s,box-shadow .16s}.stat-card.actionable{cursor:pointer}.stat-card.actionable:hover{transform:translateY(-2px);box-shadow:0 9px 22px rgba(29,48,82,.09)}.stat-label{font-size:12px;color:#68758a}.stat-num{font-size:27px;font-weight:750;color:#202d42;margin-top:7px;letter-spacing:-.04em}.stat-hint{font-size:11px;color:#6b7789;margin-top:1px}.stat-icon{position:absolute;right:15px;top:14px;width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:#edf2ff;color:var(--brand);font-size:15px}.stat-card.warning .stat-icon{background:#fff2df;color:#aa630d}.stat-card.danger .stat-icon{background:#fff0ed;color:#c24145}.dashboard-panels{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:14px;margin-bottom:14px}.distribution-row{display:grid;grid-template-columns:85px 1fr 42px;gap:9px;align-items:center;padding:9px 2px;font-size:12px;color:#58667b}.distribution-track{height:7px;background:#edf0f5;border-radius:10px;overflow:hidden}.distribution-track i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,#5279f5,#7c91f5)}.role-row{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid #f0f2f6;font-size:12px;color:#5c687b}.role-row:last-child{border-bottom:0}.role-row b{color:#26344a}.dashboard-tables{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.dashboard-tables .el-card{min-width:0}.el-table{font-size:12px!important}.el-table th.el-table__cell{background:#f8f9fc!important;color:#67758a!important;font-weight:650!important}.el-table td.el-table__cell,.el-table th.el-table__cell{padding:10px 0!important}.el-table tr:hover>td.el-table__cell{background:#f7f9ff!important}
+  .pager{margin-top:12px;display:flex;justify-content:flex-end}.stem-cell{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.el-button--primary{--el-color-primary:var(--brand)}.el-input__wrapper,.el-select__wrapper{border-radius:8px!important}.el-dialog{border-radius:15px!important}
+  @media(max-width:1120px){.stat-row{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-tables{grid-template-columns:1fr 1fr}.dashboard-tables>.el-col:last-child{grid-column:1/-1}}
+  @media(max-width:760px){.aside{width:165px!important}.head{padding:0 14px}.page{padding:16px}.dashboard-panels,.dashboard-tables{grid-template-columns:1fr}.dashboard-tables>.el-col:last-child{grid-column:auto}.dashboard-heading{align-items:start;gap:12px;flex-direction:column}.stat-card{padding:13px}.el-main{min-width:0}.el-table{min-width:680px}}
+  /* Agent 轨迹时间轴 */
+  .agent-timeline{max-height:520px;overflow:auto;padding-right:4px}
+  .agent-step{display:grid;grid-template-columns:86px 74px 1fr;gap:10px;align-items:start;padding:10px 0;border-bottom:1px dashed #eef1f6}
+  .agent-step:last-child{border-bottom:0}
+  .agent-badge{display:inline-block;text-align:center;font-size:11px;font-weight:700;padding:3px 6px;border-radius:7px;background:#eef2ff;color:#315fea}
+  .agent-badge.ev-final{background:#e8f7ee;color:#1f7a4d}
+  .agent-badge.ev-tool_call{background:#fff4e5;color:#a35400}
+  .agent-badge.ev-tool_result{background:#eef7fb;color:#0b6e75}
+  .agent-badge.ev-error{background:#fff0ed;color:#c24145}
+  .agent-time{font-size:11px;color:#8290a2;padding-top:3px}
+  .agent-body{font-size:13px;color:#334155;min-width:0}
+  .agent-body pre{margin:6px 0 0;padding:8px 10px;background:#f7f9fc;border:1px solid #e7ebf2;border-radius:8px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto}
+  .agent-answer{white-space:pre-wrap;line-height:1.7}
+  .agent-meta{margin-top:6px;font-size:11px;color:#8290a2}
+  /* 原生按钮：避免 Element Plus 按钮在部分快照/窄屏下不可见 */
+  .btn-primary{appearance:none;border:0;border-radius:8px;background:var(--brand);color:#fff;
+    font-size:13px;font-weight:600;padding:0 18px;height:38px;cursor:pointer;white-space:nowrap}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -55,6 +77,9 @@
         <el-menu-item index="upload-doc">📤 文件上传</el-menu-item>
         <el-menu-item index="data">🗂️ 基础数据</el-menu-item>
         <el-menu-item index="logs">📜 操作日志</el-menu-item>
+        <el-menu-item index="agent">🤖 AI 运行观测</el-menu-item>
+        <el-menu-item index="eval">🧪 离线评估</el-menu-item>
+        <el-menu-item index="wiki">📖 LLM Wiki</el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -71,58 +96,55 @@
 
         <!-- ======== 仪表盘 ======== -->
         <div v-if="view==='dashboard'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>工作台</h1><p>平台内容概况与待办审核一览</p></div>
+            <span class="dashboard-date">{{ new Date().toLocaleDateString('zh-CN', {year:'numeric', month:'long', day:'numeric'}) }}</span>
+          </div>
           <div class="stat-row">
-            <div class="stat-card" v-for="(v,k) in dashboard" :key="k">
-              <div class="stat-num">{{ v }}</div>
+            <div v-for="(v,k) in dashboard" :key="k"
+                 class="stat-card" :class="[dashboardTone(k), {'actionable': dashboardView(k)}]"
+                 @click="openDashboardMetric(k)">
+              <span class="stat-icon">{{ dashboardIcon(k) }}</span>
               <div class="stat-label">{{ dashLabel(k) }}</div>
+              <div class="stat-num">{{ v }}</div>
+              <div class="stat-hint">{{ dashboardHint(k) }}</div>
             </div>
           </div>
-          <el-row :gutter="14">
-            <el-col :span="12">
-              <el-card shadow="never"><template #header>资料类型分布</template>
-                <div v-for="(v,k) in resourceTypes" :key="k" style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px dashed #eee">
-                  <span>{{ k }}</span><el-tag size="small">{{ v }}</el-tag>
-                </div>
-              </el-card>
-            </el-col>
-            <el-col :span="12">
-              <el-card shadow="never"><template #header>角色分布</template>
-                <div v-for="(v,k) in roleStats" :key="k" style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px dashed #eee">
-                  <span>{{ k }}</span><el-tag size="small" type="warning">{{ v }}</el-tag>
-                </div>
-              </el-card>
-            </el-col>
-          </el-row>
-
-          <el-row :gutter="14" style="margin-top:14px">
-            <el-col :span="8">
-              <el-card shadow="never"><template #header>热门科目 TOP10</template>
-                <el-table :data="hotSubjects" size="small">
-                  <el-table-column prop="name" label="科目"/>
-                  <el-table-column prop="resourceCount" label="资料" width="60"/>
-                  <el-table-column prop="downloadCount" label="下载" width="60"/>
-                </el-table>
-              </el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="never"><template #header>活跃用户 TOP10</template>
-                <el-table :data="activeUsers" size="small">
-                  <el-table-column prop="nickname" label="用户"/>
-                  <el-table-column prop="practiceCount" label="练习" width="60"/>
-                  <el-table-column prop="correctTotal" label="答对" width="60"/>
-                </el-table>
-              </el-card>
-            </el-col>
-            <el-col :span="8">
-              <el-card shadow="never"><template #header>各题型正确率</template>
-                <el-table :data="typeAccuracy" size="small">
-                  <el-table-column prop="type" label="题型"/>
-                  <el-table-column prop="total" label="答题" width="60"/>
-                  <el-table-column prop="accuracy" label="正确率%" width="70"/>
-                </el-table>
-              </el-card>
-            </el-col>
-          </el-row>
+          <div class="dashboard-panels">
+            <el-card shadow="never"><template #header>资料类型分布</template>
+              <div v-for="(v,k) in resourceTypes" :key="k" class="distribution-row">
+                <span>{{ k }}</span><div class="distribution-track"><i :style="{width: resourcePercent(v) + '%'}"></i></div><b>{{ v }}</b>
+              </div>
+              <el-empty v-if="!Object.keys(resourceTypes).length" description="暂无资料统计" :image-size="60" />
+            </el-card>
+            <el-card shadow="never"><template #header>用户角色分布</template>
+              <div v-for="(v,k) in roleStats" :key="k" class="role-row"><span>{{ k }}</span><b>{{ v }} 人</b></div>
+              <el-empty v-if="!Object.keys(roleStats).length" description="暂无用户统计" :image-size="60" />
+            </el-card>
+          </div>
+          <div class="dashboard-tables">
+            <el-card shadow="never"><template #header>热门科目 TOP10</template>
+              <el-table :data="hotSubjects" size="small" empty-text="暂无数据">
+                <el-table-column prop="name" label="科目" show-overflow-tooltip/>
+                <el-table-column prop="resourceCount" label="资料" width="62"/>
+                <el-table-column prop="downloadCount" label="下载" width="68"/>
+              </el-table>
+            </el-card>
+            <el-card shadow="never"><template #header>活跃用户 TOP10</template>
+              <el-table :data="activeUsers" size="small" empty-text="暂无数据">
+                <el-table-column prop="nickname" label="用户" show-overflow-tooltip/>
+                <el-table-column prop="practiceCount" label="练习" width="62"/>
+                <el-table-column prop="correctTotal" label="答对" width="62"/>
+              </el-table>
+            </el-card>
+            <el-card shadow="never"><template #header>题型正确率</template>
+              <el-table :data="typeAccuracy" size="small" empty-text="暂无数据">
+                <el-table-column prop="type" label="题型" show-overflow-tooltip/>
+                <el-table-column prop="total" label="答题" width="62"/>
+                <el-table-column prop="accuracy" label="正确率 %" width="78"/>
+              </el-table>
+            </el-card>
+          </div>
         </div>
 
         <!-- ======== 题目审核 ======== -->
@@ -505,6 +527,326 @@
               :current-page="logPage" @current-change="p => { logPage = p; loadLogs(); }"/></div>
           </el-card>
         </div>
+
+        <!-- ======== AI 运行观测 ======== -->
+        <div v-if="view==='agent'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>AI 运行观测</h1><p>实时查看 Agent 的思考、工具调用与最终答案</p></div>
+          </div>
+          <el-card shadow="never">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <el-input v-model="agent.question" placeholder="输入问题，例如：我的薄弱知识点有哪些？"
+                        style="flex:1;min-width:260px" @keyup.enter="startAgent"/>
+              <button type="button" class="btn-primary" :disabled="agent.running" @click="startAgent">
+                {{ agent.running ? '运行中…' : '开始会话' }}
+              </button>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#68758a">
+              每用户同时仅 1 个会话；事件流：meta → thought → tool_call → tool_result → final → done
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>执行轨迹</template>
+            <div v-if="!agent.steps.length" style="color:#7a8190;font-size:13px">暂无轨迹，先发起一次会话。</div>
+            <div class="agent-timeline" ref="agentLog">
+              <div v-for="(s,i) in agent.steps" :key="i" class="agent-step">
+                <span class="agent-badge" :class="'ev-'+s.event">{{ s.event }}</span>
+                <span class="agent-time">{{ s.time }}</span>
+                <div class="agent-body">
+                  <template v-if="s.event==='thought'">{{ s.data.text }}</template>
+                  <template v-else-if="s.event==='tool_call'">
+                    调用 <b>{{ s.data.tool }}</b>
+                    <pre>{{ JSON.stringify(s.data.arguments || {}, null, 2) }}</pre>
+                  </template>
+                  <template v-else-if="s.event==='tool_result'">
+                    <span :style="{color: s.data.ok ? '#1f7a4d' : '#c24145'}">
+                      {{ s.data.ok ? '成功' : '失败' }}</span>
+                    · {{ s.data.summary }}
+                    <el-collapse v-if="s.data.data">
+                      <el-collapse-item title="查看结果数据">
+                        <pre>{{ JSON.stringify(s.data.data, null, 2) }}</pre>
+                      </el-collapse-item>
+                    </el-collapse>
+                  </template>
+                  <template v-else-if="s.event==='final'">
+                    <div class="agent-answer">{{ s.data.answer }}</div>
+                    <div class="agent-meta">
+                      生成器：{{ s.data.generator }} · 步数：{{ s.data.step_count }}
+                      · 工具：{{ s.data.tool_calls }} · 降级：{{ s.data.degraded }}
+                    </div>
+                  </template>
+                  <template v-else-if="s.event==='budget_truncated'">
+                    已丢弃最老的工具结果：{{ s.data.droppedTool }}
+                  </template>
+                  <template v-else-if="s.event==='meta'">
+                    会话启动 · trace {{ s.data.traceId }}
+                  </template>
+                  <template v-else>{{ JSON.stringify(s.data) }}</template>
+                </div>
+              </div>
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>历史会话（点击回放）</template>
+            <el-table :data="agent.runs" size="small" empty-text="暂无记录">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="question" label="问题" show-overflow-tooltip/>
+              <el-table-column prop="status" label="状态" width="100"/>
+              <el-table-column prop="stepCount" label="步数" width="70"/>
+              <el-table-column prop="toolCalls" label="工具" width="70"/>
+              <el-table-column prop="totalMs" label="耗时ms" width="90"/>
+              <el-table-column prop="createdAt" label="时间" width="170"/>
+              <el-table-column label="操作" width="90">
+                <template #default="s">
+                  <el-button text type="primary" @click="replayRun(s.row.id)">回放</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total"
+              :total="agent.runTotal" :page-size="20" :current-page="agent.page"
+              @current-change="p => { agent.page = p; loadAgentRuns(); }"/></div>
+          </el-card>
+
+          <el-dialog v-model="agent.replayDialog" title="轨迹回放" width="860px">
+            <div class="agent-timeline" v-if="agent.replay">
+              <div v-for="(s,i) in (agent.replay.steps || [])" :key="i" class="agent-step">
+                <span class="agent-badge" :class="'ev-'+s.event">{{ s.event }}</span>
+                <span class="agent-time">{{ agent.replay.createdAt }}</span>
+                <div class="agent-body">
+                  <pre>{{ typeof s.data === 'string' ? s.data : JSON.stringify(s.data, null, 2) }}</pre>
+                </div>
+              </div>
+            </div>
+          </el-dialog>
+        </div>
+
+        <!-- ======== 离线评估 ======== -->
+        <div v-if="view==='eval'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>离线评估</h1><p>检索侧 Golden Set + Agent 侧合成任务集</p></div>
+          </div>
+
+          <el-card shadow="never">
+            <el-tabs v-model="eval.tab">
+              <el-tab-pane label="检索侧（Recall@K / MRR）" name="retrieval">
+                <p style="color:#5c6472;font-size:13px;line-height:1.8">
+                  评估生产混合检索链路（向量 + ngram + 融合）。纯召回用 applyGate=false；
+                  拒答与误拒另用 applyGate=true 统计。目标：Recall@5 ≥ 0.8、MRR ≥ 0.7。
+                </p>
+                <button type="button" class="btn-primary" :disabled="eval.running"
+                        @click="startEval('retrieval')">
+                  {{ eval.running ? '运行中…' : '开始检索评估' }}
+                </button>
+              </el-tab-pane>
+              <el-tab-pane label="Agent 侧（工具链 / 规则判定）" name="agent">
+                <p style="color:#5c6472;font-size:13px;line-height:1.8">
+                  120 条合成任务，规则判定：工具序列、禁止工具、工具成功、必需内容、步数上限。
+                  目标：通过率 ≥ 0.8。
+                </p>
+                <button type="button" class="btn-primary" :disabled="eval.running"
+                        @click="startEval('agent')">
+                  {{ eval.running ? '运行中…' : '开始 Agent 评估' }}
+                </button>
+              </el-tab-pane>
+            </el-tabs>
+            <div v-if="eval.task" style="margin-top:14px;font-size:13px;color:#5c6472">
+              当前任务 #{{ eval.task.id }} · {{ eval.task.type }} · {{ eval.task.status }}
+              <el-progress :percentage="eval.task.progress || 0" :stroke-width="8" style="margin-top:8px"/>
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>评估运行记录</template>
+            <el-table :data="eval.runs" size="small" empty-text="暂无评估记录">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="layer" label="层" width="100"/>
+              <el-table-column prop="status" label="状态" width="100"/>
+              <el-table-column prop="total" label="用例" width="80"/>
+              <el-table-column prop="passed" label="通过" width="80"/>
+              <el-table-column prop="reportPath" label="报告路径" show-overflow-tooltip/>
+              <el-table-column prop="createdAt" label="时间" width="170"/>
+              <el-table-column label="操作" width="90">
+                <template #default="s">
+                  <el-button text type="primary" @click="openEvalRun(s.row.id)">详情</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total"
+              :total="eval.total" :page-size="20" :current-page="eval.page"
+              @current-change="p => { eval.page = p; loadEvalRuns(); }"/></div>
+          </el-card>
+
+          <el-dialog v-model="eval.detailDialog" title="评估详情" width="900px">
+            <div v-if="eval.detail">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+                <div v-for="(v,k) in eval.detail.metrics" :key="k" class="stat-card">
+                  <div class="stat-label">{{ k }}</div>
+                  <div class="stat-num" style="font-size:20px">{{ v }}</div>
+                </div>
+              </div>
+              <p style="margin-top:12px;font-size:12px;color:#5c6472">报告：{{ eval.detail.reportPath }}</p>
+              <el-table :data="eval.detail.rows" size="small" max-height="420">
+                <el-table-column v-for="c in eval.detail.columns" :key="c.key"
+                                 :prop="c.key" :label="c.label" show-overflow-tooltip/>
+              </el-table>
+            </div>
+          </el-dialog>
+        </div>
+
+        <!-- ======== LLM Wiki ======== -->
+        <div v-if="view==='wiki'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>LLM Wiki 知识库</h1>
+              <p>RAG 即时可用 · Wiki 异步沉淀：蒸馏 → 人工审核 → 发布 → 问答热层优先</p></div>
+          </div>
+          <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+            <div class="stat-card">
+              <div class="stat-label">已发布主题页</div>
+              <div class="stat-num">{{ wiki.stats.published || 0 }}</div>
+              <div class="stat-hint">问答热层直接命中，不走向量生成</div>
+            </div>
+            <div class="stat-card warning">
+              <div class="stat-label">待审草稿</div>
+              <div class="stat-num">{{ wiki.stats.pendingRevisions || 0 }}</div>
+              <div class="stat-hint">LLM 草稿必须人工审核后发布</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">向量集合</div>
+              <div class="stat-num" style="font-size:19px">{{ wiki.stats.vectorCollection || '-' }}</div>
+              <div class="stat-hint">与 RAG 的 exam_chunks 隔离</div>
+            </div>
+          </div>
+
+          <el-card shadow="never">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <el-select v-model="wiki.scope" style="width:130px">
+                <el-option label="全部科目" value="ALL"/>
+                <el-option label="指定科目" value="SUBJECT"/>
+              </el-select>
+              <el-input v-if="wiki.scope==='SUBJECT'" v-model="wiki.subjectId"
+                        placeholder="科目 ID" style="width:120px"/>
+              <button type="button" class="btn-primary" :disabled="wiki.running"
+                      @click="startWikiDistill">
+                {{ wiki.running ? '蒸馏中…' : '触发一次蒸馏' }}
+              </button>
+              <el-button :disabled="wiki.running" @click="rebuildWikiVector">重建 Wiki 向量</el-button>
+              <span style="font-size:12px;color:#68758a">
+                蒸馏走独立队列 exam:wiki；本地 7B 约 20–40 秒/页，只产出待审草稿
+              </span>
+            </div>
+            <div v-if="wiki.task" style="margin-top:12px;font-size:13px;color:#5c6472">
+              当前任务 #{{ wiki.task.id }} · {{ wiki.task.type }} · {{ wiki.task.status }}
+              <el-progress :percentage="wiki.task.progress || 0" :stroke-width="8" style="margin-top:8px"/>
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <el-tabs v-model="wiki.tab">
+              <el-tab-pane label="待审草稿" name="revisions">
+                <el-table :data="wiki.revisions" size="small" empty-text="暂无待审草稿">
+                  <el-table-column prop="id" label="ID" width="64"/>
+                  <el-table-column prop="title" label="主题" show-overflow-tooltip/>
+                  <el-table-column prop="slug" label="Slug" width="120"/>
+                  <el-table-column prop="subjectId" label="科目" width="70"/>
+                  <el-table-column label="质量分" width="86">
+                    <template #default="s">{{ s.row.qualityScore == null ? '-' : s.row.qualityScore }}</template>
+                  </el-table-column>
+                  <el-table-column prop="model" label="模型" width="120" show-overflow-tooltip/>
+                  <el-table-column prop="createdAt" label="生成时间" width="160"/>
+                  <el-table-column label="操作" width="180">
+                    <template #default="s">
+                      <el-button text type="primary" @click="openWikiRevision(s.row)">查看</el-button>
+                      <el-button text type="success" @click="approveWikiRevision(s.row.id)">通过</el-button>
+                      <el-button text type="danger" @click="rejectWikiRevision(s.row.id)">驳回</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pager"><el-pagination layout="prev, pager, next, total"
+                  :total="wiki.revTotal" :page-size="20" :current-page="wiki.revPage"
+                  @current-change="p => { wiki.revPage = p; loadWikiRevisions(); }"/></div>
+              </el-tab-pane>
+
+              <el-tab-pane label="已发布页面" name="pages">
+                <el-table :data="wiki.pages" size="small" empty-text="暂无已发布页面">
+                  <el-table-column prop="id" label="ID" width="64"/>
+                  <el-table-column prop="title" label="主题" show-overflow-tooltip/>
+                  <el-table-column prop="slug" label="Slug" width="120"/>
+                  <el-table-column prop="subjectId" label="科目" width="70"/>
+                  <el-table-column prop="version" label="版本" width="60"/>
+                  <el-table-column label="质量分" width="86">
+                    <template #default="s">{{ s.row.qualityScore == null ? '-' : s.row.qualityScore }}</template>
+                  </el-table-column>
+                  <el-table-column prop="updatedAt" label="更新时间" width="160"/>
+                  <el-table-column label="操作" width="150">
+                    <template #default="s">
+                      <el-button text type="primary" @click="openWikiPage(s.row.id)">查看</el-button>
+                      <el-button text type="danger" @click="offlineWikiPage(s.row.id)">下架</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pager"><el-pagination layout="prev, pager, next, total"
+                  :total="wiki.pageTotal" :page-size="20" :current-page="wiki.pagePage"
+                  @current-change="p => { wiki.pagePage = p; loadWikiPages(); }"/></div>
+              </el-tab-pane>
+
+              <el-tab-pane label="导航图" name="graph">
+                <p style="font-size:12px;color:#68758a">
+                  节点 {{ (wiki.graph.nodes || []).length }} · 有向边 {{ (wiki.graph.edges || []).length }}
+                  （同级链接保证不出现孤岛）
+                </p>
+                <el-table :data="wiki.graph.edges" size="small" max-height="420" empty-text="暂无链接">
+                  <el-table-column prop="source" label="起点页面" width="110"/>
+                  <el-table-column prop="target" label="终点页面" width="110"/>
+                  <el-table-column prop="relation" label="关系" width="130"/>
+                  <el-table-column prop="weight" label="权重" width="80"/>
+                </el-table>
+              </el-tab-pane>
+            </el-tabs>
+          </el-card>
+
+          <el-dialog v-model="wiki.revisionDialog" title="Wiki 草稿审核" width="900px">
+            <div v-if="wiki.revision">
+              <h3 style="margin:0 0 8px">{{ wiki.revision.title }}</h3>
+              <p style="font-size:12px;color:#68758a;margin:0 0 10px">
+                slug={{ wiki.revision.slug }} · 模型 {{ wiki.revision.model }} ·
+                质量分 {{ wiki.revision.qualityScore }} · 来源块 {{ (wiki.revision.sourceChunkIds || []).join(', ') }}
+              </p>
+              <el-card shadow="never"><template #header>摘要</template>{{ wiki.revision.summary }}</el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>要点</template>
+                <ul style="margin:0;padding-left:18px">
+                  <li v-for="(p,i) in (wiki.revision.keyPoints || [])" :key="i">{{ p }}</li>
+                </ul>
+              </el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>正文</template>
+                <pre style="white-space:pre-wrap;margin:0;font-size:13px;line-height:1.7">{{ wiki.revision.content }}</pre>
+              </el-card>
+              <p style="margin-top:10px">
+                <button type="button" class="btn-primary" @click="approveWikiRevision(wiki.revision.id)">审核通过并发布</button>
+                <el-button style="margin-left:8px" @click="rejectWikiRevision(wiki.revision.id)">驳回</el-button>
+              </p>
+            </div>
+          </el-dialog>
+
+          <el-dialog v-model="wiki.pageDialog" title="Wiki 页面" width="900px">
+            <div v-if="wiki.page">
+              <h3 style="margin:0 0 8px">{{ wiki.page.title }}</h3>
+              <p style="font-size:12px;color:#68758a;margin:0 0 10px">
+                slug={{ wiki.page.slug }} · v{{ wiki.page.version }} · 质量分 {{ wiki.page.qualityScore }}
+              </p>
+              <el-card shadow="never"><template #header>摘要</template>{{ wiki.page.summary }}</el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>正文</template>
+                <pre style="white-space:pre-wrap;margin:0;font-size:13px;line-height:1.7">{{ wiki.page.content }}</pre>
+              </el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>关联页</template>
+                <div v-for="p in (wiki.page.relatedPages || [])" :key="p.id" style="font-size:13px;padding:4px 0">
+                  #{{ p.id }} {{ p.title }}（{{ p.slug }}）
+                </div>
+              </el-card>
+            </div>
+          </el-dialog>
+        </div>
       </el-main>
     </el-container>
   </el-container>
@@ -570,7 +912,16 @@ createApp({
       collegeAdmin: [], teacherAdmin: [],
       annForm: {id: null, title: '', content: ''},
       exams: [], subjectAdmin: [],
-      logs: [], logTotal: 0, logPage: 1
+      logs: [], logTotal: 0, logPage: 1,
+
+      agent: {question: '', running: false, steps: [], page: 1, runs: [], runTotal: 0,
+        replayDialog: false, replay: null},
+      eval: {tab: 'retrieval', running: false, task: null, runs: [], total: 0, page: 1,
+        detailDialog: false, detail: null},
+      wiki: {tab: 'revisions', stats: {}, revisions: [], revTotal: 0, revPage: 1,
+        pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null,
+        running: false, task: null, graph: {nodes: [], edges: []},
+        revisionDialog: false, revision: null, pageDialog: false, page: null}
     };
   },
   computed: {
@@ -588,6 +939,34 @@ createApp({
       return {userCount: '用户数', questionCount: '题目数', resourceCount: '资料数',
         pendingResourceCount: '待审资料', pendingQuestionCount: '待审题目',
         pendingReportCount: '待处理举报', downloadCount: '下载量', todayResourceCount: '今日新增资料'}[k] || k;
+    },
+    dashboardIcon(k) {
+      return {userCount: '♙', questionCount: '✎', resourceCount: '▤', pendingResourceCount: '▤',
+        pendingQuestionCount: '✎', pendingReportCount: '⚑', downloadCount: '⇩', todayResourceCount: '＋'}[k] || '•';
+    },
+    dashboardView(k) {
+      return {pendingResourceCount: 'resources', pendingQuestionCount: 'questions', pendingReportCount: 'reports'}[k] || '';
+    },
+    dashboardTone(k) {
+      if (k === 'pendingReportCount') return 'danger';
+      if (k === 'pendingResourceCount' || k === 'pendingQuestionCount') return 'warning';
+      return '';
+    },
+    dashboardHint(k) {
+      if (this.dashboardView(k)) return '点击查看待处理内容 →';
+      return ({userCount: '平台累计账号', questionCount: '已收录练习题', resourceCount: '已公开学习资料',
+        downloadCount: '累计资料下载', todayResourceCount: '今日提交'})[k] || '平台统计';
+    },
+    openDashboardMetric(k) {
+      const target = this.dashboardView(k);
+      if (!target) return;
+      this.view = target;
+      this.loadView();
+    },
+    resourcePercent(value) {
+      const values = Object.values(this.resourceTypes).map(Number).filter(Number.isFinite);
+      const max = Math.max(0, ...values);
+      return max ? Math.max(5, Math.round(Number(value || 0) / max * 100)) : 0;
     },
     async login() {
       if (!this.loginForm.studentNo || !this.loginForm.password) {
@@ -627,7 +1006,8 @@ createApp({
         dashboard: 'loadDashboard', questions: 'loadQuestions', resources: 'loadResources',
         reports: 'loadReports', appeals: 'loadAppeals', users: 'loadUsers',
         announcements: 'loadAnnouncements', data: 'loadData', logs: 'loadLogs',
-        'question-admin': 'loadQuestionAdmin', 'upload-doc': 'loadUploadDoc'
+        'question-admin': 'loadQuestionAdmin', 'upload-doc': 'loadUploadDoc',
+        agent: 'loadAgentRuns', eval: 'loadEvalRuns', wiki: 'loadWiki'
       };
       if (map[this.view]) this[map[this.view]]();
     },
@@ -904,6 +1284,240 @@ createApp({
       const r = await ElementPlus.ElMessageBox.prompt('科目名称', '编辑', {inputValue: row.name});
       await api('PUT', '/admin/data/subjects/' + row.id, Object.assign({}, row, {name: r.value}));
       this.loadData();
+    },
+    async loadAgentRuns() {
+      const data = await api('GET', '/admin/ai/agent/runs?page=' + this.agent.page + '&size=20');
+      this.agent.runs = data.list || [];
+      this.agent.runTotal = data.total;
+    },
+    async replayRun(id) {
+      this.agent.replay = await api('GET', '/admin/ai/agent/runs/' + id);
+      this.agent.replayDialog = true;
+    },
+    async startAgent() {
+      const question = (this.agent.question || '').trim();
+      if (!question) { ElementPlus.ElMessage.warning('请输入问题'); return; }
+      if (this.agent.running) return;
+      this.agent.running = true;
+      this.agent.steps = [];
+      const token = localStorage.getItem('token') || '';
+      try {
+        const resp = await fetch(API + '/ai/agent/stream', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'},
+            token ? {Authorization: 'Bearer ' + token} : {}),
+          body: JSON.stringify({question})
+        });
+        if (!resp.ok) {
+          let msg = 'AI 会话启动失败';
+          try { const j = await resp.json(); msg = j.message || msg; } catch (e) { /* ignore */ }
+          throw new Error(msg);
+        }
+        if (!resp.body) throw new Error('当前浏览器不支持流式读取');
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let eventName = null;
+        let dataLines = [];
+        const dispatch = () => {
+          if (eventName === null && !dataLines.length) return;
+          this.dispatchAgentEvent(eventName || 'message', dataLines.join('\n'));
+          eventName = null;
+          dataLines = [];
+        };
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          // ★ stream:true 防止多字节 UTF-8 字符跨 chunk 乱码
+          buffer += decoder.decode(value, {stream: true});
+          let idx;
+          while ((idx = buffer.search(/\r\n|\r|\n/)) >= 0) {
+            const line = buffer.slice(0, idx);
+            const crlf = buffer.slice(idx, idx + 2) === '\r\n';
+            buffer = buffer.slice(idx + (crlf ? 2 : 1));
+            if (line === '') {
+              dispatch();                    // ★ 空行才是事件边界
+            } else if (line.startsWith(':')) {
+              // SSE 注释（心跳），忽略
+            } else if (line.startsWith('event:')) {
+              eventName = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              dataLines.push(line.slice(5).replace(/^ /, ''));
+            }
+          }
+        }
+        buffer += decoder.decode();
+        if (buffer.trim()) {
+          if (buffer.startsWith('data:')) dataLines.push(buffer.slice(5).replace(/^ /, ''));
+          else if (buffer.startsWith('event:')) eventName = buffer.slice(6).trim();
+        }
+        dispatch();
+      } catch (e) {
+        ElementPlus.ElMessage.error((e && e.message) ? e.message : 'AI 会话失败');
+      } finally {
+        this.agent.running = false;
+        this.loadAgentRuns();
+      }
+    },
+    dispatchAgentEvent(name, raw) {
+      let data = {};
+      try { data = JSON.parse(raw); } catch (e) { data = {raw: raw}; }
+      this.agent.steps.push({event: name, data: data, time: new Date().toLocaleTimeString()});
+      this.$nextTick(() => {
+        const el = this.$refs.agentLog;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+    async loadEvalRuns() {
+      const data = await api('GET', '/admin/ai/eval/runs?page=' + this.eval.page + '&size=20');
+      this.eval.runs = data.list || [];
+      this.eval.total = data.total;
+    },
+    async startEval(layer) {
+      if (this.eval.running) return;
+      this.eval.running = true;
+      try {
+        const task = await api('POST', '/admin/ai/eval/' + layer);
+        this.eval.task = task;
+        await this.pollJob(task.id);
+        if (this.eval.task && this.eval.task.status === 'SUCCESS') {
+          ElementPlus.ElMessage.success('评估完成');
+        } else {
+          ElementPlus.ElMessage.warning('评估未成功：' + (this.eval.task ? this.eval.task.status : 'UNKNOWN'));
+        }
+        await this.loadEvalRuns();
+      } finally {
+        this.eval.running = false;
+      }
+    },
+    async pollJob(id) {
+      for (let i = 0; i < 900; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          this.eval.task = await api('GET', '/admin/ai/jobs/' + id);
+        } catch (e) {
+          return;
+        }
+        if (['SUCCESS', 'FAILED', 'CANCELLED'].includes(this.eval.task.status)) return;
+      }
+    },
+    async openEvalRun(id) {
+      const run = await api('GET', '/admin/ai/eval/runs/' + id);
+      let metrics = {};
+      let rows = [];
+      try { metrics = JSON.parse(run.metricsJson || '{}'); } catch (e) { metrics = {}; }
+      try { rows = JSON.parse(run.detailJson || '[]'); } catch (e) { rows = []; }
+      const columns = run.layer === 'RETRIEVAL'
+        ? [{key: 'id', label: '用例'}, {key: 'question', label: '问题'},
+           {key: 'rank', label: '首个命中'}, {key: 'recall', label: '结果'},
+           {key: 'mode', label: '模式'}]
+        : [{key: 'id', label: '任务'}, {key: 'goal', label: '目标'},
+           {key: 'tools', label: '工具链'}, {key: 'result', label: '结果'},
+           {key: 'reason', label: '失败原因'}, {key: 'steps', label: '步数'},
+           {key: 'ms', label: '耗时ms'}];
+      this.eval.detail = {
+        metrics: metrics,
+        reportPath: run.reportPath,
+        rows: rows,
+        columns: columns
+      };
+      this.eval.detailDialog = true;
+    },
+    async loadWiki() {
+      this.wiki.stats = await api('GET', '/admin/wiki/stats');
+      await Promise.all([
+        this.loadWikiRevisions(), this.loadWikiPages(), this.loadWikiGraph()
+      ]);
+    },
+    async loadWikiRevisions() {
+      const data = await api('GET', '/admin/wiki/revisions?status=PENDING&page=' +
+        this.wiki.revPage + '&size=20');
+      this.wiki.revisions = data.list || [];
+      this.wiki.revTotal = data.total;
+    },
+    async loadWikiPages() {
+      const data = await api('GET', '/admin/wiki/pages?page=' +
+        this.wiki.pagePage + '&size=20');
+      this.wiki.pages = data.list || [];
+      this.wiki.pageTotal = data.total;
+    },
+    async loadWikiGraph() {
+      try {
+        this.wiki.graph = await api('GET', '/wiki/graph');
+      } catch (e) {
+        this.wiki.graph = {nodes: [], edges: []};
+      }
+    },
+    openWikiRevision(row) {
+      this.wiki.revision = row;
+      this.wiki.revisionDialog = true;
+    },
+    async approveWikiRevision(id) {
+      await api('POST', '/admin/wiki/revisions/' + id + '/approve', {note: ''});
+      ElementPlus.ElMessage.success('已发布（版本 +1，向量已同步）');
+      this.wiki.revisionDialog = false;
+      await this.loadWiki();
+    },
+    async rejectWikiRevision(id) {
+      const r = await ElementPlus.ElMessageBox.prompt('驳回原因（可空）', '驳回草稿');
+      await api('POST', '/admin/wiki/revisions/' + id + '/reject', {note: r.value || ''});
+      ElementPlus.ElMessage.success('已驳回');
+      this.wiki.revisionDialog = false;
+      await this.loadWiki();
+    },
+    async openWikiPage(id) {
+      this.wiki.page = await api('GET', '/wiki/pages/' + id);
+      this.wiki.pageDialog = true;
+    },
+    async offlineWikiPage(id) {
+      await ElementPlus.ElMessageBox.confirm('下架后问答热层不再命中该页，确定继续？', '下架页面');
+      await api('POST', '/admin/wiki/pages/' + id + '/offline');
+      ElementPlus.ElMessage.success('已下架');
+      await this.loadWiki();
+    },
+    async startWikiDistill() {
+      if (this.wiki.running) return;
+      const subjectId = this.wiki.scope === 'SUBJECT' ? this.wiki.subjectId : null;
+      if (this.wiki.scope === 'SUBJECT' && !subjectId) {
+        ElementPlus.ElMessage.warning('请输入科目 ID');
+        return;
+      }
+      this.wiki.running = true;
+      try {
+        const task = await api('POST', '/admin/wiki/distill?scope=' + this.wiki.scope +
+          (subjectId ? '&subjectId=' + subjectId : ''));
+        this.wiki.task = task;
+        await this.pollWikiJob(task.taskId);
+        if (this.wiki.task && this.wiki.task.status === 'SUCCESS') {
+          ElementPlus.ElMessage.success('蒸馏完成，请到「待审草稿」审核');
+        } else {
+          ElementPlus.ElMessage.warning('蒸馏未成功：' +
+            (this.wiki.task ? this.wiki.task.status : 'UNKNOWN'));
+        }
+        await this.loadWiki();
+      } finally {
+        this.wiki.running = false;
+      }
+    },
+    async pollWikiJob(id) {
+      for (let i = 0; i < 1800; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          this.wiki.task = await api('GET', '/admin/ai/jobs/' + id);
+        } catch (e) {
+          return;
+        }
+        if (['SUCCESS', 'FAILED', 'CANCELLED'].includes(this.wiki.task.status)) return;
+      }
+    },
+    async rebuildWikiVector() {
+      this.wiki.running = true;
+      try {
+        const result = await api('POST', '/admin/wiki/vector/rebuild');
+        ElementPlus.ElMessage.success('重建完成：synced=' + result.synced + ' failed=' + result.failed);
+      } finally {
+        this.wiki.running = false;
+      }
     },
     async loadLogs() {
       const data = await api('GET', '/admin/logs?page=' + this.logPage + '&size=20');

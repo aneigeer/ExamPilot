@@ -2,6 +2,18 @@ plugins {
     id 'com.android.application'
 }
 
+// ------------------------------------------------------------------
+// 发布签名：从 student-app/keystore.properties 读取（该文件与密钥库均不入库）
+// 未提供时 release 回退到 debug 签名，保证本地构建/演示不被阻断。
+// keystore.properties 模板：
+//   storeFile=release.jks
+//   storePassword=***
+//   keyAlias=examprep
+//   keyPassword=***
+// ------------------------------------------------------------------
+def keystorePropsFile = rootProject.file("keystore.properties")
+def hasReleaseSigning = keystorePropsFile.exists()
+
 android {
     namespace 'com.examprep.app'
     compileSdk 34
@@ -10,16 +22,33 @@ android {
         applicationId "com.examprep.app"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 4
+        versionName "1.4.0"
         // 模拟器访问宿主机用 10.0.2.2；真机改成电脑局域网 IP
         buildConfigField "String", "BASE_URL", '"http://10.0.2.2:8080/api/"'
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                def props = new Properties()
+                keystorePropsFile.withInputStream { props.load(it) }
+                storeFile rootProject.file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            // 上架要求：开启混淆 + 资源压缩（规则见 proguard-rules.pro）
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 未提供正式密钥时回退 debug 签名，保证本地可安装/演示；正式上架必须换成 release.jks
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }
     }
 

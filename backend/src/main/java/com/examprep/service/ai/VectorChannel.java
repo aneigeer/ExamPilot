@@ -49,6 +49,16 @@ public class VectorChannel {
      * @return 带正文的上下文列表；不可用 / 无命中 / 出错时返回<b>空 list</b>
      */
     public List<ChunkContext> retrieve(String query, int topK, Long subjectId) {
+        return applyVectorScoreGate(retrieveRaw(query, topK, subjectId));
+    }
+
+    /**
+     * 不做相似度闸门的原始向量召回（仅离线评估的纯召回模式使用）
+     *
+     * <p>生产链路必须走 {@link #retrieve}；本方法用于评估「检索层本身」的召回能力，
+     * 避免闸门把待评估的候选提前剔掉。
+     */
+    public List<ChunkContext> retrieveRaw(String query, int topK, Long subjectId) {
         if (!isEnabled()) {
             return List.of();
         }
@@ -57,8 +67,7 @@ public class VectorChannel {
         if (hits.isEmpty()) {
             return List.of();
         }
-        List<ChunkContext> contexts = hydrate(hits);
-        return applyVectorScoreGate(contexts);
+        return hydrate(hits);
     }
 
     /**

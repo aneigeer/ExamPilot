@@ -5,6 +5,8 @@ import com.examprep.dto.ai.AskVO;
 import com.examprep.dto.ai.CapabilityVO;
 import com.examprep.dto.ai.SourceRefVO;
 import com.examprep.entity.AiChunk;
+import com.examprep.entity.WikiPage;
+import com.examprep.service.wiki.WikiQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,7 +38,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AiQaService {
 
-    private final RetrievalService retrievalService;
+    private final HybridRetriever hybridRetriever;
     private final KnowledgeProfileService profileService;
     private final ExtractiveAnswerClient extractiveAnswerClient;
     private final AnswerPostProcessor answerPostProcessor;
@@ -44,11 +46,16 @@ public class AiQaService {
     private final ChunkSyncService chunkSyncService;
     private final AiProperties properties;
 
-    /** 向量通道（T09）：可选增强，不可用时自动跳过 */
-    private final VectorChannel vectorChannel;
+    /**
+     * Wiki 热层（双引擎第一层）
+     *
+     * <p>热层命中直接返回预编译主题页；未命中才走下面的 RAG 冷层。
+     * Wiki 关闭 / 无已发布页面 / 未命中时行为与原先完全一致。
+     */
+    private final WikiQueryService wikiQueryService;
 
-    /** 双通道融合器（T09） */
-    private final VectorChunkMerger vectorChunkMerger;
+    /** 向量通道：能力探测与降级状态展示用（检索本身已收口到 HybridRetriever） */
+    private final VectorChannel vectorChannel;
 
     /**
      * 大模型客户端列表
@@ -63,11 +70,15 @@ public class AiQaService {
      * <b>winner 取决于注入顺序</b>。缺省不写 {@code @Order} 时顺序由 classpath 扫描决定，
      * 行为会随打包环境漂移、极难排查。当前档位：
      * <pre>
+     *    5 Ollama        本地模型（零网络依赖、不过期、不收费）—— 排在云端之前
      *   10 DashScope     云端直连，质量最高
      *   15 FastApiLlm    独立 AI 微服务代理（统一网关/限流/审计时用）
      *   20 Zhipu         云端直连
      *   30 Extractive    本地抽取（兜底，另被 isProviderCandidate 双重排除）
      * </pre>
+     * <b>为什么 Ollama 排最前</b>：云端 Key 会过期/限流/欠费，而本地模型不会。
+     * 现场答辩最怕「Key 突然失效」，本地模型是更稳的第一选择；
+     * 需要云端质量时改 {@code app.ai.llm.provider} 一行即可切回。
      * <b>新增实现时必须显式给一个档位</b>，不要依赖默认顺序。
      */
     private final List<LlmClient> llmClients;
@@ -90,39 +101,63 @@ public class AiQaService {
             log.info("[AI] 游客调用问答（不建画像加权）: {}", question);
         }
 
-        // ---------- 阶段1【主通道】向量检索（可用则用，不可用静默跳过）----------
-        List<ChunkContext> vectorContexts = retrieveByVector(question, req, weakKpIds);
+        // ---------- 双引擎第一层：Wiki 热层（预编译主题页，命中即返回）----------
+        // ★ Wiki 是增强层：迁移未执行 / 全文索引损坏 / 页面脏数据等任何异常
+        //   都必须降级到 RAG，绝不能让原本可用的问答 500。
+        WikiQueryService.WikiHit wikiHit = null;
+        try {
+            wikiHit = wikiQueryService.query(question, req.getSubjectId());
+        } catch (Exception e) {
+            log.warn("[Wiki] 热层查询异常，降级到 RAG：{}", e.getMessage());
+        }
+        if (wikiHit != null) {
+            WikiPage page = wikiHit.page();
+            long cost = System.currentTimeMillis() - start;
+            AskVO vo = new AskVO();
+            vo.setQuestion(question);
+            vo.setAnswer(StringUtils.hasText(page.getContent()) ? page.getContent() : page.getSummary());
+            vo.setGenerator("wiki");
+            vo.setEngine("WIKI");
+            vo.setFallbackFromWiki(Boolean.FALSE);
+            vo.setDegraded(Boolean.FALSE);
+            vo.setRefused(Boolean.FALSE);
+            vo.setRecallCount(1);
+            vo.setRetrievalMode("WIKI_" + wikiHit.channel());
+            vo.setRetrievalMillis(cost);
+            vo.setCostMillis(cost);
+            vo.setWikiPageId(page.getId());
+            vo.setWikiPageSlug(page.getSlug());
+            vo.setWikiTitle(page.getTitle());
+            vo.setSources(toSourceVO(List.of(SourceRef.of(null, page.getTitle(), page.getSummary(),
+                    "WIKI", page.getId(), "/wiki/" + page.getId()))));
+            vo.setContexts(List.of(page.getTitle()));
+            log.info("[Wiki] 热层命中「{}」（score={}，channel={}，{}ms）",
+                    page.getTitle(), String.format("%.4f", wikiHit.score()),
+                    wikiHit.channel(), cost);
+            return vo;
+        }
 
-        // ---------- 阶段2【兜底通道】ngram 全文检索（永远可用，纯 MySQL 无网络依赖）----------
-        RetrievalService.RetrievalResult ngram = retrievalService.retrieve(
+        // ---------- 阶段1+2+3 检索：向量召回 + ngram 召回 + 双通道融合 ----------
+        // 统一收口到 HybridRetriever，Agent 工具与离线评估复用同一条链路
+        HybridRetriever.Outcome outcome = hybridRetriever.retrieve(
                 question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds);
+        List<ChunkContext> contexts = outcome.contexts();
+        String mode = outcome.mode();
 
         AskVO vo = new AskVO();
         vo.setQuestion(question);
-        vo.setRecallCount(ngram.recallCount() + vectorContexts.size());
-
-        // ---------- 阶段3 双通道融合 → Top-K ----------
-        List<ChunkContext> contexts;
-        String mode;
-        if (!vectorContexts.isEmpty()) {
-            contexts = vectorChunkMerger.merge(vectorContexts, ngram.contexts(),
-                    question, weakKpIds);
-            mode = vectorChannel.describeMode(vectorContexts.size(), ngram.contexts().size());
-        } else {
-            // 向量通道无结果 → 完全走 ngram（含其自身的覆盖率闸门与拒答判定）
-            contexts = ngram.contexts();
-            mode = ngram.mode();
-        }
+        vo.setRecallCount(outcome.recallCount());
         vo.setRetrievalMode(mode);
+        vo.setEngine("RAG");
+        vo.setFallbackFromWiki(wikiQueryService.isEnabled());
 
         // ---------- 阶段4 拒答闸门（L1，反幻觉第一道）----------
         // 两路皆空，或融合后最高分低于阈值 → 直接拒答，不进生成环节
-        double best = contexts.isEmpty() ? 0.0 : contexts.get(0).finalScore();
+        double best = outcome.bestScore();
         double threshold = properties.getRetrieval().getRejectThreshold();
         if (contexts.isEmpty() || best < threshold) {
-            log.info("[AI] 拒答：最高分 {} < 阈值 {}（向量 {} 块 / ngram 召回 {}，模式 {}），问题「{}」",
-                    String.format("%.4f", best), threshold, vectorContexts.size(),
-                    ngram.recallCount(), mode, question);
+            log.info("[AI] 拒答：最高分 {} < 阈值 {}（召回 {} 块，模式 {}），问题「{}」",
+                    String.format("%.4f", best), threshold, outcome.recallCount(), mode, question);
             vo.setAnswer(PromptBuilder.REFUSAL_TEXT);
             vo.setGenerator(PromptBuilder.GENERATOR_NONE);
             vo.setRefused(Boolean.TRUE);
@@ -159,27 +194,17 @@ public class AiQaService {
     }
 
     /**
-     * 阶段1：向量通道检索
+     * 基于调用方给定的上下文生成答案（Agent 工具收集到的资料）
      *
-     * <p><b>整个方法不抛任何异常</b>：向量通道是「可选增强」，
-     * FastAPI / Qdrant / 模型任一不可用都收敛成空列表，由上层自动降级到 ngram。
+     * <p>与 {@link #ask} 共用同一套生成降级链与 L3 幻觉校验，
+     * 但不再重复检索，避免「Agent 检索一次、Java 再检索一次」的语义漂移。
      */
-    private List<ChunkContext> retrieveByVector(String question, AskRequest req,
-                                                Set<Long> weakKpIds) {
-        if (!vectorChannel.isEnabled()) {
-            return List.of();
+    public LlmAnswer answerWithContexts(String question, List<ChunkContext> contexts) {
+        if (contexts == null || contexts.isEmpty()) {
+            return LlmAnswer.refuse(PromptBuilder.REFUSAL_TEXT);
         }
-        try {
-            if (!vectorChannel.isReady()) {
-                log.info("[AI] 向量通道不可用（未开启/熔断/健康检查未通过），静默降级到 ngram 通道");
-                return List.of();
-            }
-            return vectorChannel.retrieve(question,
-                    properties.getVector().getRecallLimit(), req.getSubjectId());
-        } catch (Exception e) {
-            log.warn("[AI] 向量通道异常（静默降级到 ngram 通道）: {}", e.getMessage());
-            return List.of();
-        }
+        LlmAnswer answer = generate(question, contexts);
+        return answerPostProcessor.verify(question, answer, contexts);
     }
 
     /**
@@ -258,7 +283,17 @@ public class AiQaService {
         CapabilityVO vo = new CapabilityVO();
         AiProperties.Llm llm = properties.getLlm();
         LlmClient active = activeClient();
-        boolean llmConfigured = llm.hasKey();
+        // ★ capability 是诊断接口，必须报告「真的会用谁」，不能只按配置说话。
+        //   Ollama 的 available() 刻意不探测网络（避免问答路径每轮多付一次往返），
+        //   所以这里单独做一次带缓存的短探测：Ollama 没启动就要如实显示
+        //   generator=extractive，否则现场排障会被「generator=ollama」误导。
+        boolean ollamaDown = false;
+        if (active instanceof OllamaLlmClient ollama && !ollama.reachable()) {
+            active = null;
+            ollamaDown = true;
+        }
+        // 本地模型不需要 Key，所以「已配置」的判定不能只看 api-key
+        boolean llmConfigured = llm.hasKey() || llm.isOllama();
         boolean circuitOpen = false;
         long remaining = 0L;
         for (LlmClient client : llmClients) {
@@ -282,7 +317,7 @@ public class AiQaService {
                 ? PromptBuilder.GENERATOR_EXTRACTIVE
                 : active.name());
         vo.setDegraded(active == null);
-        vo.setDegradedReason(degradedReason(llmConfigured, active, circuitOpen));
+        vo.setDegradedReason(degradedReason(llmConfigured, active, circuitOpen, ollamaDown));
         // 索引里有语料就能答（抽取式）；一条语料都没有才算不可用
         vo.setAvailable(chunkCount > 0);
         vo.setChunkCount(chunkCount);
@@ -337,9 +372,13 @@ public class AiQaService {
                 ? "local" : properties.getStorage().getProvider();
     }
 
-    private String degradedReason(boolean llmConfigured, LlmClient active, boolean circuitOpen) {
+    private String degradedReason(boolean llmConfigured, LlmClient active,
+                                  boolean circuitOpen, boolean ollamaDown) {
         if (active != null) {
             return null;
+        }
+        if (ollamaDown) {
+            return "本地模型 Ollama 未响应（确认 `ollama serve` 已启动），当前为本地抽取模式";
         }
         if (!llmConfigured) {
             return "未配置大模型 API Key，当前为本地抽取模式（key 留空即自动降级，不影响使用）";

@@ -196,9 +196,10 @@ OCR 与 LLM 走真实降级路径（本来就该是 503）。装完 `requirement
 ```json
 {
   "status": "degraded",
-  "embedding": { "ready": false, "detail": "未加载（懒加载，模型目录 ...）", "dim": 0, "model_id": "bge-small-zh-v1.5" },
+  "embedding": { "ready": true, "loaded": false, "dim": 512, "model_id": "bge-small-zh-v1.5",
+                 "detail": "model=bge-small-zh-v1.5 可用但未加载（懒加载，首次调用 /v1/embed 约需 0.2-1s）" },
   "qdrant":    { "ready": true,  "detail": "collection=exam_chunks url=http://127.0.0.1:6333" },
-  "ocr":       { "ready": false, "detail": "未加载（懒加载，首次调用 /v1/ocr 时加载）" },
+  "ocr":       { "ready": true,  "detail": "未加载（懒加载，首次调用 /v1/ocr 时加载）" },
   "llm":       { "ready": false, "detail": "未配置 LLM_API_KEY，/v1/llm 将返回 503，Java 侧走抽取式" },
   "version": "1.0.0"
 }
@@ -206,6 +207,30 @@ OCR 与 LLM 走真实降级路径（本来就该是 503）。装完 `requirement
 
 > **恒返回 HTTP 200。** "服务活着但 OCR 没装"不是错误，是**已知的降级态**，
 > 就绪与否看 `ready` 字段。异常也会返回 503（说明 FastAPI 进程本身有问题）。
+
+### ★ `ready` 与 `loaded` 的语义区分（**容易误读，必须分清**）
+
+| 字段 | 含义 | 谁该读它 |
+|---|---|---|
+| `ready` | **能力是否可用**：依赖已装 **且** 模型文件存在 | **Java 侧的 `vectorIndexReady` 读这个** |
+| `loaded` | 本进程内是否**真的已加载模型** | 仅排障观测用 |
+
+**为什么必须分开**：模型是懒加载的。若 `ready` 报"是否已加载"，冷启动时会返回 `false`，
+Java 侧就会误判"向量通道不可用"而**提前降级到 ngram** —— 明明能用却被跳过。
+改为"能力是否可用"后，`ready` 从冷启动到热态**恒为 `true`**，不再抖动。
+
+> 实测：冷启动 `ready=true, loaded=false`；打一次 `/v1/search` 后
+> `ready=true, loaded=true, load_ms=262`。
+
+### `POST /v1/index/delete` —— 按 chunk_id 删除向量 · 超时 5000ms
+
+请求 `{"chunk_ids": [88, 89]}`（单次 ≤ 500 条，幂等）
+响应 `{"deleted": 2, "requested": 2}`
+
+> **为什么必须有这个接口**：MySQL 把块置 `INVALID` 后，Qdrant 里那个点的
+> `payload.status` 仍是**入库时的快照**（`ACTIVE`）——**`/v1/search` 的
+> `status='ACTIVE'` 过滤拦不住它**。孤儿向量会挤占 top-K 名额，把有效结果挤出去。
+> 这是"过滤能兜底"的常见误解，必须显式删除。
 
 ### `POST /v1/embed` —— 文本向量化 · 超时 1200ms
 
@@ -235,7 +260,7 @@ OCR 与 LLM 走真实降级路径（本来就该是 503）。装完 `requirement
 > - `payload` **不含正文**（正文唯一来源是 MySQL `ai_chunk`），含 `rerank_score` 轻量重排分
 > - 五因子重排的**最终权威仍在 Java 侧** `RetrievalService`，本服务只做不含业务偏好的轻量融合
 
-### `POST /v1/index/sync` —— 批量写入向量 · 超时 5000ms
+### `POST /v1/index/sync` —— 批量写入向量 · 超时 60s（CPU 嵌入实测约 12s/500 条）
 
 请求 `{"chunks": [{"chunk_id": 88, "content": "...", "title": "...", "subject_id": 5, ...}]}`（单次 ≤ 500 条）
 响应 `{"synced": 2, "skipped": 0, "failed": 0, "took_ms": 88}`
@@ -436,7 +461,7 @@ set PORT=8001
 | `EMBEDDING_MODEL_ID` | `bge-small-zh-v1.5` | ★ 改这个必须全量重建索引 |
 | `EMBEDDING_DIM` | `512` | 改这个必须同步改 Qdrant collection |
 | `EMBEDDING_AUTO_DOWNLOAD` | `false` | 默认不联网下载模型 |
-| `QDRANT_URL` | `http://127.0.0.1:6333` | 与 `docker-compose.ai.yml` 一致 |
+| `QDRANT_URL` | `http://127.0.0.1:6333` | 与 `docker-compose.ai.yml` 一致；<br>★ **免 Docker**：设为 `file:<目录>` 用内置本地向量库持久化，`:memory:` 走纯内存 |
 | `QDRANT_COLLECTION` | `exam_chunks` | **必须与 Java `ai_vector_index_meta.collection` 一致** |
 | `QDRANT_API_KEY` | 空 | 留空 = 不鉴权（仅本机）；对外暴露必须设置 |
 | `LLM_API_KEY` | 空 | ★ 安全默认值：空 = 走抽取式，开箱即用不误扣费 |

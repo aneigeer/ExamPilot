@@ -171,6 +171,32 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
                            @Param("sourceId") Long sourceId);
 
     /**
+     * 取某来源当前仍然 ACTIVE 的块 ID（<b>用于失效前先记下需要清理的向量</b>）
+     *
+     * <p>★ 必须在 {@code invalidateBySource} <b>之前</b>调用：
+     * 一旦置为 INVALID，就再也查不出「刚才哪些块被失效了」，
+     * 而 Qdrant 侧的孤儿向量恰恰需要这批 ID 才能删除。
+     */
+    @Select("""
+            SELECT id FROM ai_chunk
+            WHERE source_type = #{sourceType} AND source_id = #{sourceId} AND status = 'ACTIVE'
+            """)
+    List<Long> selectActiveIdsBySource(@Param("sourceType") String sourceType,
+                                       @Param("sourceId") Long sourceId);
+
+    /**
+     * 取某来源超出有效块序号范围的 ACTIVE 块 ID（失效前调用，同上）
+     */
+    @Select("""
+            SELECT id FROM ai_chunk
+            WHERE source_type = #{sourceType} AND source_id = #{sourceId}
+              AND status = 'ACTIVE' AND chunk_no > #{keepChunkNo}
+            """)
+    List<Long> selectActiveIdsByChunkNoGreaterThan(@Param("sourceType") String sourceType,
+                                                   @Param("sourceId") Long sourceId,
+                                                   @Param("keepChunkNo") int keepChunkNo);
+
+    /**
      * 清理某个来源下超出有效块序号范围的残留块（内容变短导致分块数减少时使用）
      *
      * @param keepChunkNo 保留的最大块序号（含）；小于该序号的 ACTIVE 块全部置 INVALID
@@ -190,11 +216,13 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
      * @param synced 0 待同步 / 1 已同步 / 2 失败
      */
     @Update("""
+            <script>
             UPDATE ai_chunk
             SET vector_synced = #{synced},
                 vector_synced_at = CASE WHEN #{synced} = 1 THEN NOW() ELSE vector_synced_at END
             WHERE id IN
             <foreach collection="ids" item="cid" open="(" separator="," close=")">#{cid}</foreach>
+            </script>
             """)
     int markVectorSynced(@Param("ids") List<Long> ids, @Param("synced") int synced);
 
@@ -239,4 +267,141 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
             WHERE status = 'ACTIVE' AND (vector_synced IS NULL OR vector_synced <> 0)
             """)
     int resetAllVectorPending();
+
+    /**
+     * 按来源类型重置为待同步（{@code sourceType} 为 null 时等价于全量）
+     *
+     * <p>★ 为什么需要它：{@code vector_synced=1} 可能<b>是假的</b>
+     * （状态位回写成功但向量实际未入库，实测遇到过 2433 条）。
+     * 此时 {@link #selectVectorPending} 会把它们全部跳过，<b>永远推不上去</b>。
+     * 必须先重置标记，才有机会重推。
+     */
+    @Update("""
+            <script>
+            UPDATE ai_chunk
+            SET vector_synced = 0, vector_synced_at = NULL
+            WHERE status = 'ACTIVE' AND (vector_synced IS NULL OR vector_synced &lt;&gt; 0)
+            <if test="sourceType != null"> AND source_type = #{sourceType}</if>
+            </script>
+            """)
+    int resetVectorPendingByType(@Param("sourceType") String sourceType);
+
+    /**
+     * 按来源类型取待同步块（{@code sourceType} 为 null 时取全部类型）
+     */
+    @Select("""
+            <script>
+            SELECT id, source_type, source_id, chunk_no, title, content,
+                   exam_category_id, subject_id, knowledge_id, difficulty,
+                   ref_type, ref_id, page_no, content_hash, source_updated_at, status
+            FROM ai_chunk
+            WHERE status = 'ACTIVE'
+              AND (vector_synced IS NULL OR vector_synced &lt;&gt; 1)
+            <if test="sourceType != null"> AND source_type = #{sourceType}</if>
+            ORDER BY id ASC
+            LIMIT #{limit}
+            </script>
+            """)
+    List<AiChunk> selectVectorPendingByType(@Param("sourceType") String sourceType,
+                                            @Param("limit") int limit);
+
+    /**
+     * 反向对账：把「来源已不可索引」的残留块置 INVALID
+     *
+     * <p>为什么必须有这一步：{@code reindexAll()} 只遍历<b>当前可索引</b>的来源做 upsert，
+     * 来源从 APPROVED 转为 PENDING/REJECTED/已删除、或知识点被停用后，
+     * 这些来源的旧块<b>不会被那次遍历碰到</b>，于是永远留在 ACTIVE 状态继续被召回。
+     * 单靠 upsert 的 reindex 无法收敛，必须显式做一次反向清理。
+     *
+     * <p>判据与 {@link com.examprep.service.ai.ChunkExtractor} 的抽取条件严格对齐：
+     * <ul>
+     *   <li>QUESTION → {@code audit_status='APPROVED' AND is_deleted=0}</li>
+     *   <li>RESOURCE → {@code audit_status='APPROVED' AND is_deleted=0}</li>
+     *   <li>KNOWLEDGE → {@code status=1 AND is_deleted=0}</li>
+     * </ul>
+     *
+     * <p><b>不物理删</b>：与 {@link #invalidateBySource} 口径一致，只置 INVALID 保留可追溯性。
+     *
+     * @return 被置为 INVALID 的块数
+     */
+    @Update("""
+            <script>
+            UPDATE ai_chunk c
+            LEFT JOIN `question` q ON c.source_type = 'QUESTION' AND q.id = c.source_id
+            LEFT JOIN `resource` r ON c.source_type = 'RESOURCE' AND r.id = c.source_id
+            LEFT JOIN `knowledge_point` k ON c.source_type = 'KNOWLEDGE' AND k.id = c.source_id
+            SET c.status = 'INVALID'
+            WHERE c.status = 'ACTIVE'
+              AND (
+                   (c.source_type = 'QUESTION'
+                     AND (q.id IS NULL OR q.audit_status != 'APPROVED' OR q.is_deleted = 1))
+                OR (c.source_type = 'RESOURCE'
+                     AND (r.id IS NULL OR r.audit_status != 'APPROVED' OR r.is_deleted = 1))
+                OR (c.source_type = 'KNOWLEDGE'
+                     AND (k.id IS NULL OR k.status != 1 OR k.is_deleted = 1))
+              )
+            </script>
+            """)
+    int invalidateUnindexableSources();
+
+    /**
+     * 已失效但仍标记为「已向量化」的块 ID —— 即 Qdrant 里的<b>孤儿向量</b>
+     *
+     * <p>为什么必须清理：向量点的 {@code payload.status} 是<b>入库时的快照</b>，
+     * 块被置 INVALID 后 Qdrant 里的 payload 不会跟着变，于是 {@code /v1/search} 的
+     * {@code status='ACTIVE'} 过滤<b>拦不住它</b>，孤儿会占掉 top-K 名额把有效结果挤出去。
+     * （实测：4 组查询各取 top-20，80 个命中里 32 个是已失效块。）
+     *
+     * @param limit 单批最多取多少条（Qdrant 侧建议 ≤500）
+     */
+    @Select("""
+            SELECT id FROM ai_chunk
+            WHERE status = 'INVALID' AND vector_synced = 1
+            ORDER BY id ASC
+            LIMIT #{limit}
+            """)
+    List<Long> selectOrphanVectorIds(@Param("limit") int limit);
+
+    /**
+     * 随机抽取若干 ACTIVE 语料块（**带正文**）用于「自查询一致性」巡检
+     *
+     * <p>为什么只取正文长度 &gt; 20 的块：太短的块（如知识点名）在加了 bge 检索前缀后，
+     * 前缀会主导语义、拉低自查询分数，产生假告警。
+     *
+     * @param limit 抽样条数
+     * @return 每行 {id, content}
+     */
+    @Select("""
+            SELECT id, content FROM ai_chunk
+            WHERE status = 'ACTIVE'
+              AND content IS NOT NULL
+              AND CHAR_LENGTH(content) > 20
+            ORDER BY RAND()
+            LIMIT #{limit}
+            """)
+    List<Map<String, Object>> selectRandomActiveSamples(@Param("limit") int limit);
+
+    /**
+     * 按**内容锚点**查标答块 id（评测集 ground truth 解析用）
+     *
+     * <p>★ 为什么不能用 {@link #searchByLike} 反查标答：那个方法按
+     * {@code source_updated_at DESC LIMIT 20} 截断，而像「排序」这种高频词在 2500+ 语料里
+     * 能命中上百条，**真标答会被挤出 20 条窗口**，评测于是把 HIT 误判成 MISS
+     * （实测「冒泡排序的步骤」就是这样被误判的）。
+     *
+     * <p>用一段**够独特的内容片段**（如「冒泡排序步骤按顺序排列」）去精确锚定，
+     * 不受语料规模影响；语料变动时锚点仍然有效，只有内容被改写才需要改锚点。
+     *
+     * @param anchor 内容锚点（会被包在 % 里做子串匹配）
+     * @param limit  最多返回条数
+     */
+    @Select("""
+            SELECT id FROM ai_chunk
+            WHERE status = 'ACTIVE'
+              AND content LIKE CONCAT('%', #{anchor}, '%')
+            ORDER BY id ASC
+            LIMIT #{limit}
+            """)
+    List<Long> selectIdsByContentAnchor(@Param("anchor") String anchor,
+                                        @Param("limit") int limit);
 }

@@ -5,6 +5,8 @@
 
 # ---------- 工具数据（AI 工作目录，不纳入版本控制）----------
 .workbuddy/
+.pytest_cache/
+.git-backup-before-purge/
 
 # ---------- IDE / 编辑器 ----------
 .idea/
@@ -40,6 +42,8 @@ captures/
 *.keystore
 !debug.keystore
 *.jks
+# 发布签名口令（切勿提交）
+keystore.properties
 # 签名密钥目录（切勿提交）
 signing/
 release/
@@ -86,3 +90,10 @@ rec.json
 .venv-ai/
 __pycache__/
 *.pyc
+
+# 本地向量库数据（Qdrant 本地目录模式，可由 vectorize_all.py 重建，54MB 不入库）
+ai-service/data/
+
+# IDE 与备份目录
+.trae/
+backup/

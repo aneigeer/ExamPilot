@@ -46,14 +46,16 @@ def health() -> HealthResponse:
     """
     settings = get_settings()
 
-    # —— Embedding：只看懒加载状态，不触发加载（保持健康检查极轻量）
+    # —— Embedding：capable 判定（依赖 + 模型文件存在），**不触发模型加载**
     embedding_client = get_embedding_client()
-    embedding_ready = embedding_client.ready
+    embedding_ready = embedding_client.ready      # = capable：能力是否可用
+    embedding_loaded = embedding_client.loaded    # 本进程内是否已加载
     embedding_health = EmbeddingHealth(
         ready=embedding_ready,
         detail=embedding_client.health_detail(),
         dim=embedding_client.dim if embedding_ready else 0,
         model_id=settings.embedding.model_id,
+        loaded=embedding_loaded,
     )
 
     # —— Qdrant：主动探活一次（短超时 5s），失败标 degraded 而非报错

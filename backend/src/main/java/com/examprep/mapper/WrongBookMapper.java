@@ -73,4 +73,21 @@ public interface WrongBookMapper extends BaseMapper<WrongBook> {
      */
     @Select("SELECT question_id FROM wrong_book WHERE user_id = #{userId} AND mastered = 0")
     List<Long> selectWrongQuestionIds(@Param("userId") Long userId);
+
+    /**
+     * 今日到期待复习的错题数（学习计划「复习优先」规则用）
+     *
+     * <p>判据与 SRS 复习流一致：{@code mastered = 0} 且
+     * {@code next_review_at} 为空（新入错题本、尚未排期）或已到期。
+     *
+     * @param userId 用户 ID
+     * @return 到期条数
+     */
+    @Select("""
+            SELECT COUNT(*) FROM wrong_book
+            WHERE user_id = #{userId}
+              AND mastered = 0
+              AND (next_review_at IS NULL OR next_review_at <= NOW())
+            """)
+    int countDueForReview(@Param("userId") Long userId);
 }

@@ -13,7 +13,7 @@
             android:gravity="center_vertical" android:orientation="horizontal">
             <ImageView
                 android:layout_width="52dp" android:layout_height="52dp"
-                android:src="@drawable/ic_tab_me" android:contentDescription="头像" />
+                android:src="@drawable/ic_tab_me" android:contentDescription="@string/cd_avatar" />
             <LinearLayout
                 android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content" android:layout_marginStart="12dp"
@@ -69,6 +69,8 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical" android:padding="6dp">
 
+                <TextView android:id="@+id/btnWiki" style="@style/MenuItem" android:text="Wiki 知识库" />
+                <TextView android:id="@+id/btnStudyPlan" style="@style/MenuItem" android:text="今日学习计划" />
                 <TextView android:id="@+id/btnWrongBook" style="@style/MenuItem" android:text="错题本" />
                 <TextView android:id="@+id/btnNote" style="@style/MenuItem" android:text="我的笔记" />
                 <TextView android:id="@+id/btnFavQuestion" style="@style/MenuItem" android:text="收藏题" />

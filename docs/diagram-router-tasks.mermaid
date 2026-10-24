@@ -1,0 +1,11 @@
+%% 任务依赖图 T-R1..T-R6 —— 来源 docs/Router与Skill架构设计.md 章节 F
+graph LR
+    R1["T-R1 Router核心<br/>+ COURSE_QA 闭环<br/>2人日"] --> R2["T-R2 Skill注册表<br/>+ 4 个单跳 skill<br/>1.5人日"]
+    R1 --> R3["T-R3 课件分流<br/>ngram SQL+向量 3入口<br/>0.5人日 P0"]
+    R2 --> R4["T-R4 多步 skill<br/>走 AgentHarness<br/>1人日"]
+    R4 --> R5["T-R5 GRADING<br/>结构化输出<br/>0.5人日"]
+    R3 --> R5
+    R5 --> R6["T-R6 流式+预热<br/>+评测回归<br/>0.5人日"]
+
+    style R1 fill:#ffe6cc
+    style R6 fill:#f0e6ff

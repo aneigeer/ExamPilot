@@ -17,7 +17,7 @@ import retrofit2.http.Query;
 
 import okhttp3.MultipartBody;
 
-/** 后端接口定义（与后端 132 个接口一一对应，按需声明） */
+/** 后端接口定义（与后端 151 个接口按需对应声明） */
 public interface ApiService {
 
     // ---------- 认证 ----------
@@ -95,15 +95,24 @@ public interface ApiService {
         public final Integer difficulty;
         public final String objectiveFilter;
         public final int count;
+        /** 限定知识点范围（学习计划的任务按知识点排，跳过来必须带上） */
+        public final Long knowledgeId;
 
         public PracticeStartBody(Long subjectId, String mode, String questionType,
                                  Integer difficulty, String objectiveFilter, int count) {
+            this(subjectId, mode, questionType, difficulty, objectiveFilter, count, null);
+        }
+
+        public PracticeStartBody(Long subjectId, String mode, String questionType,
+                                 Integer difficulty, String objectiveFilter, int count,
+                                 Long knowledgeId) {
             this.subjectId = subjectId;
             this.mode = mode;
             this.questionType = questionType;
             this.difficulty = difficulty;
             this.objectiveFilter = objectiveFilter;
             this.count = count;
+            this.knowledgeId = knowledgeId;
         }
     }
 
@@ -161,6 +170,17 @@ public interface ApiService {
 
     @DELETE("wrong-book/{questionId}")
     Call<Models.ApiResult<Object>> wrongBookRemove(@Path("questionId") long questionId);
+
+    // ---------- 错题间隔重复复习（SRS） ----------
+
+    /** 待复习错题：已到期且未掌握，按到期时间升序 */
+    @GET("wrong-book/review")
+    Call<Models.ApiResult<List<Models.ReviewItem>>> reviewDue(@Query("limit") int limit);
+
+    /** 提交一次复习结果（用户自评对错），返回新的复习阶段与提示语 */
+    @POST("wrong-book/review/{questionId}")
+    Call<Models.ApiResult<Models.ReviewResult>> submitReview(
+            @Path("questionId") long questionId, @Query("correct") boolean correct);
 
     // ---------- 模拟考试（P1） ----------
 
@@ -355,4 +375,74 @@ public interface ApiService {
 
     @GET("notifications/unread-count")
     Call<Models.ApiResult<Long>> unreadCount();
+
+    // ---------- 主观题 AI 判分 ----------
+
+    /** 对照参考答案判分；服务端不可用时返回 available=false，客户端回退自评 */
+    @POST("questions/{id}/grade")
+    Call<Models.ApiResult<Models.GradeResult>> gradeQuestion(
+            @Path("id") Long questionId, @Body GradeBody body);
+
+    public static class GradeBody {
+        public final String answer;
+
+        public GradeBody(String answer) {
+            this.answer = answer;
+        }
+    }
+
+    // ---------- 学习计划 ----------
+
+    @GET("me/study-plan")
+    Call<Models.ApiResult<Models.StudyPlan>> studyPlan();
+
+    @PUT("me/study-plan/target")
+    Call<Models.ApiResult<Models.StudyPlan>> setStudyTarget(@Body StudyTargetBody body);
+
+    public static class StudyTargetBody {
+        public final Integer dailyTarget;
+        public final Long subjectId;
+
+        public StudyTargetBody(Integer dailyTarget, Long subjectId) {
+            this.dailyTarget = dailyTarget;
+            this.subjectId = subjectId;
+        }
+    }
+
+    // ---------- LLM Wiki 主题页 ----------
+
+    /** 已发布的 Wiki 主题页列表（公开内容，游客可读） */
+    @GET("wiki/pages")
+    Call<Models.ApiResult<Models.Page<Models.WikiPage>>> wikiPages(
+            @Query("page") long page,
+            @Query("size") long size,
+            @Query("subjectId") Long subjectId,
+            @Query("keyword") String keyword);
+
+    /** Wiki 主题页详情（含正文与关联页） */
+    @GET("wiki/pages/{id}")
+    Call<Models.ApiResult<Models.WikiPage>> wikiPage(@Path("id") long id);
+
+    /** Wiki 导航图（节点 + 有向边） */
+    @GET("wiki/graph")
+    Call<Models.ApiResult<Models.WikiGraph>> wikiGraph(@Query("subjectId") Long subjectId);
+
+    // ---------- 账号生命周期（合规：数据导出 / 注销） ----------
+
+    /** 导出个人数据：返回任意结构 JSON，交给客户端落盘/分享 */
+    @GET("me/export")
+    Call<Models.ApiResult<com.google.gson.JsonElement>> exportData();
+
+    @POST("me/deactivate")
+    Call<Models.ApiResult<Object>> deactivate(@Body DeactivateBody body);
+
+    public static class DeactivateBody {
+        public final String password;
+        public final String confirmText;
+
+        public DeactivateBody(String password, String confirmText) {
+            this.password = password;
+            this.confirmText = confirmText;
+        }
+    }
 }

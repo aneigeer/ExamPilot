@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@color/primary" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="14dp">
+        <TextView
+            style="@style/TopAction"
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:padding="6dp" android:text="← 返回"
+            android:textColor="#FFFFFF" android:textSize="15sp" />
+        <TextView
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:text="错题复习" android:textColor="#FFFFFF" android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvReviewProgress"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="#FFFFFF" android:textSize="13sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="16dp">
+
+            <TextView android:id="@+id/tvReviewType" style="@style/StatLabel" />
+
+            <TextView
+                android:id="@+id/tvReviewStem"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text_main" android:textSize="16sp"
+                android:lineSpacingExtra="4dp" android:text="加载中…" />
+
+            <TextView
+                android:id="@+id/tvReviewMaterial"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@color/card" android:padding="10dp"
+                android:textColor="@color/text_sub" android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvReviewOptions"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/text_main" android:textSize="14sp"
+                android:lineSpacingExtra="6dp" />
+
+            <!-- 答案与解析：点「对答案」后才出现 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardAnswer"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:visibility="gone">
+                <LinearLayout
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:padding="12dp">
+                    <TextView
+                        android:id="@+id/tvReviewAnswer"
+                        style="@style/CardText" android:textColor="@color/correct" />
+                    <TextView
+                        android:id="@+id/tvReviewAnalysis"
+                        style="@style/CardText" android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:id="@+id/tvReviewTip"
+                style="@style/StatLabel" android:layout_marginTop="12dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnReveal"
+        android:layout_width="match_parent" android:layout_height="52dp"
+        android:layout_margin="14dp" android:text="对答案" />
+
+    <LinearLayout
+        android:id="@+id/llJudge"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:paddingStart="14dp"
+        android:paddingEnd="14dp" android:paddingBottom="14dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCorrect"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="52dp" android:layout_marginEnd="7dp"
+            android:text="我记得，答对了" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnWrong"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="52dp" android:layout_marginStart="7dp"
+            android:text="忘记了，答错了" />
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNext"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent" android:layout_height="52dp"
+        android:layout_margin="14dp" android:text="下一题"
+        android:visibility="gone" />
+</LinearLayout>

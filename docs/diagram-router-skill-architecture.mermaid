@@ -1,0 +1,48 @@
+%% Router + Skill 架构 —— 来源 docs/Router与Skill架构设计.md 章节 A
+flowchart TB
+    U["App / 学生提问"] --> API["POST /api/ai/ask<br/>(Java 现有入口)"]
+
+    subgraph L0["① Router 层（新增，bge embedding，22ms）"]
+        EMB["embed(question)<br/>bge-small-zh 512维"]
+        SIM["与 8 个 skill 原型句算余弦<br/>取 Top1 / Top2"]
+        GATE{"三闸门决策"}
+        EMB --> SIM --> GATE
+    end
+
+    API --> EMB
+
+    GATE -->|"sim < 0.60"| REFUSE["REFUSE<br/>未找到相关资料<br/>0 次 LLM 调用"]
+    GATE -->|"margin < 0.05"| CLARIFY["CLARIFY<br/>反问澄清（给候选）<br/>0 次 LLM 调用"]
+    GATE -->|"路由到单跳 skill"| FAST["② 单跳 Skill<br/>检索 → 一次生成"]
+    GATE -->|"路由到多步 skill"| SLOW["③ 多步 Skill<br/>交给既有 AgentHarness"]
+
+    subgraph L1["单跳路径（绝大多数，省 1-4 次 LLM 规划调用）"]
+        FAST --> RET["HybridRetriever<br/>ngram + 向量双通道<br/>(现有)"]
+        RET --> VER{"检索验证<br/>有命中? / 过闸门?"}
+        VER -->|否| REFUSE
+        VER -->|是| GEN["7B 生成<br/>只依据资料 + [n] 引用"]
+    end
+
+    subgraph L2["多步路径（仅少数 skill 需要）"]
+        SLOW --> HARNESS["既有 AgentHarness<br/>LlmPlanner 出 JSON 决策"]
+        HARNESS --> TOOLS["5 个工具<br/>search/weak/wrong/plan/question"]
+        TOOLS -->|"循环 ≤ max_steps"| HARNESS
+        HARNESS --> GEN2["7B 汇总作答"]
+    end
+
+    GEN --> OUT["统一输出<br/>answer + sources[] + skill + degraded"]
+    GEN2 --> OUT
+    REFUSE --> OUT
+    CLARIFY --> OUT
+
+    subgraph S["④ 兜底（现有，全部保留）"]
+        EXT["ExtractiveAnswerClient<br/>7B 不可用时的抽取式"]
+        NG["ngram 通道<br/>向量挂了时的字面召回"]
+    end
+    GEN -.->|"7B 超时/熔断"| EXT
+    RET -.->|"向量不可用"| NG
+
+    style GATE fill:#fff3cd
+    style FAST fill:#d4edda
+    style SLOW fill:#f8d7da
+    style REFUSE fill:#f5c6cb

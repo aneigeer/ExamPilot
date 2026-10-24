@@ -30,6 +30,15 @@ public class AiChunk {
     public static final String SOURCE_RESOURCE = "RESOURCE";
     /** 来源类型：知识点 */
     public static final String SOURCE_KNOWLEDGE = "KNOWLEDGE";
+    /**
+     * 来源类型：课件（docx 讲义等，{@code source_id} 指向 {@code courseware.id}）
+     *
+     * <p>与其它类型的区别：<b>课件由灌库脚本直接写入，不走 Java 侧的分块器</b>
+     * （docx 解析在 Python 侧完成）。Java 侧只负责检索、溯源跳转与展示，
+     * 因此 {@code ChunkSyncService.reindexAll()} 不会重建课件块
+     * （它只遍历题目/资料/知识点三个来源，不会误删课件语料）。
+     */
+    public static final String SOURCE_COURSEWARE = "COURSEWARE";
 
     /** 状态：有效 */
     public static final String STATUS_ACTIVE = "ACTIVE";
@@ -109,4 +118,6 @@ public class AiChunk {
     public static final int VECTOR_PENDING = 0;
     public static final int VECTOR_SYNCED = 1;
     public static final int VECTOR_FAILED = 2;
+    /** 向量点已从 Qdrant 移除（块已 INVALID 且孤儿向量清理完成），不会再被推送 */
+    public static final int VECTOR_PURGED = 3;
 }

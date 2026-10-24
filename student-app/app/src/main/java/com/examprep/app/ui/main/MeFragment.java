@@ -62,6 +62,8 @@ public class MeFragment extends Fragment {
             });
         });
 
+        binding.btnWiki.setOnClickListener(v -> open(com.examprep.app.ui.wiki.WikiListActivity.class));
+        binding.btnStudyPlan.setOnClickListener(v -> open(com.examprep.app.ui.plan.StudyPlanActivity.class));
         binding.btnWrongBook.setOnClickListener(v -> open(com.examprep.app.ui.wrong.WrongBookActivity.class));
         binding.btnFavorites.setOnClickListener(v -> open(com.examprep.app.ui.list.FavoritesActivity.class));
         binding.btnDownloads.setOnClickListener(v -> open(com.examprep.app.ui.list.DownloadsActivity.class));

@@ -83,9 +83,10 @@ def test_embed_missing_field_returns_400(client: Any) -> None:
     assert response.json()["code"] == 5200
 
 
-def test_embed_degrades_to_503_when_model_missing(raw_client: Any) -> None:
+def test_embed_degrades_to_503_when_model_missing(embedding_down: Any) -> None:
     """**核心降级用例**：模型文件缺失时必须 503，绝不能 500。"""
-    response = raw_client.post("/v1/embed", json={"texts": ["测试"]})
+    with embedding_down() as test_client:
+        response = test_client.post("/v1/embed", json={"texts": ["测试"]})
     assert response.status_code == 503, (
         f"模型缺失应返回 503，实际 {response.status_code}：{response.text}"
     )
@@ -95,9 +96,10 @@ def test_embed_degrades_to_503_when_model_missing(raw_client: Any) -> None:
     assert "Traceback" not in body["message"]
 
 
-def test_embed_degradation_message_is_actionable(raw_client: Any) -> None:
+def test_embed_degradation_message_is_actionable(embedding_down: Any) -> None:
     """降级提示要让 Java 侧/运维知道该做什么（装依赖 or 放模型）。"""
-    body = raw_client.post("/v1/embed", json={"texts": ["测试"]}).json()
+    with embedding_down() as test_client:
+        body = test_client.post("/v1/embed", json={"texts": ["测试"]}).json()
     assert any(
         keyword in body["message"]
         for keyword in ("onnxruntime", "install.bat", "模型")

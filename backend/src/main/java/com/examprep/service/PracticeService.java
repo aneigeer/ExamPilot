@@ -651,12 +651,18 @@ public class PracticeService {
             wb.setWrongCount(1);
             wb.setLastWrongAt(LocalDateTime.now());
             wb.setMastered(0);
+            // SRS：新错题从第 1 阶段起步，明天进入复习队列
+            wb.setReviewStage(0);
+            wb.setNextReviewAt(WrongBookReviewService.initialNextReviewAt());
             wrongBookMapper.insert(wb);
         } else {
             exist.setWrongCount(exist.getWrongCount() + 1);
             exist.setLastWrongAt(LocalDateTime.now());
             exist.setSource(source);
             exist.setMastered(0);
+            // SRS：再次答错 → 复习进度重置回第 1 阶段
+            exist.setReviewStage(0);
+            exist.setNextReviewAt(WrongBookReviewService.initialNextReviewAt());
             wrongBookMapper.updateById(exist);
         }
     }

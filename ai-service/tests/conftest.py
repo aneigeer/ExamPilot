@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import math
 import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence
 
 import pytest
 
@@ -32,10 +33,25 @@ if str(SERVICE_ROOT) not in sys.path:
 
 
 @pytest.fixture(autouse=True)
-def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """清空可能影响测试的环境变量，保证结果可复现。"""
+def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """清空可能影响测试的环境变量，保证结果可复现。
+
+    ★ 仅清空 ``os.environ`` 不够：``config._get`` 在环境变量为空时会回退读取
+    开发者本机的 ``ai-service/.env``。一旦本机配置了 Ollama（``LLM_API_KEY=ollama``），
+    「未配置 Key 必须 503」这类契约断言就会失真。因此这里同时把
+    ``DEFAULT_ENV_FILE`` 指向不存在的路径，并重置配置单例。
+    """
+    from app import config as config_module
+    from app.clients import llm_client as llm_module
+
+    monkeypatch.setattr(
+        config_module, "DEFAULT_ENV_FILE",
+        SERVICE_ROOT / "__no_such_env_file__.env", raising=False
+    )
     for key in (
         "LLM_API_KEY",
+        "LLM_BASE_URL",
+        "LLM_MODEL",
         "EMBEDDING_MODEL_ID",
         "EMBEDDING_DIM",
         "QDRANT_URL",
@@ -45,6 +61,11 @@ def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LLM_API_KEY", "")
+    config_module.reset_settings()
+    llm_module.reset_llm_client()
+    yield
+    config_module.reset_settings()
+    llm_module.reset_llm_client()
 
 
 # --------------------------------------------------------------------------------------
@@ -56,18 +77,39 @@ class FakeEmbeddingClient:
     """Embedding 桩：用确定性哈希造向量，维度与真实一致（512）。
 
     用途：在不下载模型的前提下验证 **API 契约、维度、降级行为**。
-    真实推理的数值正确性由 ``test_embedding_dim.py`` 在装了模型的环境里验证。
+    真实推理的数值正确性由 ``test_embedding.py`` 在装了模型的环境里验证。
+
+    Attributes:
+        dim: 向量维度。
+        capable: 能力是否可用（对应真实实现的 ``capable``）。
+        loaded: 是否已加载（对应真实实现的 ``loaded``）。
     """
 
     def __init__(self, dim: int = 512) -> None:
         self.dim: int = dim
-        self._ready: bool = True
+        self._capable: bool = True
+        self._loaded: bool = True
         self.calls: int = 0
 
     @property
+    def capable(self) -> bool:
+        """桩：能力是否可用。"""
+        return self._capable
+
+    @property
+    def loaded(self) -> bool:
+        """桩：是否已加载。"""
+        return self._loaded
+
+    @property
     def ready(self) -> bool:
-        """桩永远就绪。"""
-        return self._ready
+        """桩：``ready`` 语义等同 ``capable``（与真实实现一致）。"""
+        return self._capable
+
+    @property
+    def load_ms(self) -> int:
+        """桩：加载耗时（恒 0）。"""
+        return 0
 
     def health_detail(self) -> str:
         """桩的健康诊断。"""
@@ -77,9 +119,10 @@ class FakeEmbeddingClient:
         """切换就绪状态，用于模拟"模型缺失"。
 
         Args:
-            ready: 目标状态。
+            ready: 目标状态（同时影响 capable 与 loaded）。
         """
-        self._ready = ready
+        self._capable = ready
+        self._loaded = ready
 
     def encode(
         self, texts: Sequence[str], *, is_query: bool = False, batch_size: Optional[int] = None
@@ -107,6 +150,62 @@ class FakeEmbeddingClient:
             512 维归一化向量。
         """
         return _fake_vector(query, self.dim)
+
+
+class UnavailableEmbeddingClient:
+    """桩：模拟「模型/依赖缺失」的 embedding 客户端。
+
+    用途：让「缺依赖 → 503 降级」这类断言**与机器环境解耦**。本仓库的测试设计前提是
+    「只装 requirements.txt、不下载模型」；一旦机器上真放了模型（本机即如此），
+    真实客户端就会加载成功、返回 200，使断言失真。用本桩显式制造不可用态即可复现。
+    """
+
+    dim: int = 0
+
+    @property
+    def capable(self) -> bool:
+        """能力不可用（缺依赖/缺模型文件）。"""
+        return False
+
+    @property
+    def loaded(self) -> bool:
+        """从未加载。"""
+        return False
+
+    @property
+    def ready(self) -> bool:
+        """``ready`` 等价于 ``capable``（与真实实现语义一致）。"""
+        return False
+
+    @property
+    def load_ms(self) -> int:
+        """未加载，耗时为 0。"""
+        return 0
+
+    def health_detail(self) -> str:
+        """与真实客户端不可用时的诊断口径一致。"""
+        return "不可用：模型文件缺失，请执行 install.bat 或放入模型（懒加载）"
+
+    def encode(
+        self, texts: Sequence[str], *, is_query: bool = False, batch_size: Optional[int] = None
+    ) -> List[List[float]]:
+        """抛能力不可用（5201），与真实模型缺失时的行为一致。"""
+        raise _capability_unavailable()
+
+    def encode_query(self, query: str) -> List[float]:
+        """抛能力不可用（5201）。"""
+        raise _capability_unavailable()
+
+
+def _capability_unavailable() -> Exception:
+    """构造与真实实现同类的 5201 异常（懒导入，保持 conftest 顶层零第三方依赖）。"""
+    from app.errors import CapabilityUnavailableError
+
+    return CapabilityUnavailableError(
+        "向量化能力不可用：模型文件缺失或 onnxruntime/tokenizers 未安装；"
+        "请执行 install.bat 或放入模型后重启（Java 侧降级到 ngram 检索）",
+        detail="stub: model missing",
+    )
 
 
 class FakeQdrantClient:
@@ -155,35 +254,53 @@ class FakeQdrantClient:
         from app.errors import VectorIndexStaleError
 
         if self._meta and self._meta.get("model_id") != model_id:
-            raise VectorIndexStaleError("向量索引与当前模型不一致，请重建")
+            # 文案与真实客户端保持一致（真实实现含 rebuild 指引，Java 侧据此提示重建）
+            raise VectorIndexStaleError(
+                "向量索引与当前模型不一致，请调用 POST /v1/index/rebuild 全量重建"
+            )
 
     def upsert_chunks(
         self, chunks: Sequence[Any], vectors: Sequence[Sequence[float]]
-    ) -> int:
-        """批量写入。
+    ) -> Any:
+        """批量写入（**与真实实现相同的契约**：写入前校验 + 写入后校准）。
+
+        ★ 桩必须复刻真实语义，否则「坏向量被拦下」「写进去的不是这条」这两条契约
+        在测试里是**假绿**的——真实客户端曾经就因为写入异常导致整库检索静默退化。
 
         Args:
             chunks: 语料块。
             vectors: 对应向量。
 
         Returns:
-            写入条数。
+            ``UpsertResult``：written / rejected / mismatched。
 
         Raises:
             app.errors.VectorSearchError: 维度不匹配。
         """
+        from app.clients.qdrant_client import UpsertResult, _cosine, _vector_reject_reason
         from app.errors import VectorSearchError
 
+        rejected: Dict[int, str] = {}
+        mismatched: List[int] = []
+        written = 0
         for index, chunk in enumerate(chunks):
-            vector = list(vectors[index])
+            chunk_id = int(chunk.chunk_id)
+            vector = [float(x) for x in vectors[index]]
             if len(vector) != self.settings.dim:
                 raise VectorSearchError(f"向量维度不匹配：期望 {self.settings.dim}")
-            self._store[int(chunk.chunk_id)] = {
-                "chunk_id": int(chunk.chunk_id),
+            reason = _vector_reject_reason(vector)
+            if reason is not None:
+                rejected[chunk_id] = reason
+                continue
+            self._store[chunk_id] = {
+                "chunk_id": chunk_id,
                 "vector": vector,
                 "payload": _payload_of(chunk),
             }
-        return len(chunks)
+            written += 1
+            if _cosine(vector, self._store[chunk_id]["vector"]) < 0.9999:
+                mismatched.append(chunk_id)
+        return UpsertResult(written=written, rejected=rejected, mismatched=mismatched)
 
     def delete_chunks(self, chunk_ids: Sequence[int]) -> int:
         """删除。"""
@@ -258,7 +375,8 @@ class FakeQdrantClient:
             "chunk_synced": len(self._store),
             "config_model_id": config_model_id,
             "status": "READY" if matched else "MODEL_MISMATCH",
-            "message": "索引正常" if matched else "模型不一致",
+            # 文案与真实客户端一致：不一致时必须给出「需重建」的可执行指引
+            "message": "索引正常" if matched else "模型不一致，需重建",
         }
 
 
@@ -277,11 +395,26 @@ def _payload_of(chunk: Any) -> Dict[str, Any]:
     return build_payload(chunk)
 
 
-def _match_filter(payload: Dict[str, Any], query_filter: Dict[str, Any]) -> bool:
-    """判断 payload 是否命中 filter（仅支持 must + match.value）。"""
-    for condition in query_filter.get("must", []):
-        key = condition.get("key")
-        expected = (condition.get("match") or {}).get("value")
+def _match_filter(payload: Dict[str, Any], query_filter: Any) -> bool:
+    """判断 payload 是否命中 filter（仅支持 must + match.value）。
+
+    兼容两种入参：生产 wrapper 会先把 schemas 的 filter dict 转成 qdrant 的
+    ``models.Filter`` 对象再交给客户端，而部分测试直接传 dict，因此两种都要认。
+    """
+    if query_filter is None:
+        return True
+    if isinstance(query_filter, dict):
+        conditions = query_filter.get("must", []) or []
+        for condition in conditions:
+            key = condition.get("key")
+            expected = (condition.get("match") or {}).get("value")
+            if payload.get(key) != expected:
+                return False
+        return True
+    for condition in getattr(query_filter, "must", None) or []:
+        key = getattr(condition, "key", None)
+        match = getattr(condition, "match", None)
+        expected = getattr(match, "value", None)
         if payload.get(key) != expected:
             return False
     return True
@@ -366,12 +499,209 @@ def raw_client() -> Iterator[Any]:
         yield test_client
 
 
+@contextmanager
+def embedding_unavailable_client(
+    monkeypatch: pytest.MonkeyPatch, *, disable_ocr: bool = False
+) -> Iterator[Any]:
+    """构造一个「模型/依赖缺失」的 ``TestClient``（确定性复现降级态）。
+
+    本仓库测试的设计前提是「不下载模型、不装 paddleocr」；一旦机器上真的具备这些，
+    「缺依赖必 503」的断言就会失真。这里显式把 embedding 换成 :class:`UnavailableEmbeddingClient`，
+    （可选）再关掉 OCR，使降级契约的验证与机器环境解耦。
+
+    Args:
+        monkeypatch: pytest 夹具。
+        disable_ocr: 是否同时关闭 OCR 能力（涉及 /v1/ocr 的端到端降级用例需要）。
+
+    Yields:
+        ``TestClient``，其 embedding（及可选 OCR）能力被显式置为不可用。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.clients import embedding_client as embedding_module
+    from app.config import reset_settings
+    from app.main import app
+    from app.ocr.paddle_ocr_engine import reset_ocr_engine
+
+    stub = UnavailableEmbeddingClient()
+    monkeypatch.setattr(embedding_module, "get_embedding_client", lambda: stub)
+    # 路由器多采用 `from ... import get_embedding_client`，需同步替换已绑定的引用
+    for module_name in ("embed", "search", "index", "health"):
+        module = __import__(f"app.routers.{module_name}", fromlist=["*"])
+        if hasattr(module, "get_embedding_client"):
+            monkeypatch.setattr(module, "get_embedding_client", lambda: stub, raising=False)
+
+    if disable_ocr:
+        monkeypatch.setenv("OCR_ENABLED", "false")
+        reset_settings()
+        reset_ocr_engine()
+    try:
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            yield test_client
+    finally:
+        if disable_ocr:
+            reset_settings()
+            reset_ocr_engine()
+
+
+@pytest.fixture()
+def embedding_down(monkeypatch: pytest.MonkeyPatch) -> Callable[..., Any]:
+    """返回工厂函数：``with embedding_down(disable_ocr=True) as c: ...``。
+
+    把「依赖缺失」的 TestClient 构造收敛为一个夹具，测试文件无需 import conftest。
+    """
+    def _make(*, disable_ocr: bool = False) -> Any:
+        return embedding_unavailable_client(monkeypatch, disable_ocr=disable_ocr)
+
+    return _make
+
+
+class UnavailableQdrantClient:
+    """桩：模拟「Qdrant 不可用」——所有操作都抛 5203。
+
+    与 :class:`UnavailableEmbeddingClient` 同理：本机 Docker 正常运行时，
+    真实 Qdrant 会返回 200，使「Qdrant 挂 → 503」的断言失真，故显式制造不可用态。
+    """
+
+    def __init__(self) -> None:
+        self.settings: Any = _FakeSettings(512)
+
+    @property
+    def ready(self) -> bool:
+        """永远不可用。"""
+        return False
+
+    def health_detail(self) -> str:
+        """诊断口径与真实客户端一致。"""
+        return "不可用：Qdrant 连接被拒绝"
+
+    def probe(self) -> bool:
+        """探活恒失败。"""
+        return False
+
+    def _raise(self) -> None:
+        """抛出与真实实现一致的 5203。"""
+        from app.errors import VectorSearchError
+
+        raise VectorSearchError("向量库连接失败（测试桩）")
+
+    def ensure_collection(self, *, force_recreate: bool = False) -> str:
+        """不可用。"""
+        self._raise()
+        return ""
+
+    def count_points(self) -> int:
+        """不可用。"""
+        self._raise()
+        return 0
+
+    def upsert_meta(self, model_id: str, dim: int) -> None:
+        """不可用。"""
+        self._raise()
+
+    def read_meta(self) -> Optional[Dict[str, Any]]:
+        """不可用。"""
+        return None
+
+    def assert_model_matches(self, model_id: str) -> None:
+        """不可用。"""
+        self._raise()
+
+    def upsert_chunks(self, chunks: Sequence[Any], vectors: Sequence[Sequence[float]]) -> Any:
+        """不可用。"""
+        self._raise()
+
+    def delete_chunks(self, chunk_ids: Sequence[int]) -> int:
+        """不可用。"""
+        self._raise()
+        return 0
+
+    def search(self, *args: Any, **kwargs: Any) -> List[Dict[str, Any]]:
+        """不可用。"""
+        self._raise()
+        return []
+
+    def rebuild(self, model_id: str, dim: int) -> Dict[str, Any]:
+        """不可用。"""
+        self._raise()
+        return {}
+
+    def status(self, config_model_id: str, config_dim: int) -> Dict[str, Any]:
+        """不可用。"""
+        self._raise()
+        return {}
+
+
+@contextmanager
+def qdrant_unavailable_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """构造一个「Qdrant 不可用」的 ``TestClient``（确定性复现 503 降级态）。
+
+    Args:
+        monkeypatch: pytest 夹具。
+
+    Yields:
+        ``TestClient``，其 Qdrant 能力被显式置为不可用。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.clients import qdrant_client as qdrant_module
+    from app.main import app
+
+    stub = UnavailableQdrantClient()
+    monkeypatch.setattr(qdrant_module, "get_qdrant_client", lambda: stub)
+    for module_name in ("search", "index", "health"):
+        module = __import__(f"app.routers.{module_name}", fromlist=["*"])
+        if hasattr(module, "get_qdrant_client"):
+            monkeypatch.setattr(module, "get_qdrant_client", lambda: stub, raising=False)
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
+
+
+@pytest.fixture()
+def qdrant_down(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
+    """返回工厂函数：``with qdrant_down() as c: ...``。"""
+    def _make() -> Any:
+        return qdrant_unavailable_client(monkeypatch)
+
+    return _make
+
+
+@pytest.fixture()
+def llm_unconfigured() -> Iterator[None]:
+    """临时清空 LLM Key，让「未配置 Key」类断言与机器环境解耦。
+
+    本机可能配置了 Ollama 等本地模型（``LLM_API_KEY=ollama``），
+    若不显式清空，健康检查会如实返回 ``llm.ready=True``，断言必然失败。
+    这正是「测试不依赖本机环境」的硬约束。
+    """
+    from app.clients import llm_client as llm_module
+    from app.config import get_settings
+
+    settings = get_settings()
+    original = settings.llm.api_key
+    object.__setattr__(settings.llm, "api_key", "")
+    llm_module.reset_llm_client()
+    try:
+        yield
+    finally:
+        object.__setattr__(settings.llm, "api_key", original)
+        llm_module.reset_llm_client()
+
+
 #: 供其他测试文件复用的桩类型
 __all__ = [
     "FakeEmbeddingClient",
     "FakeQdrantClient",
+    "UnavailableEmbeddingClient",
+    "UnavailableQdrantClient",
     "client",
     "raw_client",
+    "embedding_unavailable_client",
+    "qdrant_unavailable_client",
     "fake_embedding",
     "fake_qdrant",
+    "embedding_down",
+    "qdrant_down",
+    "llm_unconfigured",
 ]

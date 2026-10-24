@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # --------------------------------------------------------------------------------------
 # 通用
@@ -51,15 +51,25 @@ class ErrorResponse(BaseModel):
 class ComponentHealth(BaseModel):
     """单个能力组件的健康状态。"""
 
-    ready: bool = Field(description="是否可用；false 表示该能力缺失或依赖未就绪")
+    ready: bool = Field(
+        description="能力是否可用（依赖已装 + 资源存在）。false 时 Java 侧应熔断降级"
+    )
     detail: str = Field(default="", description="诊断信息，仅用于排障，不含堆栈")
 
 
 class EmbeddingHealth(ComponentHealth):
-    """Embedding 能力健康状态（额外带向量维度）。"""
+    """Embedding 能力健康状态（额外带向量维度与加载态）。"""
 
-    dim: int = Field(default=0, description="向量维度；未就绪时为 0")
+    dim: int = Field(default=0, description="向量维度；不可用时为 0")
     model_id: str = Field(default="", description="模型标识；换模型需重建索引")
+    loaded: bool = Field(
+        default=False,
+        description=(
+            "模型是否已在本进程内加载。"
+            "ready=true 且 loaded=false 表示「可用但冷启动未加载」，"
+            "首次 /v1/embed 约需 0.2-1s，**Java 侧不应据此降级**"
+        ),
+    )
 
 
 class HealthResponse(BaseModel):
@@ -217,12 +227,57 @@ class IndexSyncRequest(BaseModel):
 
 
 class IndexSyncResponse(BaseModel):
-    """``POST /v1/index/sync`` 响应（Java 侧据此置 ``vector_synced``）。"""
+    """``POST /v1/index/sync`` 响应（Java 侧据此置 ``vector_synced``）。
 
-    synced: int = Field(default=0, description="成功写入条数")
+    ★ ``failed`` 拆成两类，语义不同、处置也不同：
+
+    * ``rejected``：**写入前**被判非法（NaN/Inf/零范数）而拒收，**未进库**；
+    * ``mismatched``：**写入后校准**读回的向量与输入不一致 —— 已进库但存错了，
+      说明向量库写入异常，必须置 ``vector_synced=2`` 重试，
+      反复出现则需删除向量库目录全量重建。
+
+    带上 ``*_ids`` 是为了让 Java 侧能**精确**把出问题的块置为失败态，
+    而不是把整批 500 条一起重推。
+    """
+
+    synced: int = Field(default=0, description="成功写入且写入后校准通过的条数")
     skipped: int = Field(default=0, description="因 content_hash 未变化而跳过条数")
-    failed: int = Field(default=0, description="失败条数（Java 侧置 vector_synced=2 待重试）")
+    failed: int = Field(default=0, description="失败条数 = rejected + mismatched")
+    rejected: int = Field(default=0, description="写入前校验被拒收的条数（未进库）")
+    mismatched: int = Field(default=0, description="写入后校准不通过的条数（已进库但存错了）")
+    rejected_ids: List[int] = Field(default_factory=list, description="被拒收的 chunk_id")
+    mismatched_ids: List[int] = Field(default_factory=list, description="校准不通过的 chunk_id")
     took_ms: int = Field(default=0, description="耗时（毫秒）")
+
+
+class IndexDeleteRequest(BaseModel):
+    """``POST /v1/index/delete`` 请求（来源失效后清理孤儿向量）。
+
+    MySQL 侧 ``ai_chunk`` 被置 ``INVALID`` 后，Qdrant 里的向量点不会自动消失；
+    且它的 ``payload.status`` 是**入库时的快照**（``ACTIVE``），
+    因此 ``/v1/search`` 的 ``status='ACTIVE'`` 过滤拦不住它，
+    孤儿向量会挤占 top-K 名额、把有效结果挤出去。故必须显式删除。
+    """
+
+    chunk_ids: List[int] = Field(description="待删除的 ai_chunk 主键，单次最多 500 条")
+
+    @field_validator("chunk_ids")
+    @classmethod
+    def _validate_ids(cls, value: List[int]) -> List[int]:
+        """校验单次最多 500 条，避免单请求过大。"""
+        if len(value) > 500:
+            raise ValueError("chunk_ids 单次最多 500 条")
+        return value
+
+
+class IndexDeleteResponse(BaseModel):
+    """``POST /v1/index/delete`` 响应。"""
+
+    deleted: int = Field(
+        default=0,
+        description="已发起删除的向量点条数（Qdrant 不返回逐点结果，故等价于 requested）",
+    )
+    requested: int = Field(default=0, description="请求删除条数")
 
 
 class IndexRebuildRequest(BaseModel):
@@ -254,6 +309,89 @@ class IndexStatusResponse(BaseModel):
         description="READY / MODEL_MISMATCH / COLLECTION_MISSING / ERROR；非 READY 时 Java 侧应触发重建"
     )
     message: str = Field(default="", description="诊断信息")
+
+
+# --------------------------------------------------------------------------------------
+# Wiki 热层（独立 collection，与 RAG 语料向量互相隔离）
+# --------------------------------------------------------------------------------------
+
+
+class WikiIndexPage(BaseModel):
+    """待索引的 Wiki 页面（只送标题 / 摘要 / 要点，正文仍以 MySQL 为准）。"""
+
+    page_id: int = Field(description="wiki_page 主键")
+    title: str = Field(default="", description="主题标题")
+    summary: str = Field(description="页面摘要，向量化主文本")
+    key_points: List[str] = Field(default_factory=list, description="要点列表（拼进摘要一起向量化）")
+    subject_id: Optional[int] = Field(default=None, description="科目 ID")
+    knowledge_id: Optional[int] = Field(default=None, description="知识点 ID")
+    version: Optional[int] = Field(default=None, description="发布版本，便于排障")
+
+
+class WikiIndexSyncRequest(BaseModel):
+    """``POST /v1/wiki/index/sync`` 请求。"""
+
+    pages: List[WikiIndexPage] = Field(description="待索引页面，单次最多 200 条")
+
+    @field_validator("pages")
+    @classmethod
+    def _validate_pages(cls, value: List[WikiIndexPage]) -> List[WikiIndexPage]:
+        if len(value) > 200:
+            raise ValueError("pages 单次最多 200 条")
+        return value
+
+
+class WikiIndexSyncResponse(BaseModel):
+    """``POST /v1/wiki/index/sync`` 响应。"""
+
+    synced: int = Field(default=0, description="成功写入条数")
+    skipped: int = Field(default=0, description="空摘要等被跳过条数")
+    failed: int = Field(default=0, description="写入失败条数")
+    took_ms: int = Field(default=0, description="耗时（毫秒）")
+
+
+class WikiDeleteRequest(BaseModel):
+    """``POST /v1/wiki/index/delete`` 请求。"""
+
+    page_ids: List[int] = Field(description="待删除的 wiki_page 主键，单次最多 500 条")
+
+
+class WikiDeleteResponse(BaseModel):
+    """``POST /v1/wiki/index/delete`` 响应。"""
+
+    deleted: int = Field(default=0, description="实际删除条数")
+    requested: int = Field(default=0, description="请求删除条数")
+
+
+class WikiSearchRequest(BaseModel):
+    """``POST /v1/wiki/search`` 请求。"""
+
+    query: str = Field(description="用户问题")
+    top_k: int = Field(default=5, ge=1, le=20, description="返回条数")
+    filters: Dict[str, Any] = Field(default_factory=dict, description="过滤条件：subject_id")
+
+    @field_validator("query")
+    @classmethod
+    def _validate_query(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("query 不能为空")
+        return value
+
+
+class WikiSearchHit(BaseModel):
+    """单条 Wiki 页面命中。"""
+
+    page_id: int = Field(description="wiki_page 主键")
+    score: float = Field(description="余弦相似度，范围 [-1, 1]")
+    payload: Dict[str, Any] = Field(default_factory=dict, description="页面元数据（不含正文）")
+
+
+class WikiSearchResponse(BaseModel):
+    """``POST /v1/wiki/search`` 响应。"""
+
+    hits: List[WikiSearchHit] = Field(default_factory=list, description="命中列表，按 score 降序")
+    took_ms: int = Field(default=0, description="检索耗时（毫秒）")
+    dim: int = Field(default=0, description="查询向量维度")
 
 
 # --------------------------------------------------------------------------------------
@@ -346,3 +484,77 @@ class LlmResponse(BaseModel):
     generator: str = Field(description="生成器标识，如 glm；不可用时接口 503，Java 走抽取式")
     cost_ms: int = Field(default=0, description="生成耗时（毫秒）")
     degraded: bool = Field(default=False, description="是否降级；本服务降级即 503，此处恒 false")
+
+
+# --------------------------------------------------------------------------------------
+# Agent Harness
+# --------------------------------------------------------------------------------------
+
+
+class AgentProfile(BaseModel):
+    """离线评估注入的模拟画像（不读真实用户）。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    weak_knowledge_ids: List[int] = Field(
+        default_factory=list, alias="weakKnowledgeIds", description="薄弱知识点 ID"
+    )
+    subject_id: Optional[int] = Field(default=None, alias="subjectId")
+
+
+class AgentTurn(BaseModel):
+    """一轮历史问答（Java 从 ai_agent_session / ai_agent_run 读取）。"""
+
+    question: str = Field(default="", description="用户问题")
+    answer: str = Field(default="", description="助手答案（Java 已截断到 300 字）")
+
+
+class AgentRequest(BaseModel):
+    """``POST /v1/agent/stream`` / ``/v1/agent/run`` 请求。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    question: str = Field(description="学生问题")
+    user_id: Optional[int] = Field(default=None, alias="userId", description="Java 透传的用户 ID")
+    subject_id: Optional[int] = Field(default=None, alias="subjectId")
+    exam_category_id: Optional[int] = Field(default=None, alias="examCategoryId")
+    trace_id: Optional[str] = Field(default=None, alias="traceId")
+    max_steps: Optional[int] = Field(default=None, alias="maxSteps", description="覆盖最大步数")
+    profile: Optional[AgentProfile] = Field(default=None, description="离线评估用模拟画像")
+    session_id: Optional[str] = Field(
+        default=None, alias="sessionId", max_length=32, description="会话 ID（跨轮次记忆）"
+    )
+    history: List[AgentTurn] = Field(
+        default_factory=list, description="最近 N 轮问答（时间正序）"
+    )
+    memory_summary: Optional[str] = Field(
+        default=None, alias="memorySummary", description="Java 维护的滚动摘要"
+    )
+
+    @field_validator("question")
+    @classmethod
+    def _question_not_blank(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("question 不能为空")
+        if len(value) > 200:
+            raise ValueError("question 过长（上限 200 字）")
+        return value.strip()
+
+    @field_validator("history")
+    @classmethod
+    def _history_limit(cls, value: List[AgentTurn]) -> List[AgentTurn]:
+        if len(value) > 10:
+            raise ValueError("history 单次最多 10 轮")
+        return value
+
+
+class AgentRunResponse(BaseModel):
+    """``POST /v1/agent/run`` 非流式响应（评估/调试用）。"""
+
+    answer: str = Field(default="")
+    generator: str = Field(default="none")
+    degraded: bool = Field(default=True)
+    refused: bool = Field(default=False)
+    step_count: int = Field(default=0)
+    tool_calls: int = Field(default=0)
+    events: List[Dict[str, Any]] = Field(default_factory=list, description="完整事件数组")

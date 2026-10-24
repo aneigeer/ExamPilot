@@ -49,4 +49,18 @@
         <item name="android:textSize">14sp</item>
         <item name="android:background">?attr/selectableItemBackground</item>
     </style>
+
+    <!-- 顶部栏里「当作按钮用」的 TextView：保证触摸目标不小于 48dp（无障碍） -->
+    <style name="TopAction">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">48dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+    </style>
 </resources>

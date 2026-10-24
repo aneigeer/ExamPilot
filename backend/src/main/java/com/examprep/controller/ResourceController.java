@@ -63,11 +63,14 @@ public class ResourceController {
         return Result.success(resourceService.pageResources(page, size, examCategoryId, subjectId, courseId, type, tags, keyword, sort));
     }
 
-    @Operation(summary = "我的上传", description = "**访问级别：AUTH**。含未通过审核的资料。")
+    @Operation(summary = "我的上传",
+            description = "**访问级别：AUTH**。含未通过审核的资料，分页返回（结构同 /resources）。")
     @GetMapping("/resources/mine")
-    public Result<List<ResourceVO>> listMine() {
+    public Result<PageResult<ResourceVO>> listMine(
+            @Parameter(description = "页码") @RequestParam(defaultValue = "1") long page,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") long size) {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(resourceService.listMine(userId));
+        return Result.success(resourceService.pageMine(userId, page, size));
     }
 
     @Operation(summary = "资料详情", description = "**访问级别：PUBLIC**。仅审核通过的资料可见，同时累加浏览量。")

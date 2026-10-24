@@ -29,6 +29,22 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
 
+  # ========== Redis（异步任务队列，可选） ==========
+  # 未启动 Redis 时应用仍可正常启动；任务接口返回 503，其余功能不受影响。
+  # Redis 健康检查已关闭，避免 Redis 缺席时 /actuator/health 整体 DOWN。
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 1s
+      connect-timeout: 1s
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 0
+
   # ========== JSON 序列化 ==========
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
@@ -91,13 +107,64 @@ app:
     # 游客可预览页数
     guest-pages: 3
 
+  cors:
+    # 允许跨域的来源（逗号分隔）。管理端与后端同源部署时仅需本机；
+    # 部署到正式域名后务必覆盖，否则从其它源发起的浏览器请求会被拦。
+    # 覆盖方式：环境变量 APP_CORS_ALLOWED_ORIGINS=https://api.example.com,https://admin.example.com
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:8080}
+
+  resource:
+    # 推荐排序热度分（物化列 resource.hot_score）的定时重算
+    # 需先执行 sql/migration-perf.sql 建列与组合索引；未执行时任务只告警，不影响主业务
+    hot-score:
+      initial-delay-millis: 60000      # 启动后 1 分钟首次重算
+      refresh-millis: 3600000          # 之后每小时重算一次
+
   # ========== AI 导学（RAG 检索增强 + 抽取式兜底 + 学情画像）==========
   # 全部参数化，使用时可现场改一个数看效果。
   # 密钥类配置默认值留空（对齐 app.jwt.secret 的安全规范），空值不报错、走降级链路。
   ai:
+    # ========== Agent 内部接口令牌（Java ↔ Python）==========
+    # 为空时 /internal/** 一律 403（安全默认值）；启用 Agent 时必须配置。
+    # 生产用环境变量注入：AI_INTERNAL_TOKEN
+    internal-token: ${AI_INTERNAL_TOKEN:}
+
+    # ========== Agent Harness ==========
+    agent:
+      # false 时 /ai/agent/** 返回 503，原有 /ai/ask 完全不受影响
+      enabled: ${AI_AGENT_ENABLED:false}
+      max-steps: 6
+      max-tool-calls: 4
+      # prompt 字符预算（≈8k tokens），超出后从最老的工具结果开始截断
+      max-prompt-chars: 8000
+      # 全局并发上限（进程内信号量，单实例部署前提）
+      max-concurrent: 8
+      stream-timeout-millis: 120000
+
+    # ========== 异步任务队列（Redis Stream） ==========
+    jobs:
+      enabled: ${AI_JOBS_ENABLED:false}
+      stream: exam:jobs
+      eval-stream: exam:eval
+      # Wiki 蒸馏是分钟级 LLM 长任务，独立 stream + 独立 worker，避免挤占业务任务
+      wiki-stream: exam:wiki
+      group: expert-workers
+
     llm:
-      # 客户端标识：dashscope（阿里云百炼）/ zhipu（智谱 GLM）/ extractive（强制本地抽取）
-      provider: extractive
+      # 客户端标识：ollama（本地模型）/ dashscope（阿里云百炼）/ zhipu（智谱 GLM）/ extractive（强制本地抽取）
+      # ⚠️ 注意：provider 只影响日志与展示，**实际选路由 @Order + available() 决定**
+      #    （见 AiQaService.isProviderCandidate：只排除 Extractive，不按 provider 过滤）
+      provider: ollama
+
+      # ---------- 本地模型 Ollama（推荐，无需 Key、不过期、零费用）----------
+      # OpenAI 兼容端点，注意带 /v1，程序内部会拼 /chat/completions
+      ollama-base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434/v1}
+      # 用 `ollama create` 定义的名字（如 qwen2.5-7b）
+      ollama-model: ${OLLAMA_MODEL:qwen2.5-7b}
+      # ★ 7B 模型生成 300 token 需 15–25 秒，必须给足；云端仍用下面的 timeout-millis(8s)
+      #   绝不要为了本地模型把全局超时改成 90s —— 云端失败时会白等 90 秒才降级
+      ollama-timeout-millis: ${OLLAMA_TIMEOUT_MS:90000}
+
       # API Key：留空即自动走抽取式兜底，接口仍返回 200。
       # 生产环境用环境变量注入：LLM_API_KEY
       api-key: ${LLM_API_KEY:}
@@ -121,9 +188,14 @@ app:
       # term 最小长度，低于此值丢弃（ngram_token_size 默认 2，单字成不了词）
       min-term-length: 2
       # ★ 词项覆盖率下限（**仅 ngram 字面通道用**）：bigram OR 语义的精度补偿
-      # 实测标定：无关问题「量子力学波函数如何求解」覆盖率 0.09 → 剔除；
-      #          相关问题「值传递和地址传递有什么区别」覆盖率 0.42 → 保留
-      min-term-coverage: 0.25
+      # 该阈值与语料规模无关（命中 bigram / 查询 bigram），因此语料扩到 3000+ 条后
+      # 只需重标定它，而不必动依赖分数的 reject-threshold。
+      # 语料 59 → 3092 块后实测标定（同一次评测集）：
+      #   0.25 → 拒答 4/10、Recall@5 91.7%（闸门形同虚设）
+      #   0.40 → 拒答 7/10、Recall@5 91.7%
+      #   0.50 → 拒答 9/10、Recall@5 91.7%（取此值：两端都守住）
+      #   0.60 → 拒答 10/10、Recall@5 66.7%（过严，把相关问题一起拒了）
+      min-term-coverage: 0.5
 
       # ★ 向量相似度下限（**仅向量通道用**，Qdrant 余弦相似度）
       #
@@ -197,10 +269,13 @@ app:
       base-url: ${AI_SERVICE_URL:http://127.0.0.1:8000}
       # Python 侧路由挂在 /v1 下（见 ai-service/app/routers/search.py）
       path-prefix: /v1
-      # 超时预算（设计文档 A.1）：检索 1200ms / 健康 1000ms / 索引推送 5000ms
+      # 超时预算（设计文档 A.1）：检索 1200ms / 健康 1000ms
       search-timeout-millis: 1200
       health-timeout-millis: 1000
-      index-timeout-millis: 5000
+      # 索引推送：单次最多 500 条，CPU 端 bge-small 嵌入实测约 12s/500 条，
+      # 原设计预算 5000ms 会误判为超时（推送已成功但 Java 侧读不到响应）。
+      # 故放宽到 60s；若本机嵌入更快可下调回。
+      index-timeout-millis: 60000
       # 熔断：连续失败 3 次 → 熔断 60s，期间静默降级
       circuit-breaker-threshold: 3
       circuit-breaker-open-millis: 60000
@@ -239,6 +314,60 @@ app:
       # 双写：迁移期同时写本地（安全但冗余，使用一段时间后可关）
       dual-write-local: true
 
+  # ========== LLM Wiki 双引擎 ==========
+  # 设计：RAG 即时可用（文档入库即可检索），Wiki 异步沉淀（每日蒸馏 → 人工审核 → 发布）。
+  # 问答顺序：Wiki 热层优先 → 未命中降级 RAG 冷层 → 长尾问题仍由 RAG 兜底。
+  # 关闭 enabled 后行为与未引入 Wiki 时完全一致。
+  wiki:
+    enabled: ${AI_WIKI_ENABLED:true}
+    # 热层命中阈值（页面摘要向量余弦相似度）
+    hit-threshold: 0.55
+    # 向量召回候选数
+    vector-limit: 10
+    # ngram 字面通道最低原始相关度 + 归一化尺度（ft_score 非 0-1）
+    ngram-min-score: 8.0
+    ngram-score-scale: 20.0
+    # ★ 小语料下 MATCH 的 IDF 接近 0，字面通道必须同时看覆盖率（与语料规模无关）
+    title-coverage-threshold: 0.25
+    literal-coverage-threshold: 0.50
+    # 图遍历：命中页的 1 跳关联页按衰减分补位
+    link-expand: true
+    link-decay: 0.85
+
+    distill:
+      # 每日定时蒸馏（本地 7B 模型约 20–40 秒/页，异步执行）
+      enabled: ${WIKI_DISTILL_ENABLED:true}
+      cron: "${WIKI_DISTILL_CRON:0 30 3 * * ?}"
+      # 单次最多蒸馏主题数 / 每主题送入 LLM 的原始块数
+      limit: 10
+      max-chunks: 6
+      min-chunks: 2
+
+    vector:
+      # 与 RAG 的 exam_chunks 分开，互不影响
+      collection: wiki_pages
+      # 审核通过后自动推送页面摘要向量（失败不影响发布，ngram 仍可命中）
+      auto-index: true
+
+# ========== 健康检查 / 监控（Actuator）==========
+# 仅暴露 health 与 info：health 匿名可访问（供负载均衡/容器编排探活），
+# 其余端点一律不暴露，且 details 不对外（避免泄露数据库等内部状态）。
+# 访问：GET /api/actuator/health
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  # Redis 是可选组件：未启动时不应把整体健康状态拖成 DOWN
+  health:
+    redis:
+      enabled: false
+
 logging:
   level:
     root: info
@@ -246,3 +375,5 @@ logging:
     org.springframework.security: info
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+

@@ -1,6 +1,7 @@
 package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.examprep.common.BatchLookup;
 import com.examprep.common.BizException;
 import com.examprep.common.ResultCode;
 import com.examprep.dto.CommentVO;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * 评论、点赞、资料评分
@@ -61,8 +61,9 @@ public class CommentService {
             return List.of();
         }
 
-        Map<Long, String> nicknames = userMapper.selectList(null).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname, (a, b) -> a));
+        Map<Long, String> nicknames = BatchLookup.nameMap(userMapper,
+                comments.stream().map(Comment::getUserId).toList(),
+                User::getId, User::getNickname);
 
         // 当前用户点过赞的评论
         Set<Long> likedIds = new LinkedHashSet<>();

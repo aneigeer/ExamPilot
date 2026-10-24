@@ -9,6 +9,7 @@
 | 方法 | 路径 | 级别 | 说明 |
 |---|---|---|---|
 | POST | /auth/login | PUBLIC | 学号+密码登录 |
+| POST | /auth/register | PUBLIC | 自助注册（学校/学院选择；学号全局唯一；密码 ≥8 位含字母数字；成功后直接返回令牌） |
 | POST | /auth/guest | PUBLIC | 游客入口 |
 | POST | /auth/logout | AUTH | 登出 |
 | PUT | /auth/password | AUTH | 修改密码 |
@@ -39,6 +40,7 @@
 | GET | /practice/{id}/card | AUTH |
 | POST | /practice/{id}/finish · GET /practice/{id}/report | AUTH |
 | GET | /wrong-book · DELETE /wrong-book/{questionId} | AUTH |
+| GET | /wrong-book/review?limit=（待复习错题，SRS 到期队列）· POST /wrong-book/review/{questionId}?correct=（提交一次复习结果） | AUTH |
 | GET | /me/practice-trend · GET /me/mastery?subjectId= | AUTH |
 
 ## 5 课程库（查询 PUBLIC）
@@ -75,6 +77,8 @@
 | 方法 | 路径 |
 |---|---|
 | GET | /me/stats · /me/downloads · /me/mastery |
+| GET | /me/export（导出个人数据：账号资料/统计/错题/练习记录/收藏/下载/笔记，不含凭证） |
+| POST | /me/deactivate（注销账号，body 传 password 与 confirmText="注销账号"；注销即匿名化并逻辑删除） |
 | GET/POST | /notes（题目笔记）· PUT/DELETE /notes/{id} |
 | GET/POST/DELETE | /favorites（收藏资料/题目，含 /favorites/questions、/favorites/resources） |
 | GET | /notifications · PUT /notifications/read-all · GET /notifications/unread-count |
@@ -96,6 +100,8 @@
 | GET/POST/PUT/DELETE | /admin/data/exams、/subjects、/knowledge、/courses、/teachers、/colleges | ADMIN |
 | GET/POST/PUT/DELETE | /admin/questions（题目管理）· POST /admin/questions/import · GET /admin/questions/export | AUDITOR+/ADMIN |
 | GET | /admin/reports（举报列表） | AUDITOR+ |
+| POST | /admin/ai/reindex（语料索引全量重建）· POST /admin/ai/vector/sync · GET·POST /admin/ai/vector/reconcile（向量索引对账/补推） | AUDITOR+ |
+| GET | /admin/storage/status · POST /admin/storage/migrate（存储状态 / 本地↔MinIO 迁移） | ADMIN |
 
 ## 10 模拟考试与编程运行（P1，AUTH）
 | 方法 | 路径 | 说明 |
@@ -104,7 +110,66 @@
 | GET | /exams/mock/{id} | 取卷（含剩余秒数） |
 | POST | /exams/mock/{id}/answer | 覆盖式作答 |
 | POST | /exams/mock/{id}/submit · GET /exams/mock/{id}/report | 交卷判分 / 成绩报告 |
-| POST | /run | 编程题在线运行（C/JAVA，超时 10s；本机使用用，公网需独立判题沙箱） |
+| POST | /run | 编程题在线运行（C/JAVA，超时 10s；**仅限本机使用**，公网部署须换独立判题沙箱） |
 
 ## 11 管理端 Web 页面
 `GET /api/admin/index.html`（静态页 PUBLIC，页面内管理 API 均有角色校验）
+
+## 12 AI 导学（RAG 检索增强）
+| 方法 | 路径 | 级别 | 说明 |
+|---|---|---|---|
+| GET | /ai/capability | PUBLIC | 能力探测（App 未登录时也要能判断是否展示 AI 入口） |
+| POST | /ai/ask | AUTH | 提问 → 检索（向量 + ngram 双通道）→ 生成 → 强制溯源；五层降级，**恒返回 200**（无相关语料时 `refused=true`） |
+| GET | /ai/knowledge-profile | AUTH | 学情画像：薄弱知识点 Top-N（时间衰减 + 难度权重 + 错题加权） |
+| GET | /ai/recommendations | AUTH | 「错题 → 知识点 → 相关资料」推送，每条带推荐理由 |
+
+## 13 健康检查（PUBLIC）
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | /actuator/health | 探活（仅暴露 health/info，details 不对外），供负载均衡/容器编排使用 |
+
+## 14 题库批量导入 / 导出（JSON，ROLE:AUDITOR / ROLE:ADMIN）
+
+`GET /admin/questions/export?subjectId=&type=` 导出为下方结构的 JSON 数组；
+`POST /admin/questions/import` 请求体为**同一结构的数组**，逐条走完整校验、**单条失败不影响其他条**，返回 `{total, success, failed, errors[]}`。
+
+> 新导入题目状态为 `PENDING`（待审核）：审核通过后才会进入公开题库，并触发 AI 语料索引同步。
+> 大批量入库后如需让 AI 立即可检索，调 `POST /admin/ai/reindex` 重建索引。
+
+字段（`QuestionSaveRequest`）：
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `subjectId` | ✅ | 科目 ID |
+| `type` | ✅ | 题型枚举：`SINGLE_CHOICE` / `MULTI_CHOICE` / `TRUE_FALSE` / `FILL_BLANK` / `MATCHING` / `ORDERING` / `SHORT_ANSWER` / `TERM_EXPLAIN` / `CALCULATION` / `PROGRAMMING` / `READING` / `LISTENING` … |
+| `stem` | ✅ | 题干 |
+| `material` | | 材料正文（组合题 / 阅读题） |
+| `difficulty` | | 难度 1-5（默认 3） |
+| `source` / `tags` / `analysis` | | 来源 / 标签（逗号分隔）/ 解析 |
+| `score` | | 分值 |
+| `options` | 客观题 ✅ | `[{"key":"A","content":"…","isAnswer":true}]`（单选恰一个 true，多选多个） |
+| `answerContent` | 填空 / 主观 ✅ | 填空 `{"blanks":["printf"]}`；简答 `{"reference":"参考答案","keywords":["关键词"]}` |
+| `gradingPoints` | | 评分要点（主观题） |
+| `caseSensitive` | | 填空是否大小写敏感 |
+| `knowledgeIds` | | 关联知识点 ID 列表（学情画像与推荐的关键连接键） |
+| `audioFileId` | 听力题 ✅ | 先调 `POST /files/audio` 上传 |
+| `subQuestions` | 组合题 ✅ | 子题列表（`stem` / `type` / `score` / `options`） |
+
+示例：
+
+```json
+[
+  { "subjectId": 5, "type": "SINGLE_CHOICE", "stem": "以下哪个运算符的优先级最高？",
+    "difficulty": 2, "tags": "运算符", "score": 2,
+    "options": [
+      { "key": "A", "content": "()", "isAnswer": true },
+      { "key": "B", "content": "*", "isAnswer": false }
+    ],
+    "knowledgeIds": [3] },
+  { "subjectId": 4, "type": "SHORT_ANSWER", "stem": "简述顺序表和链表的区别。",
+    "analysis": "顺序表随机访问 O(1)、插入删除 O(n)；链表相反。", "difficulty": 3, "score": 5,
+    "answerContent": { "reference": "顺序表连续存储、随机访问 O(1)；链表指针链接、插入删除 O(1)。",
+                       "keywords": ["顺序表", "链表", "时间复杂度"] },
+    "knowledgeIds": [11] }
+]
+```

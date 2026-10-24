@@ -26,6 +26,25 @@ public interface LlmClient {
      */
     LlmAnswer ask(String question, List<ChunkContext> contexts);
 
+    /**
+     * 非检索类结构化生成（如主观题判分）
+     *
+     * <p>★ 为什么不复用 {@link #ask}：那条链路的 System Prompt 要求
+     * 「必须基于资料作答并标注引用编号」，而判分需要模型做**结构化比对**、
+     * 输出严格 JSON。两者输出契约不同，混用会让模型在两种要求之间摇摆。
+     *
+     * <p>缺省实现直接抛 {@link AiUnavailableException}（表示「本实现不参与这类任务」），
+     * 于是判分链路会自动跳到下一个可用客户端；任何实现都不支持时，
+     * 判分如实返回「不可用」并让前端回退自评，而不是伪造分数。
+     *
+     * @param systemPrompt 系统提示词
+     * @param userPrompt   用户提示词
+     * @return 模型输出的原始文本
+     */
+    default String complete(String systemPrompt, String userPrompt) {
+        throw new AiUnavailableException(name() + " 不支持非检索类生成（complete）");
+    }
+
     // ==================================================================
     // 引用解析工具（接口静态方法）
     //

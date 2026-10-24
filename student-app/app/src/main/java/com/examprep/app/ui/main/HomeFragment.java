@@ -1,6 +1,7 @@
 package com.examprep.app.ui.main;
 
 import android.content.Intent;
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -59,6 +60,8 @@ public class HomeFragment extends Fragment {
         binding.refresh.setOnRefreshListener(this::loadHome);
         binding.btnSearch.setOnClickListener(v -> startActivity(
                 new Intent(getContext(), com.examprep.app.ui.search.SearchActivity.class)));
+        binding.btnNotifications.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.list.NotificationsActivity.class, "通知中心"));
         binding.fabUpload.setOnClickListener(v -> {
             if (!com.examprep.app.data.prefs.TokenStore.get(requireContext()).hasToken()) {
                 toast("游客不可上传，请先登录");
@@ -73,6 +76,12 @@ public class HomeFragment extends Fragment {
         binding.btnStartMock.setOnClickListener(v ->
                 startActivity(new Intent(getContext(),
                         com.examprep.app.ui.mock.MockExamActivity.class)));
+        binding.btnStudyPlan.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.plan.StudyPlanActivity.class, "今日学习计划"));
+        binding.btnWrongReview.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.wrong.WrongReviewActivity.class, "错题复习"));
+        binding.btnWrongBook.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.wrong.WrongBookActivity.class, "错题本"));
 
         loadHome();
         return binding.getRoot();
@@ -96,8 +105,10 @@ public class HomeFragment extends Fragment {
     /** 登录用户显示「你好，昵称」，游客显示「你好，游客」 */
     private void updateGreeting() {
         TokenStore ts = TokenStore.get(requireContext());
-        binding.tvGreeting.setText(ts.hasToken()
-                ? "你好，" + ts.userName() : "你好，游客");
+        boolean signedIn = ts.hasToken();
+        binding.tvGreeting.setText(signedIn ? "你好，" + ts.userName() : "你好，游客");
+        binding.tvGreetingSub.setText(signedIn
+                ? "今天想从哪门考试开始？" : "浏览题库与资料，登录后同步学习进度");
     }
 
     private void loadHome() {
@@ -172,6 +183,17 @@ public class HomeFragment extends Fragment {
                 com.examprep.app.ui.resource.ResourceDetailActivity.class);
         intent.putExtra("resourceId", id);
         startActivity(intent);
+    }
+
+    /** 游客可浏览首页与题库，但需要登录后才能访问个人学习记录。 */
+    private void openRestricted(Class<? extends Activity> target, String featureName) {
+        if (!TokenStore.get(requireContext()).hasToken()) {
+            toast("请先登录后使用" + featureName);
+            startActivity(new Intent(requireContext(),
+                    com.examprep.app.ui.login.LoginActivity.class));
+            return;
+        }
+        startActivity(new Intent(requireContext(), target));
     }
 
     private void toast(String msg) {

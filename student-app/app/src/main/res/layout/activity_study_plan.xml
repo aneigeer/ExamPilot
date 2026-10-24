@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/bg">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:background="@color/primary" android:gravity="center_vertical"
+        android:orientation="horizontal" android:padding="14dp">
+
+        <TextView
+            style="@style/TopAction"
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:padding="6dp" android:text="← 返回"
+            android:textColor="#FFFFFF" android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:text="今日学习计划" android:textColor="#FFFFFF" android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            style="@style/TopAction"
+            android:id="@+id/btnTarget"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:padding="6dp" android:text="目标"
+            android:background="?attr/selectableItemBackground"
+            android:textColor="#FFFFFF" android:textSize="15sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:padding="16dp">
+
+            <!-- 进度概览 -->
+            <LinearLayout
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:background="@color/card" android:padding="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvProgress"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="今日 0 / 0 题"
+                    android:textColor="@color/text_main" android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvProgressSub"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/text_sub" android:textSize="13sp" />
+
+                <ProgressBar
+                    android:id="@+id/pbPlan"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:max="100" android:progress="0" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvTaskTitle"
+                style="@style/StatLabel" android:layout_marginTop="16dp"
+                android:text="今日任务（按优先级排序）" />
+
+            <!-- 任务列表（动态注入） -->
+            <LinearLayout
+                android:id="@+id/llTasks"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/tvEmpty"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:gravity="center" android:text="加载中…"
+                android:textColor="@color/text_sub" android:textSize="14sp" />
+
+            <!-- 计划说明（为什么这样排 / 哪些没排进来） -->
+            <TextView
+                android:id="@+id/tvNotes"
+                style="@style/CardText" android:layout_marginTop="14dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

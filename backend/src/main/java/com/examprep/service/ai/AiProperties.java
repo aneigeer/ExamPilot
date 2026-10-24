@@ -48,6 +48,56 @@ public class AiProperties {
      */
     private Storage storage = new Storage();
 
+    /** Agent 内部接口令牌（Java 与 Python 共享；为空时 /internal/** 一律 403） */
+    private String internalToken = "";
+
+    /** Agent Harness 配置 */
+    private Agent agent = new Agent();
+
+    /** 异步任务队列配置（Redis Stream） */
+    private Jobs jobs = new Jobs();
+
+    @Data
+    public static class Agent {
+
+        /** Agent Harness 总开关；false 时 /ai/agent/** 返回 503（老问答不受影响） */
+        private boolean enabled = false;
+
+        /** 单次会话最大步数（规划 + 工具 + 最终回答各算一步） */
+        private int maxSteps = 6;
+
+        /** 单次会话最大工具调用次数 */
+        private int maxToolCalls = 4;
+
+        /** prompt 字符预算（≈8k tokens；超出时从最老的工具结果开始截断） */
+        private int maxPromptChars = 8000;
+
+        /** 全局并发上限（进程内信号量，单实例部署前提） */
+        private int maxConcurrent = 8;
+
+        /** SSE 总超时（毫秒） */
+        private long streamTimeoutMillis = 120_000L;
+    }
+
+    @Data
+    public static class Jobs {
+
+        /** 队列总开关；false 时任务接口返回 503，其余功能不受影响 */
+        private boolean enabled = false;
+
+        /** 业务任务流 */
+        private String stream = "exam:jobs";
+
+        /** 评估任务流（与业务流隔离，避免长任务挤占） */
+        private String evalStream = "exam:eval";
+
+        /** Wiki 蒸馏流（LLM 长任务，独立 worker，避免挤占业务与评估） */
+        private String wikiStream = "exam:wiki";
+
+        /** 消费者组名（Python 侧使用） */
+        private String group = "expert-workers";
+    }
+
     @Data
     public static class Storage {
 
@@ -124,12 +174,52 @@ public class AiProperties {
 
         private String zhipuModel = "glm-4-flash";
 
+        // ---------- 本地模型（Ollama）----------
+        /**
+         * Ollama 的 OpenAI 兼容端点前缀（注意带 {@code /v1}，不含 {@code /chat/completions}）
+         *
+         * <p>Ollama 默认监听 11434；OpenAI 兼容层挂在 {@code /v1} 下。
+         */
+        private String ollamaBaseUrl = "http://127.0.0.1:11434/v1";
+
+        /** Ollama 模型名（用 {@code ollama create} 定义的名字） */
+        private String ollamaModel = "qwen2.5-7b";
+
+        /**
+         * ★ Ollama 专用读超时（毫秒）
+         *
+         * <p><b>这是本机模型能否可用的关键参数。</b>
+         * 本地 7B 模型生成 300 token 需要 <b>15–25 秒</b>，
+         * 而云端 API 的 {@link #timeoutMillis}（默认 8000ms）会把每个回答都拦腰掐断。
+         *
+         * <p>因此超时<b>按 client 单独配置</b>：云端用 8s，Ollama 用 90s。
+         * <b>绝不要为了跑本地模型把全局超时改成 90s</b>——那会让云端调用失败时
+         * 白等 90 秒才降级，用户体感是「卡死」。
+         */
+        private int ollamaTimeoutMillis = 90_000;
+
+        /**
+         * ★ Ollama 模型驻留时长（{@code keep_alive}）
+         *
+         * <p>Ollama 默认 5 分钟不活跃就卸载模型，卸载后下次提问要等约 55 秒重新加载
+         * （实测冷启动 59.9s，其中加载 55.3s）。演示场景会被这个问题坑，
+         * 因此默认驻留 30 分钟，覆盖整场演示。
+         *
+         * <p>格式遵循 Ollama 约定：{@code "30m"} / {@code "1h"} / {@code "-1"}（永久）。
+         */
+        private String ollamaKeepAlive = "30m";
+
         public boolean hasKey() {
             return apiKey != null && !apiKey.isBlank();
         }
 
         public String keyOrEmpty() {
             return hasKey() ? apiKey.trim() : "";
+        }
+
+        /** 当前是否指向本地模型 */
+        public boolean isOllama() {
+            return "ollama".equalsIgnoreCase(provider == null ? "" : provider.trim());
         }
     }
 

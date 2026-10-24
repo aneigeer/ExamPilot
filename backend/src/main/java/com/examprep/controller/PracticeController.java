@@ -6,10 +6,13 @@ import com.examprep.dto.AnswerResultVO;
 import com.examprep.dto.AnswerSubmitRequest;
 import com.examprep.dto.PracticeQuestionVO;
 import com.examprep.dto.PracticeReportVO;
+import com.examprep.dto.ReviewItemVO;
+import com.examprep.dto.ReviewResultVO;
 import com.examprep.dto.SelfEvalRequest;
 import com.examprep.dto.StartPracticeRequest;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.PracticeService;
+import com.examprep.service.WrongBookReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,6 +37,7 @@ import java.util.List;
 public class PracticeController {
 
     private final PracticeService practiceService;
+    private final WrongBookReviewService wrongBookReviewService;
 
     @Operation(summary = "开始练习",
             description = "**访问级别：AUTH**。创建一次练习并返回第一题。练习中返回的题目**不含答案**。")
@@ -123,5 +128,31 @@ public class PracticeController {
         Long userId = SecurityUtils.requireUserId();
         practiceService.removeFromWrongBook(userId, questionId);
         return Result.success("已移出错题本", null);
+    }
+
+    // ==================================================================
+    // 错题「间隔重复」复习（SRS）
+    // ==================================================================
+
+    @Operation(summary = "待复习错题（SRS）",
+            description = "**访问级别：AUTH**。返回已到期（`next_review_at <= 现在`）且未掌握的错题，"
+                    + "按到期时间升序；间隔按 1/2/4/7/15/30/60 天递进，答错回到第 1 阶段。")
+    @GetMapping("/wrong-book/review")
+    public Result<List<ReviewItemVO>> reviewList(
+            @Parameter(description = "最多返回条数，默认 20，上限 100")
+            @RequestParam(defaultValue = "20") int limit) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(wrongBookReviewService.due(userId, limit));
+    }
+
+    @Operation(summary = "提交一次错题复习（SRS）",
+            description = "**访问级别：AUTH**。答对推进阶段并拉长间隔；答错重置到第 1 阶段；"
+                    + "走完全部阶段标记为已掌握。")
+    @PostMapping("/wrong-book/review/{questionId}")
+    public Result<ReviewResultVO> submitReview(
+            @Parameter(description = "题目 ID") @PathVariable Long questionId,
+            @Parameter(description = "本次是否答对") @RequestParam boolean correct) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(wrongBookReviewService.submit(userId, questionId, correct));
     }
 }

@@ -7,23 +7,37 @@
     <color name="bg">#F5F6F8</color>
     <color name="card">#FFFFFF</color>
     <color name="text_main">#1B1F27</color>
-    <color name="text_sub">#7A8190</color>
+    <!-- 次要文字：原 #7A8190 在浅色背景上对比度实测 3.62:1，低于 WCAG AA 的 4.5:1；
+         改为 #5C6472 后实测 #F5F6F8 上 5.52:1、#FFFFFF 上 5.96:1，满足 AA -->
+    <color name="text_sub">#5C6472</color>
     <color name="divider">#E8EAEF</color>
     <color name="correct">#2E7D32</color>
     <color name="wrong">#C62828</color>
     <color name="chip_bg">#EEF2FF</color>
 
-    <!-- 首页（Material 3 清新学术蓝） -->
+    <!-- 首页（Material 3 清新学术蓝）
+         渐变底色用于「整块卡片 + 白字」与「小图标块」，因此必须保证白字对比度 >= 4.5:1。
+         初版 #4F7CFF→#6C5CE7 上纯白仅 3.71:1、on_grad_soft(80% 白) 仅 2.95:1，
+         不满足 WCAG AA 4.5:1；以下为按同色相加深后的实测值（白字 / on_grad_soft）：
+         蓝   #2F55E0→#5B3FD6   6.01~6.72 / 5.06~5.66
+         绿   #1A7458→#0B7375   5.70~5.64 / 4.80~4.75
+         橙   #B04A0C→#C0392B   5.48~5.44 / 4.62~4.58
+         紫   #6A4CE0→#8B3FD9   5.64~5.51 / 4.75~4.64 -->
     <color name="home_bg">#F5F7FA</color>
-    <color name="grad_blue_start">#4F7CFF</color>
-    <color name="grad_blue_end">#6C5CE7</color>
-    <color name="grad_green_start">#2BC48A</color>
-    <color name="grad_green_end">#0FB5BA</color>
-    <color name="grad_orange_start">#FFA94D</color>
-    <color name="grad_orange_end">#FF6B6B</color>
-    <color name="grad_purple_start">#8E7CFF</color>
-    <color name="grad_purple_end">#B06AF9</color>
+    <color name="grad_blue_start">#2F55E0</color>
+    <color name="grad_blue_end">#5B3FD6</color>
+    <color name="grad_green_start">#1A7458</color>
+    <color name="grad_green_end">#0B7375</color>
+    <color name="grad_orange_start">#B04A0C</color>
+    <color name="grad_orange_end">#C0392B</color>
+    <color name="grad_purple_start">#6A4CE0</color>
+    <color name="grad_purple_end">#8B3FD9</color>
     <color name="banner_bg">#EEF4FF</color>
-    <color name="on_grad">#F2FFFFFF</color>
-    <color name="on_grad_soft">#CCFFFFFF</color>
+    <!-- 渐变底上的文字：纯白（on_grad）与不透明浅蓝白（on_grad_soft）。
+         不用半透明白：80% 白叠加后对比度只有 3.4~3.7:1，13sp/11sp 小字过不了 AA -->
+    <color name="on_grad">#FFFFFF</color>
+    <color name="on_grad_soft">#E6EBFF</color>
+    <!-- 首页「TODAY 学习安排」卡片底色：#2962FF 上 11sp 的 #DCE5FF 仅 3.90:1，
+         加深到 #1E4FD8 后 #DCE5FF 5.27:1、#E4EAFF 5.53:1、白字 6.63:1 -->
+    <color name="primary_deep">#1E4FD8</color>
 </resources>

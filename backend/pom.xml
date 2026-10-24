@@ -40,10 +40,26 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- ========== 健康检查 / 监控（生产探活） ==========
+             只暴露 health 与 info（见 application.yml 的 management 配置），
+             供负载均衡/容器编排探活；不引入完整监控栈，避免增加运维组件。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- ========== 安全（Spring Security 6） ========== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- ========== Redis（异步任务队列：Java 生产 → Python 消费） ==========
+             只用于 Redis Stream 的任务投递与查询；未启用时队列接口返回 503，
+             其余业务不受影响（application.yml 已关闭 Redis 健康检查）。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
         <!-- ========== MyBatis-Plus ========== -->

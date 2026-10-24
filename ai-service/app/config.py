@@ -200,6 +200,70 @@ class OcrSettings:
 
 
 @dataclass(frozen=True)
+class AgentSettings:
+    """Agent Harness 配置。
+
+    Java 是 SSE 入口与工具数据提供方；本服务负责规划/工具循环。
+    """
+
+    #: 是否启用 Agent 路由（默认启用，Java 侧另有总开关）
+    enabled: bool = True
+    #: Java 后端地址（含 context-path /api）
+    java_base_url: str = "http://127.0.0.1:8080/api"
+    #: 内部接口令牌（与 Java app.ai.internal-token 一致）
+    internal_token: str = ""
+    #: 单次会话最大步数
+    max_steps: int = 6
+    #: 单次会话最大工具调用次数
+    max_tool_calls: int = 4
+    #: prompt 字符预算（≈8k tokens）
+    max_prompt_chars: int = 8000
+    #: 单次工具调用超时（秒）
+    tool_timeout_seconds: float = 10.0
+    #: 规划/生成 LLM 超时（秒）
+    llm_timeout_seconds: float = 30.0
+
+
+@dataclass(frozen=True)
+class WikiSettings:
+    """LLM Wiki 热层配置。"""
+
+    #: Wiki 热层是否启用（Python 侧只影响向量集合名与蒸馏兜底）
+    enabled: bool = True
+    #: Wiki 页面摘要向量集合（与 RAG 的 exam_chunks 分开）
+    collection: str = "wiki_pages"
+    #: 单次蒸馏最多处理多少页（防止本地模型跑一整夜）
+    distill_max_pages: int = 20
+    #: 蒸馏输出最长字符数（超出截断，避免把 7B 的胡说八道整段入库）
+    distill_max_chars: int = 4000
+
+
+@dataclass(frozen=True)
+class JobsSettings:
+    """Redis Stream 异步任务消费者配置。"""
+
+    #: 业务任务消费者开关
+    worker_enabled: bool = False
+    #: 评估任务消费者开关（与业务流隔离）
+    eval_worker_enabled: bool = False
+    #: Wiki 蒸馏消费者开关（LLM 长任务，独立 stream + 独立连接池）
+    wiki_worker_enabled: bool = False
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    stream: str = "exam:jobs"
+    eval_stream: str = "exam:eval"
+    wiki_stream: str = "exam:wiki"
+    group: str = "expert-workers"
+    #: 消费者名（hostname-pid，避免多进程同名）
+    consumer: str = ""
+    #: XREADGROUP 阻塞毫秒
+    block_ms: int = 5000
+    #: 判定 pending 超时的空闲毫秒
+    claim_idle_ms: int = 60000
+    #: claim/trim 管理协程周期（毫秒）
+    trim_interval_ms: int = 60000
+
+
+@dataclass(frozen=True)
 class Settings:
     """聚合全部配置的服务级单例数据。"""
 
@@ -217,6 +281,9 @@ class Settings:
     qdrant: QdrantSettings = field(default_factory=QdrantSettings)
     llm: LlmSettings = field(default_factory=LlmSettings)
     ocr: OcrSettings = field(default_factory=OcrSettings)
+    agent: AgentSettings = field(default_factory=AgentSettings)
+    jobs: JobsSettings = field(default_factory=JobsSettings)
+    wiki: WikiSettings = field(default_factory=WikiSettings)
 
     @classmethod
     def from_env(cls, env_file: Optional[Path] = None) -> "Settings":
@@ -272,6 +339,38 @@ class Settings:
                 stem_confidence_threshold=_get_float(env, "OCR_STEM_CONFIDENCE_THRESHOLD", 0.75),
                 field_confidence_threshold=_get_float(env, "OCR_FIELD_CONFIDENCE_THRESHOLD", 0.90),
             ),
+            agent=AgentSettings(
+                enabled=_get_bool(env, "AGENT_ENABLED", True),
+                java_base_url=_get(
+                    env, "JAVA_BASE_URL", "http://127.0.0.1:8080/api"
+                ).rstrip("/"),
+                internal_token=_get(env, "AI_INTERNAL_TOKEN", ""),
+                max_steps=_get_int(env, "AGENT_MAX_STEPS", 6),
+                max_tool_calls=_get_int(env, "AGENT_MAX_TOOL_CALLS", 4),
+                max_prompt_chars=_get_int(env, "AGENT_MAX_PROMPT_CHARS", 8000),
+                tool_timeout_seconds=_get_float(env, "AGENT_TOOL_TIMEOUT_SECONDS", 10.0),
+                llm_timeout_seconds=_get_float(env, "AGENT_LLM_TIMEOUT_SECONDS", 30.0),
+            ),
+            jobs=JobsSettings(
+                worker_enabled=_get_bool(env, "JOB_WORKER_ENABLED", False),
+                eval_worker_enabled=_get_bool(env, "EVAL_WORKER_ENABLED", False),
+                wiki_worker_enabled=_get_bool(env, "WIKI_WORKER_ENABLED", False),
+                redis_url=_get(env, "REDIS_URL", "redis://127.0.0.1:6379/0"),
+                stream=_get(env, "JOB_STREAM", "exam:jobs"),
+                eval_stream=_get(env, "EVAL_STREAM", "exam:eval"),
+                wiki_stream=_get(env, "WIKI_STREAM", "exam:wiki"),
+                group=_get(env, "JOB_GROUP", "expert-workers"),
+                consumer=_get(env, "JOB_CONSUMER", ""),
+                block_ms=_get_int(env, "JOB_BLOCK_MS", 5000),
+                claim_idle_ms=_get_int(env, "JOB_CLAIM_IDLE_MS", 60000),
+                trim_interval_ms=_get_int(env, "JOB_TRIM_INTERVAL_MS", 60000),
+            ),
+            wiki=WikiSettings(
+                enabled=_get_bool(env, "WIKI_ENABLED", True),
+                collection=_get(env, "WIKI_COLLECTION", "wiki_pages"),
+                distill_max_pages=_get_int(env, "WIKI_DISTILL_MAX_PAGES", 20),
+                distill_max_chars=_get_int(env, "WIKI_DISTILL_MAX_CHARS", 4000),
+            ),
         )
 
     @property
@@ -304,6 +403,29 @@ class Settings:
                 "enabled": self.ocr.enabled,
                 "lang": self.ocr.lang,
                 "model_dir": str(self.ocr.model_dir),
+            },
+            "agent": {
+                "enabled": self.agent.enabled,
+                "java_base_url": self.agent.java_base_url,
+                "internal_token_set": bool(self.agent.internal_token),
+                "max_steps": self.agent.max_steps,
+                "max_tool_calls": self.agent.max_tool_calls,
+                "max_prompt_chars": self.agent.max_prompt_chars,
+            },
+            "jobs": {
+                "worker_enabled": self.jobs.worker_enabled,
+                "eval_worker_enabled": self.jobs.eval_worker_enabled,
+                "wiki_worker_enabled": self.jobs.wiki_worker_enabled,
+                "redis_url": self.jobs.redis_url,
+                "stream": self.jobs.stream,
+                "eval_stream": self.jobs.eval_stream,
+                "wiki_stream": self.jobs.wiki_stream,
+                "group": self.jobs.group,
+            },
+            "wiki": {
+                "enabled": self.wiki.enabled,
+                "collection": self.wiki.collection,
+                "distill_max_pages": self.wiki.distill_max_pages,
             },
         }
 

@@ -125,7 +125,7 @@ public class RetrievalService {
         // 计算覆盖率，低于阈值直接剔除——这是 ngram OR 模式必要的精度补偿。
         List<String> expansionTerms = booleanQueryBuilder.expansionTerms(question);
         double minCoverage = properties.getRetrieval().getMinTermCoverage();
-        if (!expansionTerms.isEmpty() && maxFt > 0) {
+        if (config.coverageGate() && !expansionTerms.isEmpty() && maxFt > 0) {
             int before = rows.size();
             rows = rows.stream()
                     .filter(r -> coverage(r, expansionTerms) >= minCoverage)
@@ -375,10 +375,16 @@ public class RetrievalService {
      * @param topK           最终返回条数
      * @param rejectThreshold 拒答阈值
      */
-    public record RetrievalConfig(int recallLimit, int topK, double rejectThreshold) {
+    public record RetrievalConfig(int recallLimit, int topK, double rejectThreshold,
+                                  boolean coverageGate) {
+
+        /** 生产默认：开启 ngram 覆盖率闸门 */
+        public RetrievalConfig(int recallLimit, int topK, double rejectThreshold) {
+            this(recallLimit, topK, rejectThreshold, true);
+        }
 
         public static RetrievalConfig defaults() {
-            return new RetrievalConfig(50, 5, 0.15);
+            return new RetrievalConfig(50, 5, 0.15, true);
         }
     }
 
