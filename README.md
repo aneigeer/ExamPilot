@@ -68,7 +68,7 @@
 ├── admin-web/          管理端 Web 源码（Vue3 + Element Plus 单页应用）
 ├── student-app/        学生端 App（Android 原生：Java + XML，Gradle 工程）
 ├── ai-service/         AI 微服务（FastAPI：向量检索 / 本地 7B 代理 / OCR / Router+Skill）
-├── release/            可分发产物：学生端 APK（v1.4 / v1.5）
+├── release/            可分发产物：学生端 APK（v1.4 / v1.5，**构建产物不入库**，本地生成）
 ├── scripts/            运维脚本：上架前自检、备份恢复演练
 ├── sql/                数据库脚本（schema / data / 22 个脚本，均可重复执行）
 ├── docs/               20 份工程文档 + 6 个架构图 + 性能测试脚本
@@ -247,7 +247,8 @@ mysql -u root -p < sql/migration-wiki.sql                 # LLM Wiki：主题页
 
 ### 4. 学生端
 
-- 真机：安装 `release/备考知识库学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
+- 真机：安装 （包内  已指向打包时的局域网 IP）
+  > APK 属构建产物， 已忽略（ / ），不入库；需从源码  重新打包
 - 模拟器：把 `student-app/app/build.gradle` 的 `BASE_URL` 改回 `http://10.0.2.2:8080/api/` 后 `gradle assembleDebug`
 - 换网络后需重打包（IP 变化），构建命令：`cd student-app && gradle assembleDebug`
 
