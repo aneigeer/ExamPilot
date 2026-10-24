@@ -53,7 +53,7 @@ foreach ($exe in @($mysql, $mysqldump)) {
 
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $restoreDb = "exam_prep_restore_$stamp"
-$dumpDir = Join-Path $PSScriptRoot 'backup'
+$dumpDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'backup'
 if (-not (Test-Path $dumpDir)) { New-Item -ItemType Directory -Path $dumpDir | Out-Null }
 $dumpFile = Join-Path $dumpDir "${Database}_$stamp.sql"
 

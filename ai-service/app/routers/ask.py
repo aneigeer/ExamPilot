@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from ..clients.embedding_client import get_embedding_client
 from ..clients.llm_client import LlmUnavailableError, get_llm_client
 from ..clients.qdrant_client import get_qdrant_client
+from ..config import get_settings
 from ..router.router import get_router
 from ..router.schemas import FACT_SKILLS, RouterDecision, SkillName
 from ..skills.base import Skill
@@ -88,6 +89,10 @@ class AskResponse(BaseModel):
     router: Dict[str, Any] = Field(default_factory=dict)
     degraded: bool = False
     degrade_reason: str = ""
+    #: 是否命中 Wiki 热层（True 表示答案来自预编译页，未调大模型）
+    hot: bool = False
+    hot_score: float = 0.0
+    wiki_page_id: Optional[int] = None
     latency_ms: int = 0
 
 
@@ -100,6 +105,60 @@ def _qdrant_filter(source_types: Sequence[str], subject_id: Optional[int]) -> Di
     if subject_id is not None:
         must.append({"key": "subject_id", "match": {"value": subject_id}})
     return {"must": must}
+
+
+def _wiki_hot(question: str, subject_id: Optional[int]) -> Optional[Dict[str, Any]]:
+    """Wiki 热层检索：命中预编译页则直接返回，未命中返回 None（降级 RAG）。
+
+    三道保险，任何一道不满足都安静降级，**绝不让热层故障拖垮问答**：
+    ① 配置关闭 / 集合为空 → None
+    ② 向量或 Qdrant 异常 → None（热层是可选项，不是依赖）
+    ③ 最高分低于阈值 → None（宁可不命中，也不拿弱相关页糊弄）
+    """
+    try:
+        settings = get_settings().wiki
+        if not settings.enabled or not settings.hot_enabled:
+            return None
+        vector = get_embedding_client().encode_query(question)
+        filters = ({"must": [{"key": "subject_id", "match": {"value": int(subject_id)}}]}
+                   if subject_id is not None else None)
+        hits = get_qdrant_client().search_wiki(
+            settings.collection, vector, top_k=1, query_filter=filters)
+        if not hits:
+            return None
+        top = hits[0]
+        if float(top.get("score") or 0.0) < settings.hot_threshold:
+            return None
+        page_id = int(top.get("page_id") or 0)
+        if page_id <= 0:
+            return None
+        page = _fetch_wiki_page(page_id)
+        if not page:
+            return None
+        page["score"] = round(float(top.get("score") or 0.0), 4)
+        return page
+    except Exception as exc:  # noqa: BLE001 - 热层任何异常都只是降级
+        logger.info("[Ask] Wiki 热层跳过：%s", str(exc)[:80])
+        return None
+
+
+def _fetch_wiki_page(page_id: int) -> Optional[Dict[str, Any]]:
+    """按 id 取已发布的 wiki 页（只认 PUBLISHED，草稿不对外）。"""
+    import pymysql
+
+    conn = pymysql.connect(**_DB)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, slug, title, summary, content FROM wiki_page "
+                "WHERE id=%s AND status='PUBLISHED'", (page_id,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {"id": row[0], "slug": row[1], "title": row[2],
+                    "summary": row[3], "content": row[4]}
+    finally:
+        conn.close()
 
 
 def _retrieve(question: str, skill: Skill, top_k: int,
@@ -173,6 +232,28 @@ def ask(request: AskRequest) -> AskResponse:
     base = dict(question=question, router=decision.to_dict(),
                 requested_skill=decision.skill.value)
 
+    # ② Wiki 热层优先：**在拒答之前**检查预编译页
+    #    为什么放在这里：Router 的原型句覆盖的是课程/课件领域，像「言语理解与表达」
+    #    这类行测模块题会被判成域外而直接拒答；而 Wiki 里恰好有这一页。
+    #    热层是"已编译好的答案"，先看它、再谈能不能答，才符合"热层优先"的语义。
+    settings = get_settings()
+    if settings.wiki.enabled and settings.wiki.hot_enabled:
+        hot = _wiki_hot(question, request.subject_id)
+        if hot:
+            body = (hot["content"] or hot["summary"] or "").strip()[: settings.wiki.hot_max_chars]
+            return AskResponse(
+                question=question,
+                answer=f"{hot['title']}\n\n{body}",
+                skill="WIKI_HOT",
+                requested_skill=decision.skill.value,
+                hot=True, hot_score=hot["score"], wiki_page_id=hot["id"],
+                sources=[AskSource(index=1, chunk_id=0, title=hot["title"],
+                                   source_type="WIKI", source_id=hot["id"],
+                                   score=hot["score"], ref_path=f"/wiki/{hot['slug']}")],
+                router={**decision.to_dict(), "hot": "HIT"},
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            )
+
     # ② 终结型判定：不检索、不调模型
     if decision.skill is SkillName.REFUSE:
         return AskResponse(**base, answer="未找到相关资料", refused=True,
@@ -195,7 +276,7 @@ def ask(request: AskRequest) -> AskResponse:
                            skill=skill.name.value, fallback=fallback,
                            latency_ms=int((time.perf_counter() - started) * 1000))
 
-    # ④ 检索
+    # ⑤ 检索（热层未命中 → RAG 冷层）
     hits = _retrieve(question, skill, request.top_k, request.subject_id)
     if not hits and skill.name in FACT_SKILLS:
         return AskResponse(**base, answer="未找到相关资料", refused=True,
@@ -203,7 +284,7 @@ def ask(request: AskRequest) -> AskResponse:
                            router={**decision.to_dict(), "reason": "RETRIEVAL_EMPTY"},
                            latency_ms=int((time.perf_counter() - started) * 1000))
 
-    # ⑤ 组装上下文（编号与 sources 严格一一对应）
+    # ⑥ 组装上下文（编号与 sources 严格一一对应）
     # 注意：检索封装返回的是 {"chunk_id", "score", "payload": {...}}，业务字段在 payload 里
     chunk_ids = [int(h.get("chunk_id") or 0) for h in hits]
     contents = _fetch_contents([cid for cid in chunk_ids if cid])
@@ -231,7 +312,7 @@ def ask(request: AskRequest) -> AskResponse:
                            router={**decision.to_dict(), "reason": "HYDRATE_EMPTY"},
                            latency_ms=int((time.perf_counter() - started) * 1000))
 
-    # ⑥ 生成（7B 只负责写，不做决策）
+    # ⑦ 生成（7B 只负责写，不做决策）
     prompt = question if not skill.answer_hint else f"{question}\n（输出要求：{skill.answer_hint}）"
     try:
         result = get_llm_client().chat(prompt, contexts, max_tokens=500)

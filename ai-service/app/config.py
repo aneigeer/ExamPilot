@@ -236,6 +236,12 @@ class WikiSettings:
     distill_max_pages: int = 20
     #: 蒸馏输出最长字符数（超出截断，避免把 7B 的胡说八道整段入库）
     distill_max_chars: int = 4000
+    #: 问答时是否先查 Wiki 热层（命中则直接返回预编译页，不调大模型）
+    hot_enabled: bool = True
+    #: 热层命中阈值：低于此分数视为未命中，降级到 RAG 冷层
+    hot_threshold: float = 0.62
+    #: 热层返回正文的最大字符数（预编译页可能很长，控制响应体积）
+    hot_max_chars: int = 1200
 
 
 @dataclass(frozen=True)
@@ -370,6 +376,9 @@ class Settings:
                 collection=_get(env, "WIKI_COLLECTION", "wiki_pages"),
                 distill_max_pages=_get_int(env, "WIKI_DISTILL_MAX_PAGES", 20),
                 distill_max_chars=_get_int(env, "WIKI_DISTILL_MAX_CHARS", 4000),
+                hot_enabled=_get_bool(env, "WIKI_HOT_ENABLED", True),
+                hot_threshold=_get_float(env, "WIKI_HOT_THRESHOLD", 0.62),
+                hot_max_chars=_get_int(env, "WIKI_HOT_MAX_CHARS", 1200),
             ),
         )
 

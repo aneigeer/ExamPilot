@@ -7,7 +7,7 @@
 #         FAIL 项不解决不应提交应用商店；WARN 项需按提示人工确认。
 # ============================================================
 $ErrorActionPreference = 'SilentlyContinue'
-$root = $PSScriptRoot
+$root = Split-Path $PSScriptRoot -Parent   # 脚本已移入 scripts/，项目根在上一级
 $fail = 0
 $warn = 0
 

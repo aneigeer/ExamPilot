@@ -14,7 +14,7 @@
 |---|---|---|
 | 后端 | ✅ 完成 | Spring Boot 3.5.3 + JDK 21，**195 个接口 / 32 个 Controller**，单测 **124/124** 通过（2026-10-23 实测） |
 | 数据库 | ✅ 完成 | MySQL 8，**52 张表**，schema + data + 增量迁移均可重复执行 |
-| Android 学生端 | ✅ 完成 | Java + XML 原生，**32 个页面**（28 个 Activity 页面 + 4 个 Fragment），`备考知识库学生端-v1.5-真机版.apk` 可直接安装 |
+| Android 学生端 | ✅ 完成 | Java + XML 原生，**32 个页面**（28 个 Activity 页面 + 4 个 Fragment），`release/备考知识库学生端-v1.5-真机版.apk` 可直接安装 |
 | Web 管理端 | ✅ 完成 | Vue3 + Element Plus 单页（CDN 本地化），由后端同源托管，零构建零跨域 |
 | **AI 导学** | ✅ 完成 | **本地大模型**：Qwen2.5-7B（q3_k_m）经 Ollama 部署，**GPU 推理 52 tok/s**、显存 4.0 GB、热态首字 0.03–0.2 s、`keep_alive` 防卸载；**不依赖云端 API 与网络**；<br>**Router/Skill 架构**：bge 句向量意图分类（**平均 4–20 ms**，不是让大模型判断意图），8 个技能 + 三闸门（相似度 / 间隔 / 检索验证），事实类问题**检索无命中即拒答**；<br>**检索隔离**：课程题（QUESTION/KNOWLEDGE）与课件（COURSEWARE）按 `source_type` 硬分流，互不挤占 top-K；<br>**降级**：本地模型不可用时 **0.095 s** 落到抽取式，接口不中断 |
 | **Agent 工程** | ✅ 完成 | Agent Harness（Python）+ SSE 轨迹可视化（Java→Vue）+ Redis Stream 异步队列 + 双层离线评估；<br>检索侧 Golden Set **Recall@5 93.1% / MRR 0.703**，Agent 侧 **通过率 98.3% / 工具成功率 100%** |
@@ -67,13 +67,13 @@
 ├── backend/            后端服务（Java 21 + Spring Boot 3.5.3，195 个接口，内嵌管理端页面）
 ├── admin-web/          管理端 Web 源码（Vue3 + Element Plus 单页应用）
 ├── student-app/        学生端 App（Android 原生：Java + XML，Gradle 工程）
-├── sql/                数据库脚本（schema / data / 19 个脚本，均可重复执行）
-├── docs/               19 份工程文档 + 6 个架构图 + 性能测试脚本
-├── docker-compose.yml / nginx.conf / backup.bat     部署与运维
-├── 启动后端.bat / 放行8080端口(需管理员).bat          Windows 一键脚本
-├── 上架前检查.ps1                                     上架前自检（只读，输出 FAIL/WARN 结论）
-├── 恢复演练.ps1                                       备份恢复演练（备份→恢复临时库→43 表比对→销毁）
-├── 备考知识库学生端-v1.5-真机版.apk                   学生端安装包（Android 8+ 直接安装）
+├── ai-service/         AI 微服务（FastAPI：向量检索 / 本地 7B 代理 / OCR / Router+Skill）
+├── release/            可分发产物：学生端 APK（v1.4 / v1.5）
+├── scripts/            运维脚本：上架前自检、备份恢复演练
+├── sql/                数据库脚本（schema / data / 22 个脚本，均可重复执行）
+├── docs/               20 份工程文档 + 6 个架构图 + 性能测试脚本
+├── docker-compose.yml / docker-compose.ai.yml / docker-compose.redis.yml / nginx.conf   部署配置
+├── 启动后端.bat / 放行8080端口(需管理员).bat / backup.bat / 同步管理端页面.bat   日常一键脚本
 └── README.md
 ```
 
@@ -247,7 +247,7 @@ mysql -u root -p < sql/migration-wiki.sql                 # LLM Wiki：主题页
 
 ### 4. 学生端
 
-- 真机：安装 `备考知识库学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
+- 真机：安装 `release/备考知识库学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
 - 模拟器：把 `student-app/app/build.gradle` 的 `BASE_URL` 改回 `http://10.0.2.2:8080/api/` 后 `gradle assembleDebug`
 - 换网络后需重打包（IP 变化），构建命令：`cd student-app && gradle assembleDebug`
 
@@ -371,7 +371,7 @@ java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar \
 
 ### 7. 生产化 / 上架前准备（清单）
 
-> **一键自检**：`powershell -ExecutionPolicy Bypass -File .\上架前检查.ps1`
+> **一键自检**：`powershell -ExecutionPolicy Bypass -File .\scripts\上架前检查.ps1`
 > 自动核对下表里可机器判定的项（后端产物 / JWT 密钥 / 发布签名 / release 明文收口 /
 > HTTPS / 容器编排 / 安装包），输出 FAIL/WARN 汇总并以退出码反映结论；只读、不改动任何文件。
 
