@@ -247,8 +247,8 @@ mysql -u root -p < sql/migration-wiki.sql                 # LLM Wiki：主题页
 
 ### 4. 学生端
 
-- 真机：安装 （包内  已指向打包时的局域网 IP）
-  > APK 属构建产物， 已忽略（ / ），不入库；需从源码  重新打包
+- 真机：安装 `release/备考知识库学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
+  > APK 属构建产物，`.gitignore` 已忽略（`*.apk` / `release/`），不入库；需从源码 `student-app/` 重新打包
 - 模拟器：把 `student-app/app/build.gradle` 的 `BASE_URL` 改回 `http://10.0.2.2:8080/api/` 后 `gradle assembleDebug`
 - 换网络后需重打包（IP 变化），构建命令：`cd student-app && gradle assembleDebug`
 
