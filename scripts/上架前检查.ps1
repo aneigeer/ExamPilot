@@ -78,8 +78,10 @@ if (Test-Path $dc) {
     if (Select-String -Path $dc -Pattern 'JWT_SECRET:\s*"\$\{JWT_SECRET:\?' -Quiet) {
         Ok 'docker-compose 强制注入 JWT_SECRET（缺失即拒绝启动）'
     } else { Warn 'docker-compose 未强制 JWT_SECRET，请确认生产启动参数' }
-    if (Select-String -Path $dc -Pattern 'MYSQL_ROOT_PASSWORD:\s*"\$\{MYSQL_ROOT_PASSWORD:-123456\}"' -Quiet) {
-        Warn 'docker-compose MySQL 口令默认值仍为 123456（仅本地演示），生产务必用环境变量覆盖'
+    if (Select-String -Path $dc -Pattern 'MYSQL_ROOT_PASSWORD:\s*"\$\{MYSQL_ROOT_PASSWORD:-.+\}"' -Quiet) {
+        Warn 'docker-compose 仍给 MYSQL_ROOT_PASSWORD 设了默认值，生产应改为强制注入'
+    } else {
+        Ok 'docker-compose 未保存 MySQL 口令默认值（强制环境变量注入）'
     }
 } else { Warn '未找到 docker-compose.yml（如不使用容器部署可忽略）' }
 

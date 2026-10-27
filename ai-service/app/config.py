@@ -275,7 +275,9 @@ class Settings:
 
     app_name: str = "examprep-ai-service"
     version: str = "1.0.0"
-    host: str = "0.0.0.0"
+    # 默认只监听回环：本服务只被同机 Java 调用，学生端不应直连 AI 接口。
+    # 确需跨机调试时用环境变量 HOST=0.0.0.0 显式开启（并配好防火墙，别裸奔到局域网）。
+    host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "INFO"
     #: 允许的跨域来源，``*`` 表示全部（仅本机使用用）
@@ -299,7 +301,7 @@ class Settings:
         return cls(
             app_name=_get(env, "APP_NAME", "examprep-ai-service"),
             version=_get(env, "APP_VERSION", "1.0.0"),
-            host=_get(env, "HOST", "0.0.0.0"),
+            host=_get(env, "HOST", "127.0.0.1"),
             port=_get_int(env, "PORT", 8000),
             log_level=_get(env, "LOG_LEVEL", "INFO").upper(),
             cors_origins=_get(env, "CORS_ORIGINS", "*"),

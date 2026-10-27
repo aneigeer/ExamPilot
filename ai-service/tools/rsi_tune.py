@@ -229,8 +229,7 @@ def _record_run(base, after, learned) -> None:
     """把这一轮改进写进数据库，便于论文/答辩取证（表不存在则跳过）。"""
     try:
         import pymysql
-        conn = pymysql.connect(host="127.0.0.1", port=3306, user="root", password="123456",
-                               database="exam_prep", charset="utf8mb4")
+        conn = pymysql.connect(**db_config())
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO rsi_run (stage, metric_before, metric_after, learned_count, detail, created_at) "

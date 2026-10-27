@@ -59,4 +59,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8000/v1/health || exit 1
 
+# 容器内必须绑 0.0.0.0 才能被端口映射访问；宿主机上请用 HOST=127.0.0.1 运行
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -28,11 +28,18 @@ import time
 import urllib.error
 import urllib.request
 from typing import Any
+from pathlib import Path
 
 import pymysql
 
-DB = dict(host="127.0.0.1", port=3306, user="root", password="123456",
-          database="exam_prep", charset="utf8mb4")
+# 以脚本方式运行时，把 ai-service 加入 sys.path，才能 import app.db
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.db import db_config  # noqa: E402
+
+DB: dict = {}  # 由 db_config() 在连接时填充（口令来自环境变量/.env，不入库）
 API = "http://127.0.0.1:8000"
 BATCH = 500
 
@@ -53,7 +60,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="只统计不写入")
     args = ap.parse_args()
 
-    conn = pymysql.connect(**DB)
+    conn = pymysql.connect(**db_config())
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM ai_chunk "
@@ -65,7 +72,7 @@ def main() -> int:
 
     print(f"待向量化块数：{pending}")
     if args.dry_run or pending == 0:
-        conn.close()
+        # 连接已由上面的 finally 关闭，这里不要再 close（重复关闭会抛 "Already closed"）
         return 0
 
     total = args.limit if args.limit else pending
@@ -74,7 +81,7 @@ def main() -> int:
 
     while done < total:
         size = min(BATCH, total - done)
-        conn = pymysql.connect(**DB)
+        conn = pymysql.connect(**db_config())
         try:
             with conn.cursor() as cur:
                 cur.execute(

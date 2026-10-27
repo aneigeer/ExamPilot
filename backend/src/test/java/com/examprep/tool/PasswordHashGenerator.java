@@ -17,7 +17,7 @@ class PasswordHashGenerator {
     void generateHashes() {
         BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
-        String[] plains = {"admin123", "audit123", "123456"};
+        String[] plains = {"admin123", "audit123", "<演示口令>"};
 
         System.out.println("===================== 开始生成 =====================");
         for (String plain : plains) {

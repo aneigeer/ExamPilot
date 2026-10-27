@@ -5,7 +5,8 @@ rem 用法：backup.bat   （需 mysqldump 在 PATH，或修改 MYSQLDUMP 为绝
 set MYSQLDUMP="D:\bigplan\tools\mysql-8.0.46\bin\mysqldump.exe"
 set DB=exam_prep
 set USER=root
-set PWD=123456
+rem 口令不再硬编码：优先读环境变量 DB_PASSWORD，未设置则提示输入（不回显）
+if "%DB_PASSWORD%"=="" set /p DB_PASSWORD=MySQL 口令: 
 set DIR=%~dp0backup
 set KEEP=7
 

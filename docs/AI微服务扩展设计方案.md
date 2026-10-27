@@ -776,7 +776,7 @@ docker exec -it examprep-minio mc anonymous set download local/exam-prep/public
 # ③ 启动 FastAPI AI 服务
 .\.venv-ai\Scripts\Activate.ps1
 cd ai-service
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 # 验证：浏览器打开 http://localhost:8000/docs
 ```
 

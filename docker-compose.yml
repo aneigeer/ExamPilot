@@ -3,7 +3,7 @@
 #
 #   使用：docker compose -p examprep up -d --build
 #
-# ★ 安全提醒：MySQL 口令默认值 123456 仅供本地演示。
+# ★ 安全提醒：本文件不再保存任何口令默认值。启动前必须设置 MYSQL_ROOT_PASSWORD。
 #   正式部署务必通过环境变量注入强口令：
 #     MYSQL_ROOT_PASSWORD=xxx docker compose -p examprep up -d
 # ============================================================
@@ -14,7 +14,7 @@ services:
     container_name: examprep-mysql
     environment:
       # 默认值仅为本地演示；生产用环境变量覆盖
-      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-123456}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?请先设置环境变量 MYSQL_ROOT_PASSWORD}"
       MYSQL_DATABASE: exam_prep
       TZ: Asia/Shanghai
     volumes:
@@ -51,7 +51,7 @@ services:
       # 本地生成示例：openssl rand -hex 32
       JWT_SECRET: "${JWT_SECRET:?请通过环境变量注入 JWT_SECRET}"
       DB_USERNAME: root
-      DB_PASSWORD: "${MYSQL_ROOT_PASSWORD:-123456}"
+      DB_PASSWORD: "${MYSQL_ROOT_PASSWORD:?请先设置环境变量 MYSQL_ROOT_PASSWORD}"
     volumes:
       - ./backend/target/exam-prep-backend-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
       # ★ 上传目录必须映射到宿主机，否则容器重建后上传文件全丢。

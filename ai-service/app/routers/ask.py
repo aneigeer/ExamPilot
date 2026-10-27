@@ -47,8 +47,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ask"])
 
 #: 复用后端同一套 MySQL 连接（灌库脚本已验证可用）
-_DB = dict(host="127.0.0.1", port=3306, user="root", password="123456",
-           database="exam_prep", charset="utf8mb4")
+# 连接参数由 app/db.py 统一从环境变量/.env 读取，代码里不再保存口令
+from ..db import db_config  # noqa: E402
 
 
 # ---------------------------------------------------------------- 请求/响应
@@ -148,7 +148,7 @@ def _fetch_wiki_page(page_id: int) -> Optional[Dict[str, Any]]:
     """按 id 取已发布的 wiki 页（只认 PUBLISHED，草稿不对外）。"""
     import pymysql
 
-    conn = pymysql.connect(**_DB)
+    conn = pymysql.connect(**db_config())
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -204,7 +204,7 @@ def _fetch_contents(chunk_ids: List[int]) -> Dict[int, str]:
     import pymysql  # 局部导入：不用向量化的部署不会装它
 
     fmt = ",".join(["%s"] * len(chunk_ids))
-    conn = pymysql.connect(**_DB)
+    conn = pymysql.connect(**db_config())
     try:
         with conn.cursor() as cur:
             cur.execute(f"SELECT id, content FROM ai_chunk WHERE id IN ({fmt})", chunk_ids)

@@ -269,7 +269,7 @@ docker compose -p examprep -f docker-compose.ai.yml up -d
 
 # ② 启动 FastAPI AI 服务
 .\.venv-ai\Scripts\Activate.ps1
-cd ai-service && uvicorn app.main:app --host 0.0.0.0 --port 8000
+cd ai-service && uvicorn app.main:app --host 127.0.0.1 --port 8000
 # 验证：http://localhost:8000/docs
 
 # ③ 启动后端（打开向量通道）
@@ -403,7 +403,7 @@ java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar \
 |---|---|---|---|
 | 超级管理员 | `admin` | `admin123` | 用户/角色、公告、基础数据、全局日志、统计、封禁 |
 | 审核员 | `auditor` | `audit123` | 题目/资料审核、举报处理、申诉处理、审核日志 |
-| 学生 | `2021001` | `123456` | 刷题、模考、上传、下载、收藏、笔记、错题本 |
+| 学生 | `2021001` | 见 `sql/data.sql`（种子账号，仅本地演示；首次登录后应改密） | 刷题、模考、上传、下载、收藏、笔记、错题本 |
 
 **学生可自助注册**：App 登录页点「没有账号？立即注册」→ 选择学校（默认中南林业科技大学）→ 选择学院 → 填学号/昵称/密码。学号全局唯一，重复注册返回 409；新注册密码需 **≥8 位且含字母和数字**（预置示例账号为历史数据，不受该策略影响）。
 

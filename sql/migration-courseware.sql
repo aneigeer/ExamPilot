@@ -7,7 +7,7 @@
 -- ★ 不修改 ai_chunk 表结构（只写数据）。
 --
 -- 执行：
---   mysql -uroot -p123456 exam_prep < sql/migration-courseware.sql
+--   mysql -uroot -p exam_prep < sql/migration-courseware.sql   # 交互式输入口令
 --
 -- 配套脚本：ai-service/tools/ingest_courseware.py
 --

@@ -16,6 +16,6 @@ public class LoginRequest {
 
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 64, message = "密码长度需在 6-64 之间")
-    @Schema(description = "密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "密码", example = "<你的口令>", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 }

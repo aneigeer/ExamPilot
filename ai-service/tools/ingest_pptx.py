@@ -48,9 +48,15 @@ from typing import Dict, List, Optional, Tuple
 
 import pymysql
 
+# 以脚本方式运行时，把 ai-service 加入 sys.path，才能 import app.db
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.db import db_config  # noqa: E402
+
 # ---------------------------------------------------------------- 配置
-DB = dict(host="127.0.0.1", port=3306, user="root", password="123456",
-          database="exam_prep", charset="utf8mb4")
+DB: dict = {}  # 由 db_config() 在连接时填充（口令来自环境变量/.env，不入库）
 API = "http://127.0.0.1:8000"
 
 SOURCE_TYPE = "COURSEWARE"
@@ -90,29 +96,52 @@ def extract_pptx(path: Path) -> Tuple[str, List[Tuple[int, str]]]:
 
 
 def split_chunks(title: str, slides: List[Tuple[int, str]]) -> List[Tuple[str, int]]:
-    """按 600 字/重叠 80 切块，返回 [(块文本, 起始页号)]。
+    """按「幻灯片」切块，返回 [(块文本, 页号)]。
 
-    按「页」聚合而不是把全文拍平：每块记住它起自第几页，
-    命中后可准确跳页（v4 审查 R09：结构必须可溯源）。
+    ## 为什么按页而不是按 600 字硬切
+
+    PPT 的语义单元就是**一页**：一页里通常是「标题 + 3-6 条要点」。
+    按字数硬切会把同一页的要点劈开——实测「死锁的四个必要条件」被切成两半，
+    模型只答出 3 条（第 4 条落在下一块，没进上下文）。
+
+    所以这里改成：**一页一块**，块头带 `《章名》第N页·页标题`，
+    页内在要点之间用「；」连接保持可读。超长页（>900 字）才二次切分，
+    且每片都重复块头，保证任何一片都能独立回答"这是哪一页的内容"。
     """
     chunks: List[Tuple[str, int]] = []
-    buf = ""
-    buf_page = 0
     for page_no, text in slides:
-        for para in [p.strip() for p in text.split("\n") if p.strip()]:
-            if buf and len(buf) + len(para) + 1 > TARGET_CHARS:
-                chunks.append((buf.strip(), buf_page))
-                # 重叠：保留上一块末尾 OVERLAP_CHARS，避免切断上下文
-                buf = (buf[-OVERLAP_CHARS:] + "\n" + para) if len(buf) > OVERLAP_CHARS else para
-                buf_page = page_no
+        lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+        if not lines:
+            continue
+        # 首行通常是幻灯片标题（短句），其余是要点
+        page_title = lines[0] if len(lines[0]) <= 40 else ""
+        body_lines = lines[1:] if page_title else lines
+        # 丢掉纯序号/页码噪声（"01"、"1/86"、"第 3 页"），它们对检索是纯干扰
+        body_lines = [
+            ln for ln in body_lines
+            if not re.fullmatch(r"[\d\s./|第页\-]{1,8}", ln)
+        ]
+        if not body_lines:
+            continue
+        body = "；".join(body_lines)
+        header = f"《{title}》第{page_no}页" + (f"·{page_title}" if page_title else "")
+        head = f"{header}\n{page_title}\n" if page_title else f"{header}\n"
+
+        if len(head) + len(body) <= 900:
+            chunks.append((head + body, page_no))
+            continue
+        # 超长页：按要点装箱，每片都带同样的块头
+        buf = ""
+        for ln in body_lines:
+            if buf and len(buf) + len(ln) + 1 > TARGET_CHARS:
+                chunks.append((head + buf, page_no))
+                buf = (buf[-OVERLAP_CHARS:] + "；" + ln) if len(buf) > OVERLAP_CHARS else ln
             else:
-                if not buf:
-                    buf_page = page_no
-                buf = f"{buf}\n{para}" if buf else para
-    if buf.strip():
-        chunks.append((buf.strip(), buf_page))
-    # 块首加文档标题（检索时能靠标题命中，而不是只靠正文）
-    return [(f"《{title}》\n{c}", page) for c, page in chunks if len(c) >= 80]
+                buf = f"{buf}；{ln}" if buf else ln
+        if buf:
+            chunks.append((head + buf, page_no))
+
+    return [(c, page) for c, page in chunks if len(c) >= 60]
 
 
 # ---------------------------------------------------------------- 数据库
@@ -245,7 +274,7 @@ def main() -> int:
 
     print(f"扫描到 {len(files)} 个 pptx　科目：{args.subject}"
           f"{'　[DRY-RUN 不写库]' if args.dry_run else ''}")
-    conn = pymysql.connect(**DB)
+    conn = pymysql.connect(**db_config())
     total_chunks = total_chars = 0
     try:
         subject_id = 0 if args.dry_run else ensure_subject(conn, args.subject, args.exam_category)

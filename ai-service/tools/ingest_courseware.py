@@ -22,7 +22,7 @@
 ::
 
     # ① 建表 + 建科目（只需一次）
-    mysql -uroot -p123456 exam_prep < sql/migration-courseware.sql
+    mysql -uroot -p"$DB_PASSWORD" exam_prep < sql/migration-courseware.sql
 
     # ② 干跑：只统计不写库
     python ai-service/tools/ingest_courseware.py --dry-run
@@ -87,7 +87,7 @@ DB_CONFIG: Dict[str, object] = {
     "host": os.getenv("DB_HOST", "127.0.0.1"),
     "port": int(os.getenv("DB_PORT", "3306")),
     "user": os.getenv("DB_USERNAME", "root"),
-    "password": os.getenv("DB_PASSWORD", "123456"),
+    "password": os.environ.get("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "exam_prep"),
     "charset": "utf8mb4",
 }
@@ -407,7 +407,7 @@ def resolve_subject_ids(connection) -> Dict[str, int]:
     if missing:
         print(
             f"[错误] subject 表缺少科目：{missing}\n"
-            "  请先执行：mysql -uroot -p123456 exam_prep < sql/migration-courseware.sql",
+            "  请先执行：mysql -uroot -p"$DB_PASSWORD" exam_prep < sql/migration-courseware.sql",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -790,7 +790,7 @@ def run(
     if not table_exists(connection, "courseware"):
         print(
             "[错误] courseware 表不存在。请先执行：\n"
-            "  mysql -uroot -p123456 exam_prep < sql/migration-courseware.sql",
+            "  mysql -uroot -p"$DB_PASSWORD" exam_prep < sql/migration-courseware.sql",
             file=sys.stderr,
         )
         connection.close()

@@ -34,7 +34,9 @@ echo   停止服务       Ctrl + C
 echo ============================================================
 echo.
 
-python -m uvicorn app.main:app --host 0.0.0.0 --port %PORT%
+rem 默认仅监听回环（学生端走 Java，不直连 AI）。跨机调试再设 AI_HOST=0.0.0.0
+if "%AI_HOST%"=="" set AI_HOST=127.0.0.1
+python -m uvicorn app.main:app --host %AI_HOST% --port %PORT%
 
 echo.
 echo 服务已退出。
