@@ -472,7 +472,7 @@ def client(fake_embedding: FakeEmbeddingClient, fake_qdrant: FakeQdrantClient,
     monkeypatch.setattr(embedding_module, "get_embedding_client", lambda: fake_embedding)
     monkeypatch.setattr(qdrant_module, "get_qdrant_client", lambda: fake_qdrant)
     # 同步 patch 路由器里已导入的名字（from ... import 会绑定引用）
-    for module_name in ("embed", "search", "index"):
+    for module_name in ("embed", "search", "index", "ask"):
         module = __import__(f"app.routers.{module_name}", fromlist=["*"])
         if hasattr(module, "get_embedding_client"):
             monkeypatch.setattr(module, "get_embedding_client", lambda: fake_embedding, raising=False)
@@ -526,7 +526,7 @@ def embedding_unavailable_client(
     stub = UnavailableEmbeddingClient()
     monkeypatch.setattr(embedding_module, "get_embedding_client", lambda: stub)
     # 路由器多采用 `from ... import get_embedding_client`，需同步替换已绑定的引用
-    for module_name in ("embed", "search", "index", "health"):
+    for module_name in ("embed", "search", "index", "health", "ask"):
         module = __import__(f"app.routers.{module_name}", fromlist=["*"])
         if hasattr(module, "get_embedding_client"):
             monkeypatch.setattr(module, "get_embedding_client", lambda: stub, raising=False)
@@ -649,7 +649,7 @@ def qdrant_unavailable_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
 
     stub = UnavailableQdrantClient()
     monkeypatch.setattr(qdrant_module, "get_qdrant_client", lambda: stub)
-    for module_name in ("search", "index", "health"):
+    for module_name in ("search", "index", "health", "ask"):
         module = __import__(f"app.routers.{module_name}", fromlist=["*"])
         if hasattr(module, "get_qdrant_client"):
             monkeypatch.setattr(module, "get_qdrant_client", lambda: stub, raising=False)

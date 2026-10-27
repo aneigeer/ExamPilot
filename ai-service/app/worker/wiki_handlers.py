@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from ..clients.java_bridge import JavaBridgeError
 from ..config import get_settings
 from ..wiki.distiller import distill_cluster
+from ..wiki.source_guard import prune_clusters
 from .handlers import ProgressReporter, register
 
 logger = logging.getLogger(__name__)
@@ -47,9 +48,21 @@ async def handle_wiki_distill(
     data = await bridge.wiki_input(scope, subject_id, limit, max_chunks)
     clusters: List[Dict[str, Any]] = list(data.get("clusters") or [])
     catalog: List[Dict[str, Any]] = list(data.get("catalog") or [])
+
+    # R04 写侧保险：蒸馏前剔除已下架（status != ACTIVE）的来源块。
+    # 避免草稿一出生就引用失效来源；DB 校验失败时按原样蒸馏（fail-open，
+    # Java 的 WikiService 仍有「来源全部无效则拒绝」的最终拦截）。
+    clusters, prune_stats = prune_clusters(clusters)
+    if prune_stats.get("removed") or prune_stats.get("skipped_clusters"):
+        logger.info(
+            "[WikiDistill] 任务 #%s 来源在架校验：剔除块 %d 个、跳过簇 %d 个",
+            job_id, prune_stats.get("removed", 0), prune_stats.get("skipped_clusters", 0),
+        )
+
     if not clusters:
         logger.info("[WikiDistill] 任务 #%s 没有可蒸馏主题（知识库暂无知识点聚类）", job_id)
-        return {"total": 0, "drafted": 0, "failed": 0, "fallback": 0, "items": []}
+        return {"total": 0, "drafted": 0, "failed": 0, "fallback": 0,
+                "sourcesRemoved": prune_stats.get("removed", 0), "items": []}
 
     drafted = 0
     failed = 0
@@ -92,5 +105,8 @@ async def handle_wiki_distill(
         "drafted": drafted,
         "failed": failed,
         "fallback": fallback,
+        # R04：蒸馏前被剔除的失效来源块数（Java 侧展示用，缺省 0 不影响旧解析）
+        "sourcesRemoved": prune_stats.get("removed", 0),
+        "sourcesCheckFailed": prune_stats.get("check_failed", 0),
         "items": items,
     }
