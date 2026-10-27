@@ -500,3 +500,53 @@ def test_index_status_returns_503_when_qdrant_unavailable(qdrant_down: Any) -> N
         response = test_client.get("/v1/index/status")
     assert response.status_code == 503
     assert response.json()["degraded"] is True
+
+
+class _LeftoverQdrant:
+    """Qdrant 桩：模拟「delete_collection 静默失效」——重建后点数没少。
+
+    这是 2026-10 本机实测到的真实故障：本地模式的 delete_collection 靠"目录移入
+    回收站"实现，环境有删除保护时 trash-failed 会静默中止，rebuild 报 READY
+    而点数一条没少（11482 → 11482），后续对账才发现。
+    """
+
+    def __init__(self, count: int) -> None:
+        self._count = count
+
+    def collection_exists(self, collection_name: str) -> bool:
+        """集合始终存在。"""
+        return True
+
+    def delete_collection(self, collection_name: str) -> None:
+        """删除静默无效（点数不变）。"""
+
+    def create_collection(self, *args: Any, **kwargs: Any) -> None:
+        """创建同样不改变点数。"""
+
+    def get_collections(self) -> Any:
+        """仅用于探活。"""
+        raise AssertionError("不应调用")
+
+    def count(self, collection_name: str, exact: bool = True) -> Any:
+        """返回固定残留点数。"""
+        return type("Count", (), {"count": self._count})()
+
+    def upsert(self, *args: Any, **kwargs: Any) -> None:
+        """写元信息（不应被执行到）。"""
+
+
+def test_rebuild_reports_failure_when_delete_silently_fails(monkeypatch: Any) -> None:
+    """重建后点数未清零 → 必须报 FAILED 并给出可执行指引，不能给假 READY。"""
+    from app.clients.qdrant_client import QdrantClientWrapper
+
+    wrapper = QdrantClientWrapper.__new__(QdrantClientWrapper)  # 跳过 __init__ 的参数依赖
+    wrapper.settings = type("S", (), {"dim": 512, "collection": "exam_chunks"})()
+    wrapper._client = _LeftoverQdrant(count=11482)
+    wrapper._lock = __import__("threading").Lock()
+    wrapper._op_lock = __import__("threading").RLock()
+    wrapper._last_error = ""
+
+    result = wrapper.rebuild("bge-small-zh-v1.5", 512)
+    assert result["status"] == "FAILED"
+    assert "11482" in result["message"]
+    assert "data/qdrant/collection/exam_chunks" in result["message"]

@@ -820,6 +820,24 @@ class QdrantClientWrapper:
             # 临时切换维度配置（dataclass 是 frozen 的，用 object.__setattr__ 绕过）
             object.__setattr__(self.settings, "dim", dim)
             self.ensure_collection(force_recreate=True)
+            # ★ 重建后必须复核点数：本地模式的 ``delete_collection`` 是"把目录移入回收站"，
+            #   若运行环境有删除保护（实测沙箱的 safe-delete 钩子会 trash-failed），
+            #   删除会**静默失效**——外观上集合"已删"，但存储文件还在，重建后旧数据原样复活，
+            #   于是 rebuild 报 READY 而点数一条没少（2026-10 实测：11482 点重建后仍是 11482）。
+            #   这里显式对账，让"假重建"以 FAILED 暴露出来，而不是给调用方一个 READY 的假象。
+            leftover = self.count_points()
+            if leftover > 0:
+                return {
+                    "status": "FAILED",
+                    "collection": self.settings.collection,
+                    "model_id": model_id,
+                    "dim": dim,
+                    "message": (
+                        f"重建未生效：删除后集合仍残留 {leftover} 个点（本地模式存储文件未被真正删除，"
+                        f"常见于文件删除保护）。请停止服务后手工删除 "
+                        f"data/qdrant/collection/{self.settings.collection}/ 并重启，再执行本接口"
+                    ),
+                }
             self.upsert_meta(model_id, dim)
         except Exception as exc:  # noqa: BLE001
             return {
