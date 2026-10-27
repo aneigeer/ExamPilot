@@ -24,6 +24,8 @@ COURSE_QA = Skill(
     system_prompt=BASE_CONSTRAINTS,
     answer_hint="先给结论，再解释原因；涉及代码时给出关键语句。",
     max_contexts=5,
+    # 课程知识 = 题库 + 知识点 + **教材/课件**（课件就是教材，课程问题当然该查它）
+    retrieval_groups=(("QUESTION", "KNOWLEDGE"), ("COURSEWARE",)),
 )
 
 #: 课件讲解：只查 COURSEWARE，**与课程题彻底隔离**
@@ -37,6 +39,7 @@ COURSEWARE_QA = Skill(
     answer_hint="按「是什么 → 怎么做 → 注意什么」组织；面试类问题补一句考察点。",
     max_contexts=5,
     max_context_chars=800,
+    retrieval_groups=(("COURSEWARE",),),
 )
 
 #: 题目讲解：只查题目块
@@ -47,6 +50,7 @@ EXERCISE_EXPLAIN = Skill(
     needs_llm=True,
     system_prompt=BASE_CONSTRAINTS,
     answer_hint="先点明正确答案，再逐步说明为什么其他选项不对。",
+    retrieval_groups=(("QUESTION",),),
 )
 
 #: 资料推荐：资料 + 课件都能推
@@ -57,6 +61,7 @@ RESOURCE_RECOMMEND = Skill(
     needs_llm=True,
     system_prompt=BASE_CONSTRAINTS,
     answer_hint="列出 2-3 条推荐，每条一句话说明适合什么阶段看。",
+    retrieval_groups=(("RESOURCE",), ("COURSEWARE",)),
 )
 
 #: 学习计划：依赖学情数据（错题/画像），需要调 Java 内部接口 —— 尚未实现

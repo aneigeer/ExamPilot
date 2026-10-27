@@ -112,7 +112,11 @@ class LlmClient:
 
         started = time.perf_counter()
         try:
-            with httpx.Client(timeout=self.settings.timeout_seconds) as client:
+            # trust_env=False：**不要**读系统 HTTP_PROXY。
+            # 本机验证过：env 里存在 CODEBUDDY_SERVICE_PROXY_URL 时，httpx 会把
+            # http://127.0.0.1:11434（Ollama）也当外部请求发给代理，代理立即回 502，
+            # 表现为「模型明明在线却答不出」。本地服务调用必须绕过代理。
+            with httpx.Client(timeout=self.settings.timeout_seconds, trust_env=False) as client:
                 response = client.post(url, json=payload, headers=headers)
         except httpx.TimeoutException as exc:
             raise LlmUnavailableError(

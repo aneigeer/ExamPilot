@@ -73,6 +73,8 @@ class AskSource(BaseModel):
     source_type: str = ""
     source_id: Optional[int] = None
     score: float = 0.0
+    #: 原文页码（仅课件/资料类有），前端可跳到具体某页
+    page_no: Optional[int] = None
     ref_path: str = Field(default="", description="前端跳转路径，如 /courseware/12")
 
 
@@ -163,16 +165,36 @@ def _fetch_wiki_page(page_id: int) -> Optional[Dict[str, Any]]:
 
 def _retrieve(question: str, skill: Skill, top_k: int,
               subject_id: Optional[int]) -> List[Dict[str, Any]]:
-    """按 skill 的检索范围取候选块。"""
+    """按 skill 的**分组**取候选块，保证各类来源都有配额。
+
+    为什么要分组：单一 `source_type` 集合检索时，块数多的那类会占满 top-K
+    （实测课件 8,073 块 vs 题库 2,398 块，课件会把题挤出）。
+    分组后每组各给一份配额，再按分数合并，题型与教材都能进上下文。
+    """
     if not skill.needs_retrieval:
         return []
+    groups = list(skill.retrieval_groups) or (
+        [tuple(skill.source_types)] if skill.source_types else [])
+    if not groups:
+        return []
+
     vector = get_embedding_client().encode_query(question)
-    hits = get_qdrant_client().search(
-        vector,
-        top_k=min(top_k, skill.max_contexts),
-        query_filter=_qdrant_filter(skill.source_types, subject_id),
-    )
-    return hits or []
+    limit = min(top_k, skill.max_contexts)
+    # 每组配额：至少 2 条，余量给最后一组
+    per_group = max(2, limit // len(groups) + (1 if limit % len(groups) else 0))
+
+    merged: Dict[int, Dict[str, Any]] = {}
+    for group in groups:
+        for hit in get_qdrant_client().search(
+                vector, top_k=per_group,
+                query_filter=_qdrant_filter(group, subject_id)) or []:
+            cid = int(hit.get("chunk_id") or 0)
+            if cid and (cid not in merged or hit["score"] > merged[cid]["score"]):
+                merged[cid] = hit
+
+    # 同分时按分数降序；跨组去重已在 merged 里完成
+    ranked = sorted(merged.values(), key=lambda h: float(h.get("score") or 0), reverse=True)
+    return ranked[:limit]
 
 
 def _fetch_contents(chunk_ids: List[int]) -> Dict[int, str]:
@@ -303,6 +325,7 @@ def ask(request: AskRequest) -> AskResponse:
             source_type=str(payload.get("source_type") or ""),
             source_id=payload.get("source_id"),
             score=round(float(hit.get("score") or 0.0), 4),
+            page_no=payload.get("page_no"),
             ref_path=_ref_path(str(payload.get("source_type") or ""), payload.get("source_id")),
         ))
 

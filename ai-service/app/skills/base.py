@@ -45,6 +45,10 @@ class Skill:
     implemented: bool = True
     max_contexts: int = 5
     max_context_chars: int = 700
+    #: 分组召回：每个子元组单独检索，再按分数合并。
+    #: 为什么需要——若只用一个 source_types 集合，`source_type` 少的那类会被多的那类
+    #: 完全挤出 top-K（实测：课件 8,000+ 块会把 2,398 道题挤出）。分组保证各类都有配额。
+    retrieval_groups: Sequence[Sequence[str]] = field(default_factory=tuple)
 
 
 # ---------------------------------------------------------------- 公共提示词
