@@ -11,9 +11,10 @@
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
 
-    <!-- 过渡期：如后端暂以 http 提供服务，在此逐个放行主机（不要把通配放进来）
+    <!-- 过渡期：后端暂以 http 局域网 IP 提供服务，仅放行开发机当前局域网地址（不要把通配放进来）。
+         换网络环境时需与 app/build.gradle 里 release 的 BASE_URL 同步更新；
+         正式部署切到 HTTPS 后删除本段，做到「零明文」。 -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">api.example.com</domain>
+        <domain includeSubdomains="false">10.200.73.127</domain>
     </domain-config>
-    -->
 </network-security-config>
