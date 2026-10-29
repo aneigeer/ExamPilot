@@ -142,7 +142,7 @@ public class InterviewActivity extends AppCompatActivity {
                         binding.etAnswer.setEnabled(true);
                         binding.btnSend.setEnabled(true);
 
-                        appendQuestion(data.question, data.source, null);
+                        appendQuestion(data.question, data.source, null, false);
                     }
 
                     @Override
@@ -218,10 +218,14 @@ public class InterviewActivity extends AppCompatActivity {
 
                         if (data.finished) {
                             episodeFinished(data);
+                        } else if (Boolean.TRUE.equals(data.isFollowUp)) {
+                            // ★ 追问轮：题号不前进（question_no 仍是当前题），
+                            //   内容就是 next_question 本身，不能再按「下一题」推号，
+                            //   否则后续题号整体错位（用户看到「第 2/3 题」其实是第 1 题的追问）
+                            appendQuestion(data.nextQuestion, null, null, true);
                         } else {
                             currentNo = no + 1;
-                            appendQuestion(data.nextQuestion,
-                                    null, data.followUp);
+                            appendQuestion(data.nextQuestion, null, data.followUp, false);
                         }
                     }
 
@@ -244,7 +248,7 @@ public class InterviewActivity extends AppCompatActivity {
         binding.etAnswer.setEnabled(false);
         binding.btnSend.setEnabled(false);
         if (data.report != null) {
-            append(InterviewMessage.report(data.report));
+            append(InterviewMessage.report(data.report, total));
         } else {
             // 契约里 finished=true 必带 report；缺失时不能让用户以为「白面了」
             toast("面试已结束，但报告生成失败，请重新开始一场");
@@ -256,11 +260,19 @@ public class InterviewActivity extends AppCompatActivity {
     // 视图工具
     // ==================================================================
 
-    /** 追加一条提问（带出处 / 追问），并滚动到底部 */
-    private void appendQuestion(String question, Models.InterviewSource source, String followUp) {
+    /**
+     * 追加一条提问（带出处 / 追问），并滚动到底部
+     *
+     * @param question     题面（或追问内容）
+     * @param source       出处，首次出题时可能非空
+     * @param followUp     面试官追问（仅「下一题」轮次附带上一题的追问，可为空）
+     * @param followUpRound true = 本条是**同题追问**，题号不前进
+     */
+    private void appendQuestion(String question, Models.InterviewSource source,
+                                String followUp, boolean followUpRound) {
         String text = TextUtils.isEmpty(question) ? "（面试官未返回下一题）" : question;
-        append(InterviewMessage.question(text,
-                "问题 " + currentNo + " / " + total, sourceLine(source), followUp));
+        String meta = "问题 " + currentNo + " / " + total + (followUpRound ? " · 追问" : "");
+        append(InterviewMessage.question(text, meta, sourceLine(source), followUp));
     }
 
     /** 出处文案：标题（文件名 · 第 N 页）；全空返回 null */

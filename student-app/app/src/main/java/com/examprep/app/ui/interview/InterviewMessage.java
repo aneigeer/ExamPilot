@@ -41,6 +41,9 @@ public class InterviewMessage {
     /** 报告数据（TYPE_REPORT 使用） */
     public Models.InterviewReport report;
 
+    /** 本场期望题数（用于识别「面试官提前收尾、实评题数少于期望」） */
+    public Integer expectedTotal;
+
     private InterviewMessage(int type) {
         this.type = type;
     }
@@ -72,9 +75,10 @@ public class InterviewMessage {
     }
 
     /** 整场报告 */
-    public static InterviewMessage report(Models.InterviewReport report) {
+    public static InterviewMessage report(Models.InterviewReport report, Integer expectedTotal) {
         InterviewMessage m = new InterviewMessage(TYPE_REPORT);
         m.report = report;
+        m.expectedTotal = expectedTotal;
         return m;
     }
 }

@@ -216,6 +216,7 @@ public class InterviewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static class ReportHolder extends RecyclerView.ViewHolder {
         private final TextView tvScore;
         private final TextView tvLevel;
+        private final TextView tvNote;
         private final TextView tvDegraded;
         private final TextView tvPerQuestion;
         private final TextView tvStrengths;
@@ -227,6 +228,7 @@ public class InterviewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             super(itemView);
             tvScore = itemView.findViewById(R.id.tvReportScore);
             tvLevel = itemView.findViewById(R.id.tvReportLevel);
+            tvNote = itemView.findViewById(R.id.tvReportNote);
             tvDegraded = itemView.findViewById(R.id.tvReportDegraded);
             tvPerQuestion = itemView.findViewById(R.id.tvPerQuestion);
             tvStrengths = itemView.findViewById(R.id.tvStrengths);
@@ -240,6 +242,17 @@ public class InterviewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             double total = r == null || r.totalScore == null ? 0 : r.totalScore;
             tvScore.setText(String.valueOf(Math.round(total)));
             tvLevel.setText(r == null || TextUtils.isEmpty(r.level) ? "已结束" : r.level);
+
+            // 提前收尾：用户选了 N 题却只评了 M 题（语料耗尽 / 检索不到下一题）。
+            // 必须显式说明——否则用户会以为「少算了我的分」，比不给分更伤信任。
+            int scored = r == null || r.perQuestion == null ? 0 : r.perQuestion.size();
+            if (m.expectedTotal != null && scored > 0 && scored < m.expectedTotal) {
+                tvNote.setVisibility(View.VISIBLE);
+                tvNote.setText("本次共评 " + scored + " 题（计划 " + m.expectedTotal
+                        + " 题，面试官提前收尾）：报告基于已评部分生成。");
+            } else {
+                tvNote.setVisibility(View.GONE);
+            }
 
             if (r != null && r.degraded) {
                 tvDegraded.setVisibility(View.VISIBLE);

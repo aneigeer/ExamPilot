@@ -22,8 +22,8 @@ android {
         applicationId "com.examprep.app"
         minSdk 26
         targetSdk 34
-        versionCode 6
-        versionName "1.7.0"
+        versionCode 7
+        versionName "1.7.1"
         // 模拟器访问宿主机用 10.0.2.2（debug/模拟器默认）；release 真机版在 buildTypes.release 覆盖为电脑局域网 IP
         buildConfigField "String", "BASE_URL", '"http://10.0.2.2:8080/api/"'
     }

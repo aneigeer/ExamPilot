@@ -553,6 +553,16 @@ public class Models {
         public String followUp;
         @com.google.gson.annotations.SerializedName("next_question")
         public String nextQuestion;
+        /**
+         * 本次返回的是「同题追问」而非「下一题」
+         *
+         * <p>追问轮次里 {@code question_no} <b>不前进</b>，{@code next_question}
+         * 就是追问内容本身。App 若按 {@code question_no + 1} 推题号，
+         * 追问会被错标成下一题（后续题号整体错位）。
+         * 该字段为 Python 侧新增的可选字段，缺省视为 false。
+         */
+        @com.google.gson.annotations.SerializedName("is_follow_up")
+        public Boolean isFollowUp;
         public boolean finished;
         /** 整场报告，仅 finished=true 时非空 */
         public InterviewReport report;

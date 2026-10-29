@@ -63,6 +63,17 @@
             </LinearLayout>
 
             <TextView
+                android:id="@+id/tvReportNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@color/banner_bg"
+                android:padding="8dp"
+                android:textColor="@color/text_main"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/tvReportDegraded"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
