@@ -25,6 +25,9 @@
   命中/遗漏要点取参考资料中重合最高/最低的句子，**并明确标注非模型判分**；
 * 追问：作答 < 30 字 或 得分 < 60 → 同一题内追问一次，追问作答与原作答
   **合并后重新评分**（不是两次分数取平均，避免靠追问刷分）。
+  **最后一题不追问**——追问会把"答满 total 题"拉长成 total+1 轮，
+  前端按题号计进度会以为还有题（Java 侧实测踩到过）；分数不受影响。
+  追问轮次的响应带 ``is_follow_up=true`` 且题号不前进，便于前端区分"追问"与"下一题"。
 
 ## 会话状态
 
@@ -121,6 +124,9 @@ class InterviewAnswerResponse(BaseModel):
     miss_points: List[str] = Field(default_factory=list)
     reference: str = ""
     follow_up: str = ""
+    #: 仅当 ``next_question`` 是**同一题的追问**时为 True（题号不前进、作答会并入本题评分）。
+    #: 契约未列该字段，属向后兼容的附加信息：前端可用它把追问渲染成"追问"而非"下一题"。
+    is_follow_up: bool = False
     next_question: str = ""
     degraded: bool = False
     # 结束字段
@@ -679,6 +685,14 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
                             content={"detail": "SESSION_NOT_FOUND"})  # type: ignore[return-value]
 
     answer = request.answer.strip()
+    # 会话已结束（含重复提交）：幂等返回报告，不要落到 questions[index] 越界 500
+    if session.index >= session.total or session.index >= len(session.questions):
+        logger.info("[Interview] 会话 %s 已结束，重复提交按幂等处理", session.session_id)
+        return InterviewAnswerResponse(
+            session_id=session.session_id, finished=True, total=session.total,
+            question_no=session.total, degraded=session.degraded,
+            report=_build_report(session),
+        )
     question = session.questions[session.index]
 
     if question.pending_follow_up:
@@ -716,9 +730,14 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
         reference = question.contexts[0][:300] if question.contexts else ""
         follow_up_text = ""
         finished = False
+        # ★ 最后一题不再追问：追问会把"答满 total 题"拉长成 total+1 轮，
+        #   前端按 question_no 计进度时会以为还有题（Java 侧实测踩到：
+        #   第 3 题答完仍 finished=false，第 4 次作答才结束）。分数不会因此丢失——
+        #   最后一题只是少了追问补充的机会，报告仍按本题得分计入。
+        is_last_question = session.index == session.total - 1
         too_thin = (len(answer) < FOLLOW_UP_MIN_ANSWER_CHARS
                     or (score or 0) < FOLLOW_UP_SCORE_THRESHOLD)
-        if too_thin and question.follow_ups_used < MAX_FOLLOW_UPS:
+        if too_thin and not is_last_question and question.follow_ups_used < MAX_FOLLOW_UPS:
             follow_up_text, follow_degraded = _make_follow_up(
                 question.text, answer, question.miss_points)
             question.follow_up = follow_up_text
@@ -740,6 +759,11 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
             session.degraded = session.degraded or upcoming.degraded
         if session.index < len(session.questions):
             next_question = session.questions[session.index].text
+        else:
+            # 检索不出下一题（语料耗尽）：**提前收尾出报告**，不能返回
+            # finished=false 却给空的 next_question——那会让前端卡在无题可答的状态
+            finished = True
+            logger.info("[Interview] 会话 %s 无可用下一题，提前收尾", session_id)
     elif question.pending_follow_up:
         next_question = question.follow_up
 
@@ -751,6 +775,8 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
     if finished:
         return InterviewAnswerResponse(
             session_id=session_id, finished=True, total=session.total,
+            # 结束时也回报题号：原来默认 0，Java 侧日志/进度条会误读
+            question_no=session.total,
             score=score, verdict=verdict, degraded=session.degraded, report=report,
         )
     return InterviewAnswerResponse(
@@ -759,5 +785,6 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
         score=score, verdict=verdict, hit_points=hit_points,
         miss_points=miss_points, reference=reference,
         follow_up=follow_up_text, next_question=next_question,
+        is_follow_up=bool(question.pending_follow_up),
         degraded=question.degraded,
     )

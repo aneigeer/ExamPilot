@@ -181,7 +181,10 @@ def test_answer_follow_up_then_next_question(client: Any,
 
 def test_answer_follow_up_merged_regrades(client: Any,
                                           monkeypatch: pytest.MonkeyPatch) -> None:
-    """追问作答与原作答**合并后重新评分**（不是两次取平均）。"""
+    """追问作答与原作答**合并后重新评分**（不是两次取平均）。
+
+    用 total=2：第 1 题不是最后一题，才会触发追问（最后一题按设计不追问）。
+    """
     _stub_corpus(monkeypatch)
     calls: List[str] = []
 
@@ -198,14 +201,20 @@ def test_answer_follow_up_merged_regrades(client: Any,
 
     _stub_corpus(monkeypatch)
     monkeypatch.setattr(iv, "_chat", _chat)
-    start = _start(client, total=1)
-    client.post("/v1/interview/answer", json={"session_id": start["session_id"],
-                                              "answer": "不知道"})
-    body = client.post("/v1/interview/answer", json={
+    start = _start(client, total=2)
+    first = client.post("/v1/interview/answer", json={"session_id": start["session_id"],
+                                                      "answer": "不知道"}).json()
+    assert first["is_follow_up"] is True
+    second = client.post("/v1/interview/answer", json={
         "session_id": start["session_id"], "answer": "用 NDCG 评估"}).json()
-    assert body["report"]["total_score"] == 88  # 合并后的分数，而非 (40+88)/2
-    assert len(calls) == 2
+    assert second["question_no"] == 2      # 合并完进入第 2 题
     assert "（追问补充）" in calls[1]
+    assert len(calls) == 2
+
+    final = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"], "answer": "用 NDCG@10 加人工标注对照评估。"}).json()
+    assert final["finished"] is True
+    assert final["report"]["per_question"][0]["score"] == 88  # 合并后的分数，而非 (40+88)/2
 
 
 def test_answer_unknown_session_returns_404(client: Any) -> None:
@@ -291,3 +300,87 @@ def test_interview_prototypes_present() -> None:
     sentences = PROTOTYPES[SkillName.INTERVIEW]
     assert 6 <= len(sentences) <= 8
     assert any("模拟" in s for s in sentences)
+
+
+# --------------------------------------------------------------------------------------
+# finished 边界（Java 侧实测反馈：答满 total 题必须结束，不能被追问拖成 total+1 轮）
+# --------------------------------------------------------------------------------------
+
+def test_last_question_never_triggers_follow_up(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """最后一题即便答得很短/低分，也**不再追问**，直接结束（total=1 即最后一题）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=30)
+    start = _start(client, total=1)
+    body = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"], "answer": "不知道"}).json()
+    assert body["finished"] is True, body
+    assert body["follow_up"] == ""
+    assert body["report"]["per_question"][0]["score"] == 30
+
+
+def test_three_answers_finish_exactly_on_total(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """3 题会话：第 3 次作答就必须 finished=true（此前会被第 3 题的追问拖到第 4 次）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=45)  # 低分，前两题会追问
+    start = _start(client, total=3)
+    sid = start["session_id"]
+    seen = []
+    for _ in range(6):  # 最多允许 6 次（含追问），但必须在第 3 题处结束
+        body = client.post("/v1/interview/answer",
+                           json={"session_id": sid, "answer": "不知道"}).json()
+        seen.append((body.get("question_no"), body["finished"], body.get("is_follow_up")))
+        if body["finished"]:
+            break
+    assert seen[-1][1] is True
+    assert seen[-1][0] == 3          # 结束时题号 = total，不再是 0
+    assert len(body["report"]["per_question"]) == 3
+
+
+def test_follow_up_response_marks_is_follow_up(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """追问轮次带 is_follow_up=true，题号不前进（前端据此渲染"追问"而非"下一题"）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=55)
+    start = _start(client, total=2)
+    body = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"], "answer": "短"}).json()
+    assert body["finished"] is False
+    assert body["is_follow_up"] is True
+    assert body["question_no"] == 1
+    assert body["next_question"] == body["follow_up"]
+
+
+def test_finishes_gracefully_when_next_question_unavailable(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """下一题检索不出来时必须提前收尾，不能返回 finished=false + 空 next_question（会话死锁）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=80)
+    start = _start(client, total=3)
+    # 第 2 题起语料耗尽
+    monkeypatch.setattr(iv, "_retrieve_context", lambda topic, subject_id, exclude: [])
+    body = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "召回差原因包括分块粒度、缺少 rerank、未做查询改写，评估用 NDCG@10。"}).json()
+    assert body["finished"] is True
+    assert body["report"] is not None
+    assert len(body["report"]["per_question"]) == 1
+
+
+def test_duplicate_answer_after_finish_is_idempotent(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """会话已结束后重复提交：幂等返回同一份报告，不能 500（此前会 questions[index] 越界）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=80)
+    start = _start(client, total=1)
+    first = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "召回差包括分块粒度、缺少 rerank、没做查询改写，用 NDCG@10 评估。"}).json()
+    assert first["finished"] is True
+    again = client.post("/v1/interview/answer",
+                        json={"session_id": start["session_id"], "answer": "再答一次"})
+    assert again.status_code == 200
+    body = again.json()
+    assert body["finished"] is True
+    assert body["report"]["total_score"] == first["report"]["total_score"]
