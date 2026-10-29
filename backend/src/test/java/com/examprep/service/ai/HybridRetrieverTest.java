@@ -9,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,5 +93,24 @@ class HybridRetrieverTest {
                 refused, noise.size(), 100.0 * refused / noise.size());
         assertTrue(refused >= 9,
                 "生产链路拒答准确率 = " + refused + "/" + noise.size() + "，低于目标 90%");
+
+        // ★ 反向校验：语义闸门不能把**域内**问题也拒了。
+        // 只测「拒得够多」不测「没拒错」，等于鼓励把阈值往上堆——那是最容易作弊的方向。
+        List<String> domain = List.of(
+                "C语言中int类型占几个字节", "32位系统int类型大小", "C语言合法关键字有哪些",
+                "数组下标从几开始", "标准输出打印函数是什么", "值传递和地址传递有什么区别",
+                "函数传参有哪些方式", "动态分配内存的函数", "malloc和free的作用",
+                "内存管理笔记讲了什么", "C语言重点必考内容", "冒泡排序的步骤");
+        int falseRefused = 0;
+        for (String q : domain) {
+            HybridRetriever.Outcome outcome = hybridRetriever.retrieve(q, null, null, Set.of());
+            if (outcome.refused()) {
+                falseRefused++;
+                System.out.printf("  [误拒] %-22s 语义相似度=%.3f%n", q, outcome.vectorBestSimilarity());
+            }
+        }
+        System.out.printf("域内误拒 = %d/%d%n%n", falseRefused, domain.size());
+        assertEquals(0, falseRefused,
+                "语义闸门把 " + falseRefused + " 条域内问题误拒了（阈值过严，用户会问不出答案）");
     }
 }
