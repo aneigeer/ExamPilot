@@ -32,6 +32,7 @@ courseware + ai_chunk 入库（复用 upsert_courseware / replace_chunks）→
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import time
@@ -235,6 +236,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="纯图片 docx OCR 入库")
     ap.add_argument("--list", action="store_true", help="只列出纯图片文档")
     ap.add_argument("--preset-top12", action="store_true", help="处理内置精选 12 篇")
+    ap.add_argument("--all", action="store_true",
+                    help="处理**全部**纯图片文档（配合 --skip-existing 断点续跑）")
     ap.add_argument("--only", default="", help="按文件名关键词选（逗号分隔，覆盖 --preset-top12）")
     ap.add_argument("--limit", type=int, default=0, help="最多处理多少篇（0=全部选中）")
     ap.add_argument("--skip-existing", action="store_true",
@@ -257,8 +260,10 @@ def main() -> int:
     elif args.preset_top12:
         selected = [(p, c) for p, c in image_only
                     if any(k in p.name for k in PRESET_TOP12)]
+    elif args.all:
+        selected = list(image_only)
     else:
-        print("未指定 --preset-top12 / --only / --list，退出（防误跑 106 篇）")
+        print("未指定 --all / --preset-top12 / --only / --list，退出（防误跑）")
         return 1
     # 同名去重：clean_title 相同的只留第一份（如两个版本的《17种RAG优化策略》）
     seen_titles: set = set()
@@ -301,22 +306,48 @@ def main() -> int:
 
     conn = pymysql.connect(**db_config())
     report: List[Dict[str, Any]] = []
+    progress_file = TOOLS / "ocr_progress.json"
+    progress: List[Dict[str, Any]] = []
+    if progress_file.exists():
+        try:
+            progress = json.loads(progress_file.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            progress = []
+    done_titles = {str(item.get("title") or "") for item in progress}
+
+    def _record(item: Dict[str, Any]) -> None:
+        """逐篇落盘进度台账（断点续跑清单；外部可据此核对已完成/剩余）。"""
+        progress.append(item)
+        try:
+            progress_file.write_text(
+                json.dumps(progress, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError as exc:  # 写台账失败不能影响主流程
+            print(f"      ⚠ 进度台账写入失败：{type(exc).__name__}")
+
     try:
         subject_name = SUBJECT_MAP.get(
             deduped[0][0].parent.name, "AI 大模型")
         subject_id = 0 if args.dry_run else ensure_subject(conn, subject_name, 1)
         print(f"科目：{subject_name}（subject_id={subject_id}）")
-        for path, _ in deduped:
+        for index, (path, page_count) in enumerate(deduped, start=1):
             category = path.parent.name
+            title = clean_title(path.name)
+            print(f"[{index}/{len(deduped)}] {title}（{page_count} 页）", flush=True)
             try:
-                report.append(process_doc(conn, engine, path, temp_dir, subject_id,
-                                          category, dry_run=args.dry_run,
-                                          no_vector=args.no_vector))
+                item = process_doc(conn, engine, path, temp_dir, subject_id,
+                                   category, dry_run=args.dry_run,
+                                   no_vector=args.no_vector)
             except Exception as exc:  # noqa: BLE001 —— 单篇失败不中断
                 print(f"  ✗ {path.name}：{type(exc).__name__}: {str(exc)[:100]}")
-                report.append({"title": clean_title(path.name), "pages": 0,
-                               "ocr_ok": 0, "chunks": 0,
-                               "error": f"{type(exc).__name__}"})
+                item = {"title": title, "pages": 0, "ocr_ok": 0, "chunks": 0,
+                        "error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+            report.append(item)
+            if not args.dry_run and title not in done_titles:
+                done_titles.add(title)
+                _record({"title": title, "path": str(path), "pages": item.get("pages", 0),
+                         "ocr_ok": item.get("ocr_ok", 0), "chunks": item.get("chunks", 0),
+                         "error": item.get("error", ""),
+                         "at": time.strftime("%Y-%m-%d %H:%M:%S")})
     finally:
         conn.close()
         try:

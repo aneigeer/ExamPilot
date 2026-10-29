@@ -100,3 +100,8 @@ ai-service/data/
 # IDE 与备份目录
 .trae/
 backup/
+
+# OCR 批处理的运行产物（进度台账与日志，可按需重跑再生，不入库）
+ai-service/tools/ocr_progress.json
+ai-service/tools/ocr_batch.log
+ai-service/tools/__ocr_tmp/
