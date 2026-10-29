@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 我的作答气泡：右对齐，与 AI 提问区分 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="end"
+    android:orientation="vertical"
+    android:paddingStart="40dp"
+    android:paddingTop="5dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="5dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        app:cardBackgroundColor="@color/chip_bg"
+        app:cardCornerRadius="14dp"
+        app:strokeWidth="0dp">
+
+        <TextView
+            android:id="@+id/tvMyAnswer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="290dp"
+            android:padding="12dp"
+            android:textColor="@color/text_main"
+            android:textIsSelectable="true"
+            android:textSize="14sp" />
+    </com.google.android.material.card.MaterialCardView>
+</LinearLayout>

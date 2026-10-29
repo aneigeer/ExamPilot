@@ -82,6 +82,9 @@ public class HomeFragment extends Fragment {
                 com.examprep.app.ui.wrong.WrongReviewActivity.class, "错题复习"));
         binding.btnWrongBook.setOnClickListener(v -> openRestricted(
                 com.examprep.app.ui.wrong.WrongBookActivity.class, "错题本"));
+        // AI 面试：出题/评分/报告都要落到个人头上，游客必须先登录
+        binding.btnAiInterview.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.interview.InterviewActivity.class, "AI 面试"));
 
         loadHome();
         return binding.getRoot();

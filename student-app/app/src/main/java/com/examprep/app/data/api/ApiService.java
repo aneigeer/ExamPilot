@@ -427,6 +427,23 @@ public interface ApiService {
     @GET("wiki/graph")
     Call<Models.ApiResult<Models.WikiGraph>> wikiGraph(@Query("subjectId") Long subjectId);
 
+    // ---------- AI 面试 ----------
+
+    /**
+     * 开始一场模拟面试
+     *
+     * <p>必须走 {@code ApiClient.apiLong()}：单次作答要跑「检索 + 大模型评分」，
+     * 本地模型常需 15-60 秒，默认 30 秒读超时会把整个面试掐死。
+     */
+    @POST("ai/interview/start")
+    Call<Models.ApiResult<Models.InterviewStartResp>> interviewStart(
+            @Body Models.InterviewStartBody body);
+
+    /** 提交作答：返回评分/追问/下一题，或（最后一题后）整场报告 */
+    @POST("ai/interview/answer")
+    Call<Models.ApiResult<Models.InterviewAnswerResp>> interviewAnswer(
+            @Body Models.InterviewAnswerBody body);
+
     // ---------- 账号生命周期（合规：数据导出 / 注销） ----------
 
     /** 导出个人数据：返回任意结构 JSON，交给客户端落盘/分享 */

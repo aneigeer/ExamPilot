@@ -472,4 +472,111 @@ public class Models {
         public String relation;
         public double weight;
     }
+
+    // ---------- AI 面试（与 Python AI 服务契约严格一致：snake_case）----------
+
+    /**
+     * 开始面试请求体
+     *
+     * <p>字段名用 {@code @SerializedName} 固定成 snake_case：
+     * Java 三层链路（Android → Spring → Python）共用同一套字段名，
+     * 任何一层自作主张转驼峰都会让另一层拿到 null（如 {@code subject_id} 丢失后
+     * 面试官会跨科目抽题，用户看到的是「问的完全不是我要的科目」）。
+     */
+    public static class InterviewStartBody {
+        public String topic;
+        public Integer total;
+        @com.google.gson.annotations.SerializedName("subject_id")
+        public Long subjectId;
+
+        public InterviewStartBody(String topic, Integer total, Long subjectId) {
+            this.topic = topic;
+            this.total = total;
+            this.subjectId = subjectId;
+        }
+    }
+
+    /** 开始面试响应：第一题 + 出处 */
+    public static class InterviewStartResp {
+        @com.google.gson.annotations.SerializedName("session_id")
+        public String sessionId;
+        public String topic;
+        @com.google.gson.annotations.SerializedName("question_no")
+        public Integer questionNo;
+        public Integer total;
+        public String question;
+        public InterviewSource source;
+    }
+
+    /** 题目的语料出处（标题 / 文件名 / 页码）；可能整体为 null */
+    public static class InterviewSource {
+        public String title;
+        @com.google.gson.annotations.SerializedName("source_file")
+        public String sourceFile;
+        @com.google.gson.annotations.SerializedName("page_no")
+        public Integer pageNo;
+    }
+
+    /** 作答请求体 */
+    public static class InterviewAnswerBody {
+        @com.google.gson.annotations.SerializedName("session_id")
+        public String sessionId;
+        public String answer;
+
+        public InterviewAnswerBody(String sessionId, String answer) {
+            this.sessionId = sessionId;
+            this.answer = answer;
+        }
+    }
+
+    /**
+     * 作答响应：未结束时给评分 + 追问 + 下一题；结束（finished=true）时 {@link #report} 非空
+     */
+    public static class InterviewAnswerResp {
+        @com.google.gson.annotations.SerializedName("session_id")
+        public String sessionId;
+        @com.google.gson.annotations.SerializedName("question_no")
+        public Integer questionNo;
+        public Integer total;
+        /** 本题得分（0-100） */
+        public Double score;
+        /** 一句话评语 */
+        public String verdict;
+        @com.google.gson.annotations.SerializedName("hit_points")
+        public java.util.List<String> hitPoints;
+        @com.google.gson.annotations.SerializedName("miss_points")
+        public java.util.List<String> missPoints;
+        /** 参考答案 */
+        public String reference;
+        /** 面试官追问，可能为空串或 null */
+        @com.google.gson.annotations.SerializedName("follow_up")
+        public String followUp;
+        @com.google.gson.annotations.SerializedName("next_question")
+        public String nextQuestion;
+        public boolean finished;
+        /** 整场报告，仅 finished=true 时非空 */
+        public InterviewReport report;
+    }
+
+    /** 整场面试报告 */
+    public static class InterviewReport {
+        @com.google.gson.annotations.SerializedName("total_score")
+        public Double totalScore;
+        /** 等级文案（如 优秀 / 良好 / 待提升） */
+        public String level;
+        @com.google.gson.annotations.SerializedName("per_question")
+        public java.util.List<InterviewPerQuestion> perQuestion;
+        public java.util.List<String> strengths;
+        public java.util.List<String> weaknesses;
+        public java.util.List<String> suggestions;
+        /** 评分是否由降级模型给出（仍依据语料，非编造） */
+        public boolean degraded;
+    }
+
+    /** 报告中的逐题评语 */
+    public static class InterviewPerQuestion {
+        public String question;
+        public Double score;
+        public String comment;
+    }
 }

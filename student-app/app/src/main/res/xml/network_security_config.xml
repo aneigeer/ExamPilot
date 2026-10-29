@@ -15,6 +15,6 @@
          换网络环境时需与 app/build.gradle 里 release 的 BASE_URL 同步更新；
          正式部署切到 HTTPS 后删除本段，做到「零明文」。 -->
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.200.73.127</domain>
+        <domain includeSubdomains="false">10.200.83.194</domain>
     </domain-config>
 </network-security-config>

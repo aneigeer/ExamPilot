@@ -308,6 +308,72 @@
                         </com.google.android.material.card.MaterialCardView>
                     </LinearLayout>
 
+                    <!-- AI 模拟面试入口：独立横幅（4 宫格已满，塞第 5 个会把字挤成两行） -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnAiInterview"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="9dp"
+                        android:clickable="true"
+                        android:contentDescription="AI 模拟面试：进入面试练习，逐题作答并获得评分与报告"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="64dp"
+                        app:cardBackgroundColor="@color/card"
+                        app:cardCornerRadius="15dp"
+                        app:strokeColor="@color/divider"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="12dp">
+
+                            <TextView
+                                android:layout_width="38dp"
+                                android:layout_height="38dp"
+                                android:background="@drawable/bg_exam_purple"
+                                android:gravity="center"
+                                android:text="面"
+                                android:textColor="@color/on_grad"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="AI 模拟面试"
+                                    android:textColor="@color/text_main"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:text="面试官基于站内题库出题，逐题评分 + 追问 + 整场报告"
+                                    android:textColor="@color/text_sub"
+                                    android:textSize="11sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="›"
+                                android:textColor="@color/text_sub"
+                                android:textSize="18sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

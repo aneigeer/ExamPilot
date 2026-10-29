@@ -255,6 +255,19 @@ public class AiProperties {
         /** 索引推送超时（毫秒）。批量 upsert 比检索慢 */
         private int indexTimeoutMillis = 5000;
 
+        /**
+         * ★ AI 面试接口超时（毫秒）
+         *
+         * <p>单次作答要先检索语料、再让大模型打分与生成追问，<b>不可能在 1.2s 内完成</b>
+         * （本地 7B 模型单次生成就要 15–25 秒）。因此面试走<b>独立超时</b>，
+         * 绝不复用 {@link #searchTimeoutMillis}——那会让每个请求都超时，
+         * 表现为「面试永远提示服务不可用」。
+         *
+         * <p>取 60s：覆盖本地模型的正常耗时，又不至于让用户在服务真的挂掉时
+         * 干等超过 1 分钟（连接超时另限 5s，故障场景会快速失败）。
+         */
+        private int interviewTimeoutMillis = 60_000;
+
         /** 连续失败多少次熔断 */
         private int circuitBreakerThreshold = 3;
 
