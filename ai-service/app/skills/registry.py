@@ -118,6 +118,22 @@ GRADING = Skill(
     retrieval_groups=(("QUESTION",),),
 )
 
+#: AI 面试（有状态多轮）：**不走 /v1/ask 的无状态链路**，而由
+#: ``/v1/interview/start|answer`` 维护会话（出题→评分→追问→复盘）。
+#: 注册到这里是为了让 Router 能把"我想练面试"从课程问答/判分里分出来，
+#: 并在 /v1/ask 里明确引导前端改调面试接口（而不是假装已经开考）。
+INTERVIEW = Skill(
+    name=SkillName.INTERVIEW,
+    source_types=("COURSEWARE",),
+    needs_retrieval=False,
+    needs_llm=False,
+    template_reply=(
+        "好的，进入 AI 模拟面试。请调用 POST /v1/interview/start "
+        '（如 {"topic":"RAG","total":3}）开始，服务会从面试类课件里出题、'
+        "逐题评分并在答完后给出复盘报告。"
+    ),
+)
+
 #: 寒暄：模板直出，**不调大模型**（实测 < 50ms），避免"你好"也等 5 秒
 SMALLTALK = Skill(
     name=SkillName.SMALLTALK,
@@ -142,6 +158,7 @@ SKILLS: Dict[SkillName, Skill] = {
         STUDY_PLAN,
         WRONG_BOOK_REVIEW,
         GRADING,
+        INTERVIEW,
         SMALLTALK,
     )
 }

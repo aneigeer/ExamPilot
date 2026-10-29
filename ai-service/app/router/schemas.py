@@ -26,6 +26,7 @@ class SkillName(str, Enum):
     WRONG_BOOK_REVIEW = "WRONG_BOOK_REVIEW"  # 错题分析
     GRADING = "GRADING"                    # 主观题判分
     SMALLTALK = "SMALLTALK"                # 寒暄（模板直出，不调大模型）
+    INTERVIEW = "INTERVIEW"                # AI 面试（有状态多轮，见 /v1/interview/*）
     REFUSE = "REFUSE"                      # 域外拒答
     CLARIFY = "CLARIFY"                    # 意图歧义，反问
 
