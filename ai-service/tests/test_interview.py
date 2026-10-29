@@ -366,6 +366,9 @@ def test_finishes_gracefully_when_next_question_unavailable(
     assert body["finished"] is True
     assert body["report"] is not None
     assert len(body["report"]["per_question"]) == 1
+    # 提前收尾：题号必须等于**实评题数**，不能报 total（计划 3 题只评了 1 题）
+    assert body["question_no"] == 1
+    assert body["finish_reason"] == "EARLY_EXHAUSTED"
 
 
 def test_duplicate_answer_after_finish_is_idempotent(
@@ -406,7 +409,8 @@ def test_total_two_finishes_on_second_answer(client: Any,
         "session_id": start["session_id"],
         "answer": "我会用混合检索加 rerank，并用 NDCG@10 与人工标注对照评估。"}).json()
     assert second["finished"] is True
-    assert second["question_no"] == 2          # = total
+    assert second["question_no"] == 2          # = total = 实评题数
+    assert second["finish_reason"] == "COMPLETED"
     assert second["next_question"] == ""       # 不再给下一题
     assert len(second["report"]["per_question"]) == 2
     assert all(item["score"] > 0 for item in second["report"]["per_question"])
@@ -449,3 +453,21 @@ def test_follow_up_counted_per_question_not_per_session(
                      json={"session_id": sid, "answer": "短答"}).json()
     assert a2["finished"] is True   # 第 2 题是最后一题：即便低分也直接结束，不再追问
     assert len(a2["report"]["per_question"]) == 2
+
+
+def test_early_finish_question_no_matches_scored_count(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """提前收尾：question_no 必须 == 实评题数，不能报 total（Java 侧回归发现）。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=80)
+    start = _start(client, total=5)
+    # 第 1 题答完就语料耗尽
+    monkeypatch.setattr(iv, "_retrieve_context", lambda topic, subject_id, exclude: [])
+    body = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "召回差包括分块粒度、缺 rerank、未做查询改写，评估用 NDCG@10。"}).json()
+    assert body["finished"] is True
+    assert body["total"] == 5                       # 计划 5 题
+    assert body["question_no"] == 1                 # 实评 1 题
+    assert len(body["report"]["per_question"]) == 1
+    assert body["finish_reason"] == "EARLY_EXHAUSTED"

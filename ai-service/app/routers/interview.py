@@ -131,6 +131,9 @@ class InterviewAnswerResponse(BaseModel):
     degraded: bool = False
     # 结束字段
     report: Optional[Dict[str, Any]] = None
+    #: 结束原因：COMPLETED（答满 total）/ EARLY_EXHAUSTED（语料耗尽提前收尾）。
+    #: 契约未列，属附加信息；客户端据此可提示"计划 N 题、实评 M 题"。
+    finish_reason: str = ""
 
 
 # ---------------------------------------------------------------- 内部状态
@@ -171,6 +174,10 @@ class _Session:
     degraded: bool = False
     #: 已用过的 chunk_id，避免连续多题撞同一段资料
     used_chunk_ids: List[int] = field(default_factory=list)
+
+    def scored_count(self) -> int:
+        """已评分的题目数（= 报告 per_question 的条数）。"""
+        return len([q for q in self.questions if q.score is not None])
 
 
 _SESSIONS: Dict[str, _Session] = {}
@@ -690,7 +697,11 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
         logger.info("[Interview] 会话 %s 已结束，重复提交按幂等处理", session.session_id)
         return InterviewAnswerResponse(
             session_id=session.session_id, finished=True, total=session.total,
-            question_no=session.total, degraded=session.degraded,
+            # 题号报**实评题数**：提前收尾时 total(计划) 与实评数不同，报 total 会与
+            # report.per_question 条数矛盾（Java 侧实测：question_no=5 但只评了 3 题）
+            question_no=session.scored_count(), degraded=session.degraded,
+            finish_reason=("COMPLETED" if session.index >= session.total
+                           else "EARLY_EXHAUSTED"),
             report=_build_report(session),
         )
     question = session.questions[session.index]
@@ -775,8 +786,11 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
     if finished:
         return InterviewAnswerResponse(
             session_id=session_id, finished=True, total=session.total,
-            # 结束时也回报题号：原来默认 0，Java 侧日志/进度条会误读
-            question_no=session.total,
+            # 题号报**实评题数**（正常结束 = total；提前收尾 = 实评数），
+            # 保证 question_no 与 report.per_question 条数永远自洽
+            question_no=session.scored_count(),
+            finish_reason=("COMPLETED" if session.index >= session.total
+                           else "EARLY_EXHAUSTED"),
             score=score, verdict=verdict, degraded=session.degraded, report=report,
         )
     return InterviewAnswerResponse(
