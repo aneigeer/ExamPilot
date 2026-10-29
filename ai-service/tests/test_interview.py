@@ -384,3 +384,68 @@ def test_duplicate_answer_after_finish_is_idempotent(
     body = again.json()
     assert body["finished"] is True
     assert body["report"]["total_score"] == first["report"]["total_score"]
+
+
+def test_total_two_finishes_on_second_answer(client: Any,
+                                             monkeypatch: pytest.MonkeyPatch) -> None:
+    """team-lead 点名回归：total=2 时**第 2 次 answer 就 finished=true**，
+    per_question 正好 2 条且都有分，结束响应不再给 next_question。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=80)
+    start = _start(client, total=2)
+    assert start["total"] == 2
+
+    first = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "召回差的原因包括分块粒度不合理、缺少 rerank、未做查询改写。"}).json()
+    assert first["finished"] is False
+    assert first["question_no"] == 2
+    assert first["next_question"]
+
+    second = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "我会用混合检索加 rerank，并用 NDCG@10 与人工标注对照评估。"}).json()
+    assert second["finished"] is True
+    assert second["question_no"] == 2          # = total
+    assert second["next_question"] == ""       # 不再给下一题
+    assert len(second["report"]["per_question"]) == 2
+    assert all(item["score"] > 0 for item in second["report"]["per_question"])
+    assert second["report"]["per_question"][0]["score"] == 80
+    assert second["report"]["per_question"][1]["score"] == 80
+
+
+def test_total_one_finishes_on_first_answer(client: Any,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """team-lead 点名边界：total=1 时第 1 次 answer 直接结束，per_question 恰好 1 条。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=70)
+    start = _start(client, total=1)
+    body = client.post("/v1/interview/answer", json={
+        "session_id": start["session_id"],
+        "answer": "分块粒度、rerank、查询改写都会影响召回，评估用 NDCG@10。"}).json()
+    assert body["finished"] is True
+    assert body["question_no"] == 1
+    assert body["next_question"] == ""
+    assert len(body["report"]["per_question"]) == 1
+    assert body["report"]["total_score"] == 70
+
+
+def test_follow_up_counted_per_question_not_per_session(
+        client: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """追问计数按**每题**算：第 1 题追问过一次后，第 2 题仍然可以追问一次。"""
+    _stub_corpus(monkeypatch)
+    _stub_llm(monkeypatch, score=50)
+    start = _start(client, total=2)
+    sid = start["session_id"]
+
+    a1 = client.post("/v1/interview/answer",
+                     json={"session_id": sid, "answer": "短答"}).json()
+    assert a1["is_follow_up"] is True and a1["question_no"] == 1
+    a1b = client.post("/v1/interview/answer",
+                      json={"session_id": sid, "answer": "补充一点"}).json()
+    assert a1b["question_no"] == 2  # 第 1 题的追问用完，进入第 2 题
+
+    a2 = client.post("/v1/interview/answer",
+                     json={"session_id": sid, "answer": "短答"}).json()
+    assert a2["finished"] is True   # 第 2 题是最后一题：即便低分也直接结束，不再追问
+    assert len(a2["report"]["per_question"]) == 2
