@@ -150,21 +150,86 @@ public class RetrievalService {
         }
         contexts.sort(Comparator.comparingDouble(ChunkContext::finalScore).reversed());
 
-        // ---------- ⑤ Top-K 截断 + 拒答阈值 ----------
+        // ---------- ⑤ Top-K 截断 + 拒答阈值（分数 × 内容覆盖度联合判定）----------
         List<ChunkContext> top = contexts.size() > topK
                 ? contexts.subList(0, topK)
                 : contexts;
         double best = top.isEmpty() ? 0.0 : top.get(0).finalScore();
         long cost = System.currentTimeMillis() - start;
 
-        if (best < config.rejectThreshold()) {
-            log.info("[AI] 拒答：最高分 {} < 阈值 {}（模式 {}，问题「{}」）",
-                    String.format("%.4f", best), config.rejectThreshold(), mode, question);
-            return RetrievalResult.refuse(mode, contexts.size(), cost);
+        // ★ 内容覆盖度：用户问的「实体」在最佳块里出现了多少
+        // 与上面的 expansionTerms 覆盖率分工不同：
+        //   - expansionTerms 覆盖率含虚词 bigram，只能滤掉「共享一个函数」的噪声；
+        //   - contentTerms 覆盖度只算实词组合，用来判断「是不是在答非所问」。
+        // 实测 10 条域外问题里，「红烧肉的做法是什么」只共享「做法」，「北京到上海的火车时刻表」
+        // 只共享「时刻」——这类共享足以让旧闸门（0.15 分 + 0.25 词项覆盖率）放行，
+        // 但在实词覆盖度上只有 0.2~0.33，拦得住。
+        List<String> contentTerms = booleanQueryBuilder.contentTerms(question);
+        double bestCoverage = contentTerms.isEmpty() ? 1.0 : contentCoverage(top, contentTerms);
+
+        AiProperties.Retrieval rc = properties.getRetrieval();
+        boolean weakScore = best < config.rejectThreshold();
+        boolean lowCoverage = !contentTerms.isEmpty()
+                && bestCoverage < rc.getMinContentCoverage();
+        boolean outOfScope = outOfScopeHit(question);
+
+        if (weakScore || lowCoverage || outOfScope) {
+            log.info("[AI] 拒答：最高分 {}（阈值 {}），内容覆盖度 {}（阈值 {}），越界词={}，"
+                            + "模式 {}，问题「{}」",
+                    String.format("%.4f", best), config.rejectThreshold(),
+                    String.format("%.2f", bestCoverage), rc.getMinContentCoverage(),
+                    outOfScope, mode, question);
+            return new RetrievalResult(List.of(), true, mode, contexts.size(), cost,
+                    best, bestCoverage);
         }
-        log.info("[AI] 检索命中 {} 块（模式 {}，最高分 {}，耗时 {} ms）：{}",
-                top.size(), mode, String.format("%.4f", best), cost, question);
-        return new RetrievalResult(List.copyOf(top), false, mode, contexts.size(), cost);
+        log.info("[AI] 检索命中 {} 块（模式 {}，最高分 {}，内容覆盖度 {}，耗时 {} ms）：{}",
+                top.size(), mode, String.format("%.4f", best),
+                String.format("%.2f", bestCoverage), cost, question);
+        return new RetrievalResult(List.copyOf(top), false, mode, contexts.size(), cost,
+                best, bestCoverage);
+    }
+
+    /**
+     * 能力边界判定：问题是否落在「备考知识库」的承诺范围之外
+     *
+     * <p>命中 {@code app.ai.retrieval.out-of-scope-keywords} 任一即视为越界。
+     * 这类问题（天气、汇率、快递、菜谱…）在语料里可能凑出很高的词重叠
+     * （行测材料包罗万象），任何「词重叠类」判据都拦不住，只能靠显式边界声明。
+     */
+    private boolean outOfScopeHit(String question) {
+        if (!StringUtils.hasText(question)) {
+            return false;
+        }
+        for (String keyword : properties.getRetrieval().getOutOfScopeKeywords()) {
+            if (StringUtils.hasText(keyword) && question.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 最佳块的内容词覆盖度 = 命中的内容词单元数 / 内容词单元总数
+     *
+     * <p>在 title + content 上做大小写不敏感子串匹配，取值 [0,1]。
+     * 取 Top-K 内**最高**覆盖度而非 Top-1 的覆盖度：排序由五因子决定，
+     * 排第一的块可能只是标题命中的索引块，真正覆盖实体的块排在第二三位也很常见，
+     * 用 Top-1 会系统性低估（实测会把 3 条可回答问题误判成低覆盖）。
+     */
+    private double contentCoverage(List<ChunkContext> top, List<String> contentTerms) {
+        double bestCoverage = 0.0;
+        for (ChunkContext ctx : top) {
+            String text = ((ctx.title() == null ? "" : ctx.title()) + " "
+                    + (ctx.content() == null ? "" : ctx.content())).toLowerCase();
+            int hit = 0;
+            for (String term : contentTerms) {
+                if (text.contains(term.toLowerCase())) {
+                    hit++;
+                }
+            }
+            bestCoverage = Math.max(bestCoverage, (double) hit / contentTerms.size());
+        }
+        return bestCoverage;
     }
 
     /** 全文召回包一层 try：ngram 插件缺失 / 索引损坏时降级而不是 500 */
@@ -356,10 +421,11 @@ public class RetrievalService {
      * @param costMillis   检索阶段耗时
      */
     public record RetrievalResult(List<ChunkContext> contexts, boolean refused,
-                                  String mode, int recallCount, long costMillis) {
+                                  String mode, int recallCount, long costMillis,
+                                  double bestScore, double contentCoverage) {
 
         static RetrievalResult refuse(String mode, int recallCount, long cost) {
-            return new RetrievalResult(List.of(), true, mode, recallCount, cost);
+            return new RetrievalResult(List.of(), true, mode, recallCount, cost, 0.0, 0.0);
         }
 
         /** 索引块总数（供 capability 展示语料规模） */

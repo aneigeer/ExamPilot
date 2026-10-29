@@ -58,6 +58,37 @@ public class BooleanQueryBuilder {
     /** 判定「词级 term」的最大长度：超过则认为是整句而非词 */
     private static final int MAX_WORD_LENGTH = 4;
 
+    /**
+     * ★ 疑问 / 口语填充短语：算「内容覆盖度」前先整体剔除
+     *
+     * <p><b>为什么必须剔除，而不是只靠停用词表</b>：停用词表按「整段相等」过滤，
+     * 而用户提问是一整句无标点的中文（「红烧肉的做法是什么」），整段不等于任何停用词，
+     * bigram 展开后会产出「是什」「什么」这类纯虚词二元组。这些二元组在语料里
+     * 到处都是（任何一条「下列说法正确的是」都能命中），足以把覆盖率抬过闸门，
+     * 让域外问题蒙混过关——这正是拒答准确率只有 50% 的直接原因。
+     *
+     * <p>按「长短语优先」顺序剔除，避免「怎么样」被「怎么」先切掉留下「样」。
+     */
+    private static final List<String> FILLER_PHRASES = List.of(
+            "是什么", "是什么意思", "为什么", "怎么样", "怎么办", "怎么做", "怎么写",
+            "怎么理解", "有什么用", "有哪些", "是什么样", "有什么区别", "有何区别",
+            "介绍一下", "介绍", "讲讲", "说说", "请问", "帮我", "一下", "我们", "你们", "他们",
+            "怎么样呢", "如何", "怎么", "什么", "哪些", "哪个", "区别", "作用", "步骤");
+
+    /**
+     * ★ 虚词 / 功能字：包含它们的 bigram 一律不算「内容词」
+     *
+     * <p>与 {@link #FILLER_PHRASES} 分工不同：
+     * 短语表剔除整块疑问壳，本表剔除「的做」「是什」「言的」这类跨词边界垃圾二元组。
+     * 只保留真正携带语义的二字组合参与覆盖率判定。
+     */
+    private static final Set<Character> FUNCTION_CHARS = Set.of(
+            '的', '了', '是', '在', '和', '与', '或', '及', '有', '吗', '呢', '吧', '啊', '呀',
+            '什', '么', '怎', '如', '何', '为', '哪', '些', '这', '那', '个', '之', '其', '也',
+            '就', '都', '要', '会', '能', '把', '被', '从', '对', '到', '以', '而', '并', '且',
+            '着', '过', '地', '得', '所', '很', '太', '多', '少', '几', '中', '上', '下',
+            '里', '还', '又', '再', '才', '只', '不', '没', '无');
+
     /** 单个中文串最多产出多少 bigram（防止超长查询产生几百个 term 拖垮索引） */
     private static final int MAX_BIGRAMS_PER_RUN = 16;
 
@@ -194,6 +225,68 @@ public class BooleanQueryBuilder {
             bigrams.addAll(bigrams(segment));
         }
         return bigrams.size() > limit ? bigrams.subList(0, limit) : bigrams;
+    }
+
+    /**
+     * ★ 内容词单元（拒绝判定专用）
+     *
+     * <p>与 {@link #expansionTerms(String)} 的区别：
+     * <ul>
+     *   <li>先剔除 {@link #FILLER_PHRASES} 疑问壳（「的做法是什么」→「红烧肉」）</li>
+     *   <li>再把剩余中文串切成 bigram，并丢弃含 {@link #FUNCTION_CHARS} 的二元组</li>
+     *   <li>结果只含「实词组合」，用于判断「候选块是否真的覆盖了用户问的实体」</li>
+     * </ul>
+     *
+     * <p><b>为什么不能直接用 expansionTerms 算覆盖率</b>：那里面混着「什么」「是什」
+     * 这类虚词二元组，域外问题只要碰上一个就能过闸（实测 10 条域外只拒了 5 条）。
+     * 拒答需要的是「用户问的实体在不在语料里」，而不是「有没有共享虚词」。
+     *
+     * @param query 用户原始问题
+     * @return 内容词单元（去重保序）；无可用单元时返回空 list（此时不做该闸门）
+     */
+    public List<String> contentTerms(String query) {
+        if (!StringUtils.hasText(query)) {
+            return List.of();
+        }
+        String stripped = query;
+        // 长短语优先：避免「怎么样」被「怎么」先切掉
+        for (String filler : FILLER_PHRASES) {
+            stripped = stripped.replace(filler, " ");
+        }
+        // ★ 连词/助词当分隔符：否则「malloc和free」会整段落进中文分支被切成
+        // ma/al/ll… 这类垃圾二元组（实测踩到：英文实词全被切碎，覆盖度判定失真）
+        for (String separator : List.of("的", "了", "是", "和", "与", "或", "及", "在")) {
+            stripped = stripped.replace(separator, " ");
+        }
+        Set<String> result = new LinkedHashSet<>();
+        for (String raw : stripped.split(TERM_SPLIT_REGEX)) {
+            String segment = raw.trim();
+            if (segment.length() < 2) {
+                continue;
+            }
+            if (!containsCjk(segment)) {
+                // 英文 / 数字（int、malloc、32）本身就是实词，整段保留
+                result.add(segment);
+                continue;
+            }
+            for (String bigram : bigrams(segment)) {
+                if (hasFunctionChar(bigram)) {
+                    continue;
+                }
+                result.add(bigram);
+            }
+        }
+        return new ArrayList<>(result);
+    }
+
+    /** bigram 是否含虚词/功能字（含则视为无区分度的噪声组合） */
+    private static boolean hasFunctionChar(String term) {
+        for (int i = 0; i < term.length(); i++) {
+            if (FUNCTION_CHARS.contains(term.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 中文串 → 重叠 bigram（与 ngram 索引口径一致） */

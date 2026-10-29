@@ -35,7 +35,15 @@ public class HybridRetriever {
      * @param bestScore   最高最终分（空结果时为 0）
      */
     public record Outcome(List<ChunkContext> contexts, String mode,
-                          int recallCount, double bestScore) {
+                          int recallCount, double bestScore,
+                          boolean refused, String refuseReason, double vectorBestSimilarity) {
+
+        /** 未触发语义拒答时的便捷构造 */
+        static Outcome of(List<ChunkContext> contexts, String mode, int recallCount,
+                          double bestScore, double vectorBest) {
+            return new Outcome(contexts, mode, recallCount, bestScore,
+                    false, "", vectorBest);
+        }
     }
 
     /** 按生产配置（Top-K 取 app.ai.retrieval.top-k，开启覆盖率闸门）检索 */
@@ -61,8 +69,8 @@ public class HybridRetriever {
     public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
                            Set<Long> weakKpIds, int topK, boolean applyGate) {
         int safeTopK = Math.max(1, topK);
-        List<ChunkContext> vectorContexts = retrieveByVector(
-                question, subjectId, weakKpIds, safeTopK, applyGate);
+        VectorChannel.Scan scan = scanByVector(question, subjectId, safeTopK, applyGate);
+        List<ChunkContext> vectorContexts = scan.contexts();
 
         RetrievalService.RetrievalResult ngram = retrievalService.retrieve(
                 question, subjectId, examCategoryId, weakKpIds,
@@ -84,8 +92,25 @@ public class HybridRetriever {
         }
 
         double best = contexts.isEmpty() ? 0.0 : contexts.get(0).finalScore();
-        return new Outcome(contexts, mode,
-                ngram.recallCount() + vectorContexts.size(), best);
+
+        // ★ 语义拒答：词法闸门拦不住「实体存在但没有一段文字在回答」
+        //（「区块链智能合约怎么写」词法覆盖度 0.75，余弦只有 0.5957）。
+        // 只在向量通道**真的给回了候选**时判定——bestSimilarity=0 意味着通道不可用/无命中，
+        // 此时应由 ngram 侧闸门决定，绝不能用 0 去拒掉一切。
+        double vectorBest = scan.bestSimilarity();
+        boolean semanticReject = applyGate
+                && properties.getVector().isEnabled()
+                && vectorBest > 0
+                && vectorBest < properties.getRetrieval().getSemanticRejectScore();
+        if (semanticReject) {
+            log.info("[AI] 语义拒答：top1 余弦 {} < {}（整库都不像这个问题），问题「{}」",
+                    String.format("%.4f", vectorBest),
+                    properties.getRetrieval().getSemanticRejectScore(), question);
+            return new Outcome(List.of(), mode, ngram.recallCount() + vectorContexts.size(),
+                    0.0, true, "SEMANTIC_LOW_SIMILARITY", vectorBest);
+        }
+        return Outcome.of(contexts, mode, ngram.recallCount() + vectorContexts.size(), best,
+                vectorBest);
     }
 
     /**
@@ -93,25 +118,28 @@ public class HybridRetriever {
      *
      * <p>FastAPI / Qdrant / 模型任一不可用时，上层自动降级到 ngram。
      */
-    private List<ChunkContext> retrieveByVector(String question, Long subjectId,
-                                                Set<Long> weakKpIds, int topK,
-                                                boolean applyGate) {
+    private VectorChannel.Scan scanByVector(String question, Long subjectId, int topK,
+                                            boolean applyGate) {
         if (!vectorChannel.isEnabled()) {
-            return List.of();
+            return new VectorChannel.Scan(List.of(), 0.0);
         }
         try {
             if (!vectorChannel.isReady()) {
                 log.info("[AI] 向量通道不可用（未开启/熔断/健康检查未通过），静默降级到 ngram 通道");
-                return List.of();
+                return new VectorChannel.Scan(List.of(), 0.0);
             }
             int recall = Math.max(topK, properties.getVector().getRecallLimit());
-            // 纯召回模式（评估）不做相似度闸门；生产模式照常过闸
-            return applyGate
-                    ? vectorChannel.retrieve(question, recall, subjectId)
-                    : vectorChannel.retrieveRaw(question, recall, subjectId);
+            if (!applyGate) {
+                // 纯召回模式（离线评估）：不过相似度闸门，但要保留原始最高相似度
+                List<ChunkContext> raw = vectorChannel.retrieveRaw(question, recall, subjectId);
+                double best = raw.stream().mapToDouble(ChunkContext::ftScore)
+                        .max().orElse(0.0);
+                return new VectorChannel.Scan(raw, best);
+            }
+            return vectorChannel.scan(question, recall, subjectId);
         } catch (Exception e) {
             log.warn("[AI] 向量通道异常（静默降级到 ngram 通道）: {}", e.getMessage());
-            return List.of();
+            return new VectorChannel.Scan(List.of(), 0.0);
         }
     }
 }

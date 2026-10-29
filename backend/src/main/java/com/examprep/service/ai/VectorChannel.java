@@ -71,6 +71,41 @@ public class VectorChannel {
     }
 
     /**
+     * ★ 召回 + <b>最高相似度</b>（语义拒答判定用）
+     *
+     * <p><b>为什么要单独暴露「原始最高相似度」</b>：{@link #retrieve} 会先过相似度闸门，
+     * 低于 {@code min-vector-score} 的候选被整批丢弃，此时调用方只能看到「空结果」，
+     * <b>无法区分</b>「向量库真的没有相关内容（相似度 0.4）」与
+     * 「有候选但都被闸门否了（相似度 0.5）」——而拒答恰恰需要这个原始数值来判断
+     * 「整库都不像」还是「只是不够像」。
+     *
+     * <p>一次搜索同时拿到两样东西，避免为取分数再打一遍向量服务（那是双倍延迟）。
+     *
+     * @param query     用户问题
+     * @param topK      召回条数
+     * @param subjectId 科目过滤
+     * @return 过闸后的上下文 + 原始最高余弦相似度；不可用时 {@code (空, 0)}
+     */
+    public Scan scan(String query, int topK, Long subjectId) {
+        List<ChunkContext> raw = retrieveRaw(query, topK, subjectId);
+        if (raw.isEmpty()) {
+            return new Scan(List.of(), 0.0);
+        }
+        // hydrate 把余弦相似度原样写进 ftScore（finalScore 是归一化值），取最大值即 top1 相似度
+        double best = raw.stream().mapToDouble(ChunkContext::ftScore).max().orElse(0.0);
+        return new Scan(applyVectorScoreGate(raw), best);
+    }
+
+    /**
+     * 向量召回扫描结果
+     *
+     * @param contexts       过相似度闸门、已回表补全的上下文
+     * @param bestSimilarity 原始最高余弦相似度（未过闸前的 top1），无命中时为 0
+     */
+    public record Scan(List<ChunkContext> contexts, double bestSimilarity) {
+    }
+
+    /**
      * ★ 向量通道闸门 = <b>相似度阈值</b>（不是词项覆盖率）
      *
      * <p><b>为什么不能用 ngram 那套词项覆盖率（这是实测踩出来的坑）</b>：

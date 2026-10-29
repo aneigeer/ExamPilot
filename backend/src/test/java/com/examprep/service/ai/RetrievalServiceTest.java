@@ -315,6 +315,285 @@ class RetrievalServiceTest {
     }
 
     // ==================================================================
+    // 拒答阈值标定（只打印，不做断言）
+    // ==================================================================
+
+    /**
+     * 拒答阈值标定表：把两组问题的「最高分 / 内容覆盖度」并排打出来
+     *
+     * <p><b>为什么需要这张表</b>：拒答是「分数 × 覆盖度」的联合判定，两个阈值必须落在
+     * 「域外最高」与「域内最低」之间的空档里。凭感觉调阈值就是拍脑袋——这张表让
+     * 每次调参都有据可查，也让语料扩容后的漂移一眼可见。
+     *
+     * <p>本方法<b>不做断言</b>（断言在 {@code 打印Recall5评测表} / {@code 拒答用例} 里），
+     * 只负责把决策依据摊开，避免「为了让测试变绿而改阈值」。
+     */
+    @Test
+    @DisplayName("拒答指标诊断表（域内 12 条 vs 域外 10 条：分数 / 覆盖度 / df 加权）")
+    void 拒答指标诊断() {
+        if (aiChunkMapper.countActive() == 0) {
+            System.out.println("索引为空，跳过诊断。");
+            return;
+        }
+        AiProperties.Retrieval cfg = new AiProperties.Retrieval();
+        System.out.println();
+        System.out.printf("── 拒答判定依据（rejectThreshold=%.2f，minContentCoverage=%.2f，"
+                        + "semanticRejectScore=%.2f，越界词 %d 个）──%n",
+                EVAL_CONFIG.rejectThreshold(), cfg.getMinContentCoverage(),
+                cfg.getSemanticRejectScore(), cfg.getOutOfScopeKeywords().size());
+
+        System.out.println("【域内·应放行】");
+        System.out.printf("  %-22s %-13s %-6s %-6s %-6s %-6s %-7s %-6s %s%n",
+                "问题", "模式", "covT1", "句覆盖", "最长命中", "分差", "ftT1", "块长", "判定");
+        for (EvalCase c : EVAL_SET) {
+            diagnose(c.question());
+        }
+        System.out.println("【域外·应拒答】");
+        System.out.printf("  %-22s %-13s %-6s %-6s %-6s %-6s %-7s %-6s %s%n",
+                "问题", "模式", "covT1", "句覆盖", "最长命中", "分差", "ftT1", "块长", "判定");
+        for (String q : REJECT_SET) {
+            diagnose(q);
+        }
+        System.out.println();
+    }
+
+    /**
+     * 单条诊断：把「为什么该拒/该放」的四个量都打出来
+     *
+     * <p>各项含义：
+     * <ul>
+     *   <li>{@code covT1}：Top-1 块命中实词 bigram 的比例</li>
+     *   <li>{@code covMax}：Top-K 内各块覆盖度的最大值</li>
+     *   <li>{@code idfCov}：**df 加权**覆盖度——越常见（语料里到处都有）的 bigram 权重越低，
+     *       用来戳穿「靠共享常见词凑出来的覆盖度」</li>
+     * </ul>
+     */
+    private void diagnose(String question) {
+        RetrievalService.RetrievalResult r =
+                retrievalService.retrieve(question, null, null, Set.of(), EVAL_CONFIG);
+        List<String> terms = booleanQueryBuilder.contentTerms(question);
+        double covT1 = 0;
+        double covMax = 0;
+        double idfCov = 0;
+        if (!r.contexts().isEmpty() && !terms.isEmpty()) {
+            int n = r.contexts().size();
+            // df：该 bigram 在候选窗口里出现在多少块中
+            int[] df = new int[terms.size()];
+            boolean[][] hitMatrix = new boolean[n][terms.size()];
+            for (int i = 0; i < n; i++) {
+                ChunkContext ctx = r.contexts().get(i);
+                String text = ((ctx.title() == null ? "" : ctx.title()) + " "
+                        + (ctx.content() == null ? "" : ctx.content())).toLowerCase();
+                for (int t = 0; t < terms.size(); t++) {
+                    boolean hit = text.contains(terms.get(t).toLowerCase());
+                    hitMatrix[i][t] = hit;
+                    if (hit) {
+                        df[t]++;
+                    }
+                }
+            }
+            for (int i = 0; i < n; i++) {
+                int hit = 0;
+                for (boolean b : hitMatrix[i]) {
+                    if (b) {
+                        hit++;
+                    }
+                }
+                double cov = (double) hit / terms.size();
+                covMax = Math.max(covMax, cov);
+                if (i == 0) {
+                    covT1 = cov;
+                }
+            }
+            // idf 加权：w = log(1 + N/df)，常见词权重趋近 0
+            double wSum = 0;
+            double wHit = 0;
+            for (int t = 0; t < terms.size(); t++) {
+                double w = Math.log(1.0 + (double) n / Math.max(1, df[t]));
+                wSum += w;
+                boolean anyHit = false;
+                for (int i = 0; i < n; i++) {
+                    if (hitMatrix[i][t]) {
+                        anyHit = true;
+                        break;
+                    }
+                }
+                if (anyHit) {
+                    wHit += w;
+                }
+            }
+            idfCov = wSum <= 0 ? 0 : wHit / wSum;
+        }
+        // 绝对量：finalScore 的 ftNorm 是「对本查询 maxFt 归一化」，Top-1 恒为 1.0，
+        // 对拒答几乎没有区分度；真正有绝对意义的是原始 ft 与标题命中。
+        double ftT1 = r.contexts().isEmpty() ? 0 : r.contexts().get(0).ftScore();
+        double ftMax = r.contexts().stream().mapToDouble(ChunkContext::ftScore).max().orElse(0);
+        double titleCov = 0;
+        double minHitDf = 1.0;   // 命中词中「最稀」的那个的窗口 df 占比（越小越有区分度）
+        double maxHitDf = 0.0;   // 命中词中「最烂大街」的那个
+        if (!r.contexts().isEmpty() && !terms.isEmpty()) {
+            String t = (r.contexts().get(0).title() == null ? "" : r.contexts().get(0).title())
+                    .toLowerCase();
+            int hit = 0;
+            for (String term : terms) {
+                if (t.contains(term.toLowerCase())) {
+                    hit++;
+                }
+            }
+            titleCov = (double) hit / terms.size();
+        }
+        if (!r.contexts().isEmpty() && !terms.isEmpty()) {
+            int n = r.contexts().size();
+            for (String term : terms) {
+                int df = 0;
+                for (ChunkContext ctx : r.contexts()) {
+                    String text = ((ctx.title() == null ? "" : ctx.title()) + " "
+                            + (ctx.content() == null ? "" : ctx.content())).toLowerCase();
+                    if (text.contains(term.toLowerCase())) {
+                        df++;
+                    }
+                }
+                if (df > 0) {
+                    double ratio = (double) df / n;
+                    minHitDf = Math.min(minHitDf, ratio);
+                    maxHitDf = Math.max(maxHitDf, ratio);
+                }
+            }
+        }
+        // ★ 句级覆盖度：同一句话里能覆盖多少查询实词
+        // 整块覆盖度会被 400 字长段落「稀释后凑满」——噪声词散落全篇也能到 1.0；
+        // 而「有没有一句话在回答这个问题」才是拒答该看的证据。
+        double sentCov = 0;
+        if (!r.contexts().isEmpty() && !terms.isEmpty()) {
+            for (ChunkContext ctx : r.contexts()) {
+                String body = ctx.content() == null ? "" : ctx.content();
+                for (String sentence : body.split("[。！？；\\n]")) {
+                    if (sentence.isBlank()) {
+                        continue;
+                    }
+                    String s = sentence.toLowerCase();
+                    int hit = 0;
+                    for (String term : terms) {
+                        if (s.contains(term.toLowerCase())) {
+                            hit++;
+                        }
+                    }
+                    sentCov = Math.max(sentCov, (double) hit / terms.size());
+                }
+            }
+        }
+        // ★ 分差：top1 的原始 ft 相对候选中位数的倍数
+        // 真命中：只有那一条真正相关，top1 远远甩开其余（倍数大）；
+        // 噪声命中：几条都不相关，ft 挤在一起（倍数接近 1）。
+        double ftSpread = 0;
+        int top1Len = 0;
+        if (!r.contexts().isEmpty()) {
+            top1Len = r.contexts().get(0).content() == null
+                    ? 0 : r.contexts().get(0).content().length();
+            List<Double> fts = r.contexts().stream().map(ChunkContext::ftScore).sorted().toList();
+            double median = fts.get(fts.size() / 2);
+            ftSpread = median <= 0 ? 0 : fts.get(fts.size() - 1) / median;
+        }
+        // ★ 最长连续命中长度：2 字 bigram 会撞「假朋友」（合约↔合同约定、区块↔区域块），
+        // 只有 ≥3 字的连续命中才说明「这段文字里真的出现了用户说的那个词组」。
+        int maxRun = 0;
+        if (!r.contexts().isEmpty()) {
+            StringBuilder all = new StringBuilder();
+            for (ChunkContext ctx : r.contexts()) {
+                all.append(ctx.title() == null ? "" : ctx.title()).append(' ')
+                        .append(ctx.content() == null ? "" : ctx.content()).append('\n');
+            }
+            String text = all.toString();
+            String probe = question;
+            for (String filler : List.of("是什么", "为什么", "怎么样", "怎么做", "怎么写", "有哪些",
+                    "如何", "怎么", "什么", "哪些", "哪个", "请问", "一下")) {
+                probe = probe.replace(filler, "");
+            }
+            for (int len = Math.min(8, probe.length()); len >= 2 && maxRun == 0; len--) {
+                for (int i = 0; i + len <= probe.length(); i++) {
+                    String sub = probe.substring(i, i + len);
+                    if (text.contains(sub)) {
+                        maxRun = len;
+                        break;
+                    }
+                }
+            }
+        }
+        System.out.printf("  %-22s %-13s %-6.2f %-6.2f %-6d %-6.2f %-7.2f %-6d %s%n",
+                truncate(question, 20), r.mode(), covT1, sentCov, maxRun, ftSpread,
+                ftT1, top1Len, r.refused() ? "拒答" : "放行");
+    }
+
+    // ==================================================================
+    // 拒答闸门：新增域外用例（不改动原有 REJECT_SET，另行补充）
+    // ==================================================================
+
+    /**
+     * 域外补充集：与 {@link #REJECT_SET} 不重复，覆盖「越界词」与「通用词凑覆盖度」两类
+     *
+     * <p>★ 为什么单列一份而不是往 {@code REJECT_SET} 里加：原清单是既有基线，
+     * 本任务只允许<b>加强</b>闸门，不允许改动基线清单（改了就成了「改测试凑绿」）。
+     */
+    private static final List<String> EXTRA_REJECT_SET = List.of(
+            "明天上海的天气怎么样",       // 越界词：天气
+            "帮我查一下明天会不会下雨",     // 越界词：下雨
+            "美元兑人民币汇率是多少",       // 越界词：汇率
+            "红烧肉需要炖多久",            // 只共享「红烧」等零散词，覆盖度低
+            "快递到哪了怎么查",            // 越界词：快递
+            "世界杯决赛谁赢了"             // 语料无体育赛事结果
+    );
+
+    /** 域内对照集：这些必须**不**被拒（误拒是比漏拒更伤用户的错误） */
+    private static final List<String> DOMAIN_KEEP_SET = List.of(
+            "C语言中int类型占几个字节",
+            "值传递和地址传递有什么区别",
+            "动态分配内存的函数",
+            "冒泡排序的步骤",
+            "malloc和free的作用",
+            "数组下标从几开始"
+    );
+
+    @Test
+    @DisplayName("拒答闸门补测：新增 6 条域外必须拒答，6 条域内不得误拒")
+    void 拒答闸门补测() {
+        if (aiChunkMapper.countActive() == 0) {
+            System.out.println("索引为空，跳过补测。");
+            return;
+        }
+        System.out.println();
+        System.out.println("── 拒答闸门补测（域外 6 条 / 域内 6 条）──");
+        int refusedOut = 0;
+        for (String q : EXTRA_REJECT_SET) {
+            RetrievalService.RetrievalResult r =
+                    retrievalService.retrieve(q, null, null, Set.of(), EVAL_CONFIG);
+            boolean ok = r.refused();
+            if (ok) {
+                refusedOut++;
+            }
+            System.out.printf("  %-8s 域外 %-22s 覆盖度=%.2f 模式=%s%n",
+                    ok ? "[PASS]" : "[FAIL]", truncate(q, 20), r.contentCoverage(), r.mode());
+        }
+        int kept = 0;
+        for (String q : DOMAIN_KEEP_SET) {
+            RetrievalService.RetrievalResult r =
+                    retrievalService.retrieve(q, null, null, Set.of(), EVAL_CONFIG);
+            boolean ok = !r.refused();
+            if (ok) {
+                kept++;
+            }
+            System.out.printf("  %-8s 域内 %-22s 覆盖度=%.2f 模式=%s%n",
+                    ok ? "[PASS]" : "[FAIL]", truncate(q, 20), r.contentCoverage(), r.mode());
+        }
+        System.out.printf("域外拒答 %d/%d，域内放行 %d/%d%n%n",
+                refusedOut, EXTRA_REJECT_SET.size(), kept, DOMAIN_KEEP_SET.size());
+
+        assertEquals(EXTRA_REJECT_SET.size(), refusedOut,
+                "域外补充集存在未拒答的问题（反幻觉闸门不够严）");
+        assertEquals(DOMAIN_KEEP_SET.size(), kept,
+                "域内对照集出现误拒答（闸门过严，把可回答问题拒了）");
+    }
+
+    // ==================================================================
     // 布尔查询串构造
     // ==================================================================
 

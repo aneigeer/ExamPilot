@@ -152,12 +152,15 @@ public class AiQaService {
         vo.setFallbackFromWiki(wikiQueryService.isEnabled());
 
         // ---------- 阶段4 拒答闸门（L1，反幻觉第一道）----------
-        // 两路皆空，或融合后最高分低于阈值 → 直接拒答，不进生成环节
+        // 三道判据任一成立即拒：① 两路皆空或融合最高分低于阈值；
+        // ② 语义层判定「整库都不像这个问题」（向量通道就绪时才生效）；
+        // ③ ngram 层的内容覆盖度/能力边界（在 RetrievalService 内部已拒并返回空 contexts）。
         double best = outcome.bestScore();
         double threshold = properties.getRetrieval().getRejectThreshold();
-        if (contexts.isEmpty() || best < threshold) {
-            log.info("[AI] 拒答：最高分 {} < 阈值 {}（召回 {} 块，模式 {}），问题「{}」",
-                    String.format("%.4f", best), threshold, outcome.recallCount(), mode, question);
+        if (contexts.isEmpty() || best < threshold || outcome.refused()) {
+            log.info("[AI] 拒答：最高分 {}（阈值 {}，语义拒答={} {}），召回 {} 块，模式 {}，问题「{}」",
+                    String.format("%.4f", best), threshold, outcome.refused(),
+                    outcome.refuseReason(), outcome.recallCount(), mode, question);
             vo.setAnswer(PromptBuilder.REFUSAL_TEXT);
             vo.setGenerator(PromptBuilder.GENERATOR_NONE);
             vo.setRefused(Boolean.TRUE);
