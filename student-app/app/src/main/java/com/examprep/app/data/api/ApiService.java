@@ -444,6 +444,15 @@ public interface ApiService {
     Call<Models.ApiResult<Models.InterviewAnswerResp>> interviewAnswer(
             @Body Models.InterviewAnswerBody body);
 
+    /** 面试历史列表（仅本人；审核员可 all=true 看全部） */
+    @GET("ai/interview/history")
+    Call<Models.ApiResult<Models.Page<Models.InterviewHistoryItem>>> interviewHistory(
+            @Query("page") long page, @Query("size") long size);
+
+    /** 面试详情（只读复盘） */
+    @GET("ai/interview/history/{id}")
+    Call<Models.ApiResult<Models.InterviewSessionDetail>> interviewSessionDetail(@Path("id") long id);
+
     // ---------- 账号生命周期（合规：数据导出 / 注销） ----------
 
     /** 导出个人数据：返回任意结构 JSON，交给客户端落盘/分享 */

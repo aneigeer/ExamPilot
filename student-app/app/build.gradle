@@ -22,8 +22,8 @@ android {
         applicationId "com.examprep.app"
         minSdk 26
         targetSdk 34
-        versionCode 7
-        versionName "1.7.1"
+        versionCode 8
+        versionName "1.8.0"
         // 模拟器访问宿主机用 10.0.2.2（debug/模拟器默认）；release 真机版在 buildTypes.release 覆盖为电脑局域网 IP
         buildConfigField "String", "BASE_URL", '"http://10.0.2.2:8080/api/"'
     }
@@ -49,7 +49,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // 真机版：BASE_URL 指向开发机当前局域网 IP（换网络环境时同步改这里
             // 和 src/main/res/xml/network_security_config.xml 的明文白名单）
-            buildConfigField "String", "BASE_URL", '"http://10.200.83.194:8080/api/"'
+            // 真机版：走 nginx 443（HTTPS，自签证书已打进包里作为信任锚点）。
+            // 换局域网 IP 后：重跑 scripts/生成自签证书.ps1 → 改这里 → 重打 APK
+            buildConfigField "String", "BASE_URL", '"https://10.200.83.194/api/"'
             // 未提供正式密钥时回退 debug 签名，保证本地可安装/演示；正式上架必须换成 release.jks
             signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }

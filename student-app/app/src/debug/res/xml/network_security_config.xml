@@ -3,9 +3,16 @@
   网络安全配置 —— 开发（debug）构建覆盖版
 
   仅在 debug 变体生效（AGP 资源合并：变体源集覆盖 main）。用途：
-  保持「局域网 IP + http」的真机/模拟器联调方式可用。
-  正式 release 构建使用 main 下的严格配置（默认禁明文）。
+  1) 允许 http 明文，保持「局域网 IP + http 直连 8080」的老调试方式可用；
+  2) 同时信任自签证书（res/raw/server_cert.pem），调试 https 链路时不必临时改配置。
+
+  ★ 正式 release 使用 main 下的严格配置（默认禁明文、只信任显式锚点）。
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="@raw/server_cert" />
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>

@@ -27,6 +27,9 @@ target/
 hs_err_pid*
 replay_pid*
 
+# ---------- TLS 证书（私钥绝不入库；证书由 scripts/生成自签证书.ps1 生成）----------
+nginx/certs/
+
 # ---------- Android / Gradle ----------
 .gradle/
 build/

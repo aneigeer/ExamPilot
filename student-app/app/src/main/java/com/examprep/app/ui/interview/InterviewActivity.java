@@ -82,6 +82,9 @@ public class InterviewActivity extends AppCompatActivity {
         binding.btnStart.setOnClickListener(v -> startInterview());
         binding.btnSend.setOnClickListener(v -> sendAnswer());
         binding.btnRestart.setOnClickListener(v -> resetToSetup());
+        // 历史入口：面试进行中也允许看（复盘上一次的失分点，再回来接着面）
+        binding.btnHistory.setOnClickListener(v -> startActivity(
+                new android.content.Intent(this, InterviewHistoryActivity.class)));
 
         resetToSetup();
     }

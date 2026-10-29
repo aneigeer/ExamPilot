@@ -589,4 +589,49 @@ public class Models {
         public Double score;
         public String comment;
     }
+
+    // ---------- AI 面试历史（复盘）----------
+
+    /** 历史列表项 */
+    public static class InterviewHistoryItem {
+        public Long id;
+        public String topic;
+        public Integer totalQuestions;
+        /** 实评题数（含追问轮），与计划题数可能不同 */
+        public Integer answeredCount;
+        public Double totalScore;
+        public String level;
+        public Integer finished;
+        public String startedAt;
+        public String finishedAt;
+    }
+
+    /** 面试详情（会话 + 逐题记录） */
+    public static class InterviewSessionDetail {
+        public Long id;
+        public String topic;
+        public Integer totalQuestions;
+        public Integer answeredCount;
+        public Double totalScore;
+        public String level;
+        public Integer finished;
+        public String startedAt;
+        public String finishedAt;
+        public java.util.List<InterviewQaItem> qaList;
+    }
+
+    /** 单题作答记录 */
+    public static class InterviewQaItem {
+        public Long id;
+        public Integer questionNo;
+        public String question;
+        public String answer;
+        public Double score;
+        public String verdict;
+        public java.util.List<String> hitPoints;
+        public java.util.List<String> missPoints;
+        public String reference;
+        public Integer isFollowUp;
+        public String createdAt;
+    }
 }

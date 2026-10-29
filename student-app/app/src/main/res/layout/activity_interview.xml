@@ -42,6 +42,16 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/btnHistory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="查看历史面试记录"
+            android:padding="6dp"
+            android:text="历史"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
             android:id="@+id/btnRestart"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

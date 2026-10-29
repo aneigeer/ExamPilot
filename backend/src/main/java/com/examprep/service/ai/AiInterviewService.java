@@ -1,9 +1,19 @@
 package com.examprep.service.ai;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.examprep.common.BizException;
+import com.examprep.common.PageResult;
 import com.examprep.common.ResultCode;
 import com.examprep.dto.ai.InterviewAnswerRequest;
+import com.examprep.dto.ai.InterviewDetailVO;
+import com.examprep.dto.ai.InterviewHistoryVO;
 import com.examprep.dto.ai.InterviewStartRequest;
+import com.examprep.entity.AiInterviewQa;
+import com.examprep.entity.AiInterviewSession;
+import com.examprep.mapper.AiInterviewQaMapper;
+import com.examprep.mapper.AiInterviewSessionMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -15,9 +25,13 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * AI 面试代理服务（Java ↔ Python）
@@ -59,7 +73,41 @@ public class AiInterviewService {
 
     private final AiProperties properties;
     private final ObjectMapper objectMapper;
+    private final AiInterviewSessionMapper sessionMapper;
+    private final AiInterviewQaMapper qaMapper;
     private final RestClient interviewClient;
+
+    /**
+     * 落库失败计数（单调递增）
+     *
+     * <p><b>为什么要暴露</b>：落库失败被设计成「不影响面试继续」，于是它的失败是**静默**的。
+     * 静默失败最危险的地方是没人会发现——上线几天后才发现历史记录缺了一半。
+     * 计数 + warn 日志让它在监控/排障时可见（{@code /api/admin/ai/ops} 一类接口可直接读）。
+     */
+    private final AtomicLong persistenceFailures = new AtomicLong();
+
+    /** python session_id → 本地 ai_interview_session.id（落库关闭或失败时可能没有） */
+    private final Map<String, Long> localSessionIds = new ConcurrentHashMap<>();
+
+    /**
+     * 当前待作答的题面（python session_id → 题面文本）
+     *
+     * <p><b>为什么必须自己记</b>：作答接口的响应里只有 {@code next_question}，
+     * <b>没有</b>「你刚答的那道题」。要落库「题面 + 作答 + 得分」三件套，
+     * 就必须在上一轮响应时把题面缓存下来（start 的第一题、以及每次的 next_question）。
+     */
+    private final Map<String, String> pendingQuestions = new ConcurrentHashMap<>();
+
+    /**
+     * 当前待答题号（python session_id → 题号）
+     *
+     * <p><b>为什么不能直接用作答响应里的 question_no</b>（实测踩坑）：
+     * 作答响应里的 {@code question_no} 表示「<b>接下来</b>要答第几题」，
+     * 而落库要记的是「<b>刚答的</b>是第几题」——直接取会整体 +1，
+     * 库里出现第 1 题记成 q_no=2、第 3 题与第 2 题都记成 3 的错位。
+     * 因此与题面一样，题号也必须在上一轮响应时缓存下来。
+     */
+    private final Map<String, Integer> currentQuestionNos = new ConcurrentHashMap<>();
 
     /**
      * 会话 → 用户 归属映射
@@ -74,9 +122,13 @@ public class AiInterviewService {
      */
     private final Map<String, Long> sessionOwners = new ConcurrentHashMap<>();
 
-    public AiInterviewService(AiProperties properties, ObjectMapper objectMapper) {
+    public AiInterviewService(AiProperties properties, ObjectMapper objectMapper,
+                              AiInterviewSessionMapper sessionMapper,
+                              AiInterviewQaMapper qaMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.sessionMapper = sessionMapper;
+        this.qaMapper = qaMapper;
         int timeout = Math.max(5_000, properties.getFastapi().getInterviewTimeoutMillis());
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(Math.min(5_000, timeout)));
@@ -125,6 +177,10 @@ public class AiInterviewService {
             throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE, UNAVAILABLE_MESSAGE);
         }
         rememberSession(sessionId, userId);
+        // 题面缓存：作答接口不返回「刚答的那道题」，必须在这里记下来才能落库
+        pendingQuestions.put(sessionId, node.path("question").asText(""));
+        currentQuestionNos.put(sessionId, node.path("question_no").asInt(1));
+        persistSession(sessionId, userId, node.path("topic").asText(""), total);
         log.info("[Interview] 会话已创建 session={} topic={} total={} userId={}",
                 sessionId, node.path("topic").asText(""), total, userId);
         return node;
@@ -157,18 +213,147 @@ public class AiInterviewService {
 
         JsonNode node = post("/interview/answer", body, true);
         boolean finished = node.path("finished").asBoolean(false);
+        boolean followUp = node.path("is_follow_up").asBoolean(false);
+        // 先落库（用缓存的题面），再更新题面缓存：顺序反了会把「下一题」记成「刚答的题」
+        Long localId = localSessionIds.get(sessionId);
+        // 刚答的那道题的题号 = 上一轮缓存的题号（响应里的 question_no 是"下一题"）
+        int answeredNo = currentQuestionNos.getOrDefault(sessionId,
+                Math.max(1, node.path("question_no").asInt(1)));
+        persistQa(sessionId, localId, answeredNo, node, followUp, request.getAnswer());
+        if (!finished) {
+            // 追问轮 question_no 不前进，这里按原值回写也不会错
+            currentQuestionNos.put(sessionId, node.path("question_no").asInt(answeredNo));
+        }
+        String next = node.path("next_question").asText("");
+        if (StringUtils.hasText(next)) {
+            pendingQuestions.put(sessionId, next);
+        }
         if (finished) {
-            // 会话结束后清理归属记录，避免这张表只增不减
+            persistFinish(sessionId, localId, node.path("report"));
+            // 会话结束后清理内存态，避免这三张表只增不减
             sessionOwners.remove(sessionId);
+            localSessionIds.remove(sessionId);
+            pendingQuestions.remove(sessionId);
+            currentQuestionNos.remove(sessionId);
             log.info("[Interview] 面试结束 session={} total_score={} level={} degraded={}",
                     sessionId, node.path("report").path("total_score").asDouble(0),
                     node.path("report").path("level").asText(""),
                     node.path("report").path("degraded").asBoolean(false));
         } else {
-            log.info("[Interview] 评分完成 session={} question_no={} score={}",
-                    sessionId, node.path("question_no").asInt(0), node.path("score").asDouble(0));
+            log.info("[Interview] 评分完成 session={} question_no={} score={} followUp={}",
+                    sessionId, node.path("question_no").asInt(0),
+                    node.path("score").asDouble(0), followUp);
         }
         return node;
+    }
+
+    // ==================================================================
+    // 落库（失败绝不影响面试主流程）
+    // ==================================================================
+
+    /**
+     * 写入会话行（幂等：同一 python session 重复回调不会插两行）
+     *
+     * <p><b>失败策略</b>：只记 warn + 计数，<b>绝不抛出</b>。
+     * 面试是实时交互，数据库抖动不应该让用户「答到一半被封」；
+     * 代价是这条记录会缺，所以必须让失败可见（见 {@link #persistenceFailures()}）。
+     */
+    private void persistSession(String pythonSessionId, Long userId, String topic, int total) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            AiInterviewSession existing = sessionMapper.selectOne(
+                    Wrappers.<AiInterviewSession>lambdaQuery()
+                            .eq(AiInterviewSession::getPythonSessionId, pythonSessionId)
+                            .last("LIMIT 1"));
+            if (existing != null) {
+                // 重放/重试：沿用原行，不重复插入
+                localSessionIds.put(pythonSessionId, existing.getId());
+                return;
+            }
+            AiInterviewSession session = new AiInterviewSession();
+            session.setUserId(userId);
+            session.setPythonSessionId(pythonSessionId);
+            session.setTopic(topic);
+            session.setTotalQuestions(total);
+            session.setFinished(0);
+            session.setStartedAt(LocalDateTime.now());
+            session.setIsDeleted(0);
+            sessionMapper.insert(session);
+            // 自增主键由 MySQL 回填；拿不到 id 时不要缓存（ConcurrentHashMap 不接受 null 值）
+            if (session.getId() != null) {
+                localSessionIds.put(pythonSessionId, session.getId());
+            }
+        } catch (Exception e) {
+            recordPersistenceFailure("session", pythonSessionId, e);
+        }
+    }
+
+    /** 写入一条作答记录；会话已结束（重复提交）时跳过，避免脏数据 */
+    private void persistQa(String pythonSessionId, Long localId, int answeredNo, JsonNode node,
+                           boolean followUp, String answerText) {
+        if (localId == null) {
+            return; // 落库关闭或会话行写入失败：静默跳过，不影响作答
+        }
+        try {
+            AiInterviewSession session = sessionMapper.selectById(localId);
+            if (session != null && Integer.valueOf(1).equals(session.getFinished())) {
+                log.debug("[Interview] 会话已结束，跳过重复提交的作答落库 session={}", pythonSessionId);
+                return;
+            }
+            AiInterviewQa qa = new AiInterviewQa();
+            qa.setSessionId(localId);
+            qa.setQuestionNo(answeredNo);
+            qa.setQuestion(truncate(pendingQuestions.get(pythonSessionId), 4000));
+            qa.setAnswer(answerText);
+            qa.setScore(node.hasNonNull("score") ? node.get("score").asDouble() : null);
+            qa.setVerdict(truncate(node.path("verdict").asText(""), 255));
+            qa.setHitPoints(node.path("hit_points").toString());
+            qa.setMissPoints(node.path("miss_points").toString());
+            qa.setReferenceText(node.path("reference").asText(""));
+            qa.setIsFollowUp(followUp ? 1 : 0);
+            qa.setCreatedAt(LocalDateTime.now());
+            qaMapper.insert(qa);
+        } catch (Exception e) {
+            recordPersistenceFailure("qa", pythonSessionId, e);
+        }
+    }
+
+    /** 回填总分 / 等级 / 结束时间 */
+    private void persistFinish(String pythonSessionId, Long localId, JsonNode report) {
+        if (localId == null) {
+            return;
+        }
+        try {
+            AiInterviewSession update = new AiInterviewSession();
+            update.setId(localId);
+            update.setFinished(1);
+            update.setTotalScore(report.path("total_score").asDouble(0));
+            update.setLevel(truncate(report.path("level").asText(""), 32));
+            update.setFinishedAt(LocalDateTime.now());
+            sessionMapper.updateById(update);
+        } catch (Exception e) {
+            recordPersistenceFailure("finish", pythonSessionId, e);
+        }
+    }
+
+    private void recordPersistenceFailure(String stage, String sessionId, Exception e) {
+        long count = persistenceFailures.incrementAndGet();
+        log.warn("[Interview] 落库失败（{}，session={}，累计 {} 次，面试继续）：{}",
+                stage, sessionId, count, e.getMessage());
+    }
+
+    /** 落库失败累计次数（监控/排障用；0 表示一直正常） */
+    public long persistenceFailures() {
+        return persistenceFailures.get();
+    }
+
+    private static String truncate(String text, int max) {
+        if (text == null) {
+            return null;
+        }
+        return text.length() <= max ? text : text.substring(0, max);
     }
 
     // ==================================================================
@@ -244,6 +429,139 @@ public class AiInterviewService {
             return new BizException(ResultCode.PARAM_ERROR, "提交内容不合规，请检查后重试");
         }
         return new BizException(ResultCode.AI_SERVICE_UNAVAILABLE, UNAVAILABLE_MESSAGE);
+    }
+
+    // ==================================================================
+    // 历史查询（学生看自己，管理员/审核员可看全部）
+    // ==================================================================
+
+    /**
+     * 面试历史分页
+     *
+     * @param page         页码（从 1 开始）
+     * @param size         每页条数（1-50）
+     * @param filterUserId 只看该用户；null 表示不限（仅管理员/审核员会传 null）
+     */
+    public PageResult<InterviewHistoryVO> history(long page, long size, Long filterUserId) {
+        long safePage = Math.max(1, page);
+        long safeSize = Math.max(1, Math.min(50, size));
+        IPage<AiInterviewSession> pageResult = sessionMapper.selectPage(
+                new Page<>(safePage, safeSize),
+                Wrappers.<AiInterviewSession>lambdaQuery()
+                        .eq(filterUserId != null, AiInterviewSession::getUserId, filterUserId)
+                        .orderByDesc(AiInterviewSession::getStartedAt));
+        List<AiInterviewSession> records = pageResult.getRecords();
+        Map<Long, Integer> answered = answeredCounts(records);
+        List<InterviewHistoryVO> list = new ArrayList<>(records.size());
+        for (AiInterviewSession s : records) {
+            InterviewHistoryVO vo = new InterviewHistoryVO();
+            vo.setId(s.getId());
+            vo.setTopic(s.getTopic());
+            vo.setTotalQuestions(s.getTotalQuestions());
+            vo.setAnsweredCount(answered.getOrDefault(s.getId(), 0));
+            vo.setTotalScore(s.getTotalScore());
+            vo.setLevel(s.getLevel());
+            vo.setFinished(s.getFinished());
+            vo.setStartedAt(s.getStartedAt());
+            vo.setFinishedAt(s.getFinishedAt());
+            list.add(vo);
+        }
+        return PageResult.of(pageResult.getCurrent(), pageResult.getSize(),
+                pageResult.getTotal(), list);
+    }
+
+    /**
+     * 面试详情（复盘用）
+     *
+     * @param id          ai_interview_session.id
+     * @param userId      当前登录用户
+     * @param canViewAll  是否管理员/审核员（可看他人记录）
+     * @throws BizException 记录不存在（404）或越权（403）
+     */
+    public InterviewDetailVO detail(long id, Long userId, boolean canViewAll) {
+        AiInterviewSession session = sessionMapper.selectById(id);
+        if (session == null) {
+            throw new BizException(ResultCode.NOT_FOUND, "面试记录不存在");
+        }
+        if (!canViewAll && (userId == null || !userId.equals(session.getUserId()))) {
+            // 越权看他人记录：不泄露「这条记录存在」以外的信息
+            throw new BizException(ResultCode.FORBIDDEN, "无权查看该面试记录");
+        }
+        InterviewDetailVO vo = new InterviewDetailVO();
+        vo.setId(session.getId());
+        vo.setTopic(session.getTopic());
+        vo.setTotalQuestions(session.getTotalQuestions());
+        vo.setTotalScore(session.getTotalScore());
+        vo.setLevel(session.getLevel());
+        vo.setFinished(session.getFinished());
+        vo.setStartedAt(session.getStartedAt());
+        vo.setFinishedAt(session.getFinishedAt());
+
+        List<AiInterviewQa> qaRows = qaMapper.selectList(
+                Wrappers.<AiInterviewQa>lambdaQuery()
+                        .eq(AiInterviewQa::getSessionId, id)
+                        // 题号升序 + 时间升序：同一题的追问轮排在主作答之后，客户端顺序渲染即对话
+                        .orderByAsc(AiInterviewQa::getQuestionNo)
+                        .orderByAsc(AiInterviewQa::getId));
+        List<InterviewDetailVO.Qa> qaList = new ArrayList<>(qaRows.size());
+        for (AiInterviewQa row : qaRows) {
+            InterviewDetailVO.Qa qa = new InterviewDetailVO.Qa();
+            qa.setId(row.getId());
+            qa.setQuestionNo(row.getQuestionNo());
+            qa.setQuestion(row.getQuestion());
+            qa.setAnswer(row.getAnswer());
+            qa.setScore(row.getScore());
+            qa.setVerdict(row.getVerdict());
+            qa.setHitPoints(readStringList(row.getHitPoints()));
+            qa.setMissPoints(readStringList(row.getMissPoints()));
+            qa.setReference(row.getReferenceText());
+            qa.setIsFollowUp(row.getIsFollowUp());
+            qa.setCreatedAt(row.getCreatedAt());
+            qaList.add(qa);
+        }
+        vo.setQaList(qaList);
+        vo.setAnsweredCount(qaList.size());
+        return vo;
+    }
+
+    /** 批量取各会话作答条数（一次 GROUP BY，避免列表 N+1） */
+    private Map<Long, Integer> answeredCounts(List<AiInterviewSession> sessions) {
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        if (sessions.isEmpty()) {
+            return result;
+        }
+        List<Long> ids = sessions.stream().map(AiInterviewSession::getId).toList();
+        try {
+            for (Map<String, Object> row : qaMapper.countBySessions(ids)) {
+                Object sid = row.get("sessionId");
+                Object cnt = row.get("cnt");
+                if (sid instanceof Number n1 && cnt instanceof Number n2) {
+                    result.put(n1.longValue(), n2.intValue());
+                }
+            }
+        } catch (Exception e) {
+            // 统计失败不影响列表主体：answeredCount 退化为 0，页面仍可用
+            log.warn("[Interview] 作答数统计失败（列表仍返回）：{}", e.getMessage());
+        }
+        return result;
+    }
+
+    /** JSON 数组字符串 → List；脏数据/空值一律退化为空 list，不让详情页 500 */
+    private List<String> readStringList(String json) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            List<String> list = new ArrayList<>();
+            if (node.isArray()) {
+                node.forEach(item -> list.add(item.asText("")));
+            }
+            return list;
+        } catch (Exception e) {
+            log.debug("[Interview] 要点 JSON 解析失败，按空处理：{}", e.getMessage());
+            return List.of();
+        }
     }
 
     // ==================================================================

@@ -3,6 +3,9 @@ package com.examprep.service.ai;
 import com.examprep.common.BizException;
 import com.examprep.dto.ai.InterviewAnswerRequest;
 import com.examprep.dto.ai.InterviewStartRequest;
+import com.examprep.entity.AiInterviewSession;
+import com.examprep.mapper.AiInterviewQaMapper;
+import com.examprep.mapper.AiInterviewSessionMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
@@ -38,6 +41,8 @@ class AiInterviewServiceTest {
     private HttpServer server;
     private AiProperties properties;
     private ObjectMapper objectMapper;
+    private AiInterviewSessionMapper sessionMapper;
+    private AiInterviewQaMapper qaMapper;
     private AiInterviewService service;
 
     /** 收到的请求路径（按调用顺序） */
@@ -76,7 +81,20 @@ class AiInterviewServiceTest {
         properties.getFastapi().setEnabled(true);
         properties.getFastapi().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
         properties.getFastapi().setPathPrefix("/v1");
-        service = new AiInterviewService(properties, objectMapper);
+        sessionMapper = org.mockito.Mockito.mock(AiInterviewSessionMapper.class);
+        qaMapper = org.mockito.Mockito.mock(AiInterviewQaMapper.class);
+        // 默认：没有历史会话、插入成功（返回 1）；需要验证"落库失败"的用例单独打桩
+        org.mockito.Mockito.when(sessionMapper.selectOne(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(null);
+        // 模拟自增主键回填：MyBatis-Plus 真实实现会在 insert 后把 id 写回实体，
+        // Mockito 不会，所以这里显式打桩，否则后续作答落库拿不到本地 sessionId
+        org.mockito.Mockito.when(sessionMapper.insert(org.mockito.ArgumentMatchers.any(AiInterviewSession.class)))
+                .thenAnswer(inv -> {
+                    AiInterviewSession s = inv.getArgument(0);
+                    s.setId(100L);
+                    return 1;
+                });
+        service = new AiInterviewService(properties, objectMapper, sessionMapper, qaMapper);
     }
 
     @AfterEach
@@ -245,6 +263,46 @@ class AiInterviewServiceTest {
         assertEquals(1, paths.size());
     }
 
+
+    // ------------------------------------------------------------------
+    // 落库：失败不得打断面试
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("落库失败：面试照常返回题目，失败计数 +1（静默失败必须可见）")
+    void persistenceFailureDoesNotBreakInterview() {
+        org.mockito.Mockito.when(sessionMapper.insert(org.mockito.ArgumentMatchers.any(AiInterviewSession.class)))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("db down"));
+
+        JsonNode node = service.start(startRequest("RAG", 3, null), 7L);
+
+        assertEquals("s-1", node.path("session_id").asText(), "落库失败也必须把题目返回给用户");
+        assertEquals(1, service.persistenceFailures(), "失败计数应 +1，否则静默丢数据无人发现");
+    }
+
+    @Test
+    @DisplayName("作答落库：题面来自上一轮缓存，追问标记与得分如实写入")
+    void qaIsPersistedWithCachedQuestion() {
+        answerStatus = 200;
+        answerBody = """
+                {"session_id":"s-1","question_no":1,"total":3,"score":82.5,"verdict":"不错",
+                 "hit_points":["要点A"],"miss_points":["要点B"],"reference":"参考答案",
+                 "follow_up":"追问一句","next_question":"下一题","finished":false}
+                """;
+        service.start(startRequest("RAG", 3, null), 7L);
+        service.answer(answerRequest("s-1", "我的作答"), 7L);
+
+        org.mockito.ArgumentCaptor<com.examprep.entity.AiInterviewQa> captor =
+                org.mockito.ArgumentCaptor.forClass(com.examprep.entity.AiInterviewQa.class);
+        org.mockito.Mockito.verify(qaMapper).insert(captor.capture());
+        com.examprep.entity.AiInterviewQa saved = captor.getValue();
+        assertEquals("什么是 RAG？", saved.getQuestion(), "题面应取自 start 返回的缓存（作答响应里没有题面）");
+        assertEquals("我的作答", saved.getAnswer());
+        assertEquals(82.5, saved.getScore(), 0.001);
+        assertTrue(saved.getMissPoints().contains("要点B"), "遗漏要点应落库为 JSON：" + saved.getMissPoints());
+        assertEquals(0, saved.getIsFollowUp(), "普通作答 is_follow_up=0");
+    }
+
     @Test
     @DisplayName("响应缺 session_id → 503（契约漂移不往下游传）")
     void missingSessionIdIsRejected() throws Exception {
@@ -255,7 +313,8 @@ class AiInterviewServiceTest {
                 200, "{\"topic\":\"RAG\",\"question\":\"无会话号\"}"));
         broken.start();
         properties.getFastapi().setBaseUrl("http://127.0.0.1:" + broken.getAddress().getPort());
-        AiInterviewService brokenService = new AiInterviewService(properties, objectMapper);
+        AiInterviewService brokenService = new AiInterviewService(properties, objectMapper,
+                sessionMapper, qaMapper);
         try {
             BizException e = assertThrows(BizException.class,
                     () -> brokenService.start(startRequest("RAG", 3, null), 1L));

@@ -1,17 +1,24 @@
 package com.examprep.controller;
 
+import com.examprep.common.PageResult;
 import com.examprep.common.Result;
 import com.examprep.dto.ai.InterviewAnswerRequest;
+import com.examprep.dto.ai.InterviewDetailVO;
+import com.examprep.dto.ai.InterviewHistoryVO;
 import com.examprep.dto.ai.InterviewStartRequest;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.ai.AiInterviewService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -82,5 +89,35 @@ public class AiInterviewController {
     public Result<JsonNode> answer(@Valid @RequestBody InterviewAnswerRequest request) {
         Long userId = SecurityUtils.requireUserId();
         return Result.success(interviewService.answer(request, userId));
+    }
+
+    @Operation(summary = "面试历史列表",
+            description = """
+                    **访问级别：AUTH**。默认只返回**本人**记录；审核员/超管可传 `all=true` 查看全部。
+
+                    `answeredCount` 是**实评题数**（含追问轮），与 `totalQuestions`（计划题数）分开：
+                    语料耗尽时会提前收尾，两者可能不同（如计划 5 题、实评 3 题）。
+                    """)
+    @GetMapping("/ai/interview/history")
+    public Result<PageResult<InterviewHistoryVO>> history(
+            @Parameter(description = "页码，从 1 开始") @RequestParam(defaultValue = "1") long page,
+            @Parameter(description = "每页条数，最大 50") @RequestParam(defaultValue = "10") long size,
+            @Parameter(description = "审核员/超管可传 true 查看全部")
+            @RequestParam(defaultValue = "false") boolean all) {
+        Long userId = SecurityUtils.requireUserId();
+        Long filter = (all && SecurityUtils.isAuditorOrAdmin()) ? null : userId;
+        return Result.success(interviewService.history(page, size, filter));
+    }
+
+    @Operation(summary = "面试详情（复盘）",
+            description = """
+                    **访问级别：AUTH**。本人记录可看；审核员/超管可看任意记录。
+
+                    `qaList` 按题号升序、同题追问紧随主作答，客户端按顺序渲染即为完整对话。
+                    """)
+    @GetMapping("/ai/interview/history/{id}")
+    public Result<InterviewDetailVO> detail(@PathVariable Long id) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(interviewService.detail(id, userId, SecurityUtils.isAuditorOrAdmin()));
     }
 }

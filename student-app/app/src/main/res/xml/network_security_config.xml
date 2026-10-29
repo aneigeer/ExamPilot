@@ -2,19 +2,30 @@
 <!--
   网络安全配置 —— 正式（release）构建
 
-  上架安全基线：默认禁止一切明文 HTTP；只对下方明确列出的后端主机放行明文。
-  正式部署应整体切到 HTTPS，届时可直接删除下方 domain-config 段，做到「零明文」。
+  上架安全基线：默认禁止一切明文 HTTP；只信任下方显式声明的锚点。
+  局域网部署用自签证书（nginx 443 终结 TLS），因此额外信任
+  res/raw/server_cert.pem —— 由 scripts/生成自签证书.ps1 生成并随包分发。
 
-  注意：debug 构建由 src/debug/res/xml/network_security_config.xml 覆盖本文件，
-  保持局域网 http 联调可用（见该文件说明）。
+  ★ 为什么自签必须显式信任：Android 7+ 只信任系统 CA，自签证书不在其中，
+    不写 trust-anchors 会直接 SSLHandshakeException（而不是降级明文）。
+  ★ 换局域网 IP 后必须重跑证书脚本并重打 APK：证书 SAN 里写死了 IP。
+  ★ 正式 CA 证书上线后：删掉 @raw/server_cert 与 domain-config，
+    只保留 system 锚点，即回到「零自签信任」。
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="@raw/server_cert" />
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 
-    <!-- 过渡期：后端暂以 http 局域网 IP 提供服务，仅放行开发机当前局域网地址（不要把通配放进来）。
-         换网络环境时需与 app/build.gradle 里 release 的 BASE_URL 同步更新；
-         正式部署切到 HTTPS 后删除本段，做到「零明文」。 -->
-    <domain-config cleartextTrafficPermitted="true">
+    <!-- 局域网后端：走 nginx 443，禁止明文；锚点与 base 一致 -->
+    <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="false">10.200.83.194</domain>
+        <trust-anchors>
+            <certificates src="@raw/server_cert" />
+            <certificates src="system" />
+        </trust-anchors>
     </domain-config>
 </network-security-config>
