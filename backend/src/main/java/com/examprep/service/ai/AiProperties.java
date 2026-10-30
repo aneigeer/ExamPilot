@@ -28,6 +28,15 @@ public class AiProperties {
     /** 向量检索配置（T09） */
     private Vector vector = new Vector();
 
+    /**
+     * 路由（A1 {@code /v1/route}）配置
+     *
+     * <p>路由决定「这个问题该用哪个 skill、只检索哪几类来源」。
+     * <b>默认关闭</b>：关闭时 {@link AiRouteClient} 直接返回默认路由（COURSE_QA + 不过滤），
+     * 行为与未引入路由完全一致——这是能安全灰度/回退的前提。
+     */
+    private Route route = new Route();
+
     /** 检索层配置 */
     private Retrieval retrieval = new Retrieval();
 
@@ -56,6 +65,48 @@ public class AiProperties {
 
     /** 异步任务队列配置（Redis Stream） */
     private Jobs jobs = new Jobs();
+
+    @Data
+    public static class Route {
+
+        /**
+         * 是否启用语义路由（默认 false）
+         *
+         * <p>关闭时不发起任何 HTTP 调用，返回默认路由（COURSE_QA、不过滤来源），
+         * 与未引入路由前的行为一致——灰度与回退都靠它。
+         */
+        private boolean enabled = false;
+
+        /**
+         * 读超时（毫秒，默认 300）
+         *
+         * <p>本地 bge 路由 P95 约 20ms，300ms 已是 15 倍余量。
+         * <b>路由是「一次问答里最不该拖慢体验」的环节</b>：宁可降级到默认 skill，
+         * 也不能让用户为路由多等一秒。
+         */
+        private int timeoutMillis = 300;
+
+        /**
+         * 连接超时（毫秒，默认 500）
+         *
+         * <p>与读超时分开：本机回环建连通常 &lt;5ms，500ms 只为覆盖服务刚重启的窗口。
+         */
+        private int connectTimeoutMillis = 500;
+
+        /**
+         * 问题长度门槛（字符数，默认 6）
+         *
+         * <p>太短的问题（「你好」「在吗」）路由信息量不足，
+         * 命中率低却要付一次网络往返，直接本地走默认更划算。
+         */
+        private int minQuestionLength = 6;
+
+        /** 路由结果本地缓存条目上限（LRU） */
+        private int cacheMaxEntries = 200;
+
+        /** 路由结果缓存 TTL（毫秒，默认 10 分钟） */
+        private long cacheTtlMillis = 600_000L;
+    }
 
     @Data
     public static class Agent {

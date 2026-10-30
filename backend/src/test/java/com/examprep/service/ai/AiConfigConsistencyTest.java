@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -110,5 +111,30 @@ class AiConfigConsistencyTest {
         assertTrue(keywords != null && keywords.size() >= 10,
                 "越界词表过小（" + (keywords == null ? 0 : keywords.size()) + "），请检查配置");
         assertTrue(keywords.contains("天气"), "越界词表应含「天气」（实测它是唯一能拦住该类的词）");
+    }
+
+    @Test
+    @DisplayName("route.enabled / route.timeout-millis：yml 显式声明且与代码默认值一致")
+    void routeConfigMatchesYml() throws IOException {
+        String text = yml();
+        assertTrue(text.contains("route:"), "application.yml 未声明 app.ai.route 段");
+        assertTrue(text.contains("enabled:"), "route 段缺少 enabled");
+        assertTrue(text.contains("timeout-millis:"), "route 段缺少 timeout-millis");
+
+        AiProperties.Route effective = properties.getRoute();
+        AiProperties.Route codeDefault = new AiProperties().getRoute();
+
+        // 路由默认关闭：这是「不启用即行为不变」的唯一保证，不能被悄悄改成 true
+        assertFalse(effective.isEnabled(),
+                "app.ai.route.enabled 默认必须为 false（开启即引入新行为，须显式决策）");
+        assertEquals(codeDefault.isEnabled(), effective.isEnabled(),
+                "route.enabled 代码默认值与 yml 不一致");
+
+        assertEquals(codeDefault.getTimeoutMillis(), effective.getTimeoutMillis(),
+                "route.timeout-millis 代码默认值与 yml 不一致");
+        assertTrue(effective.getTimeoutMillis() > 0 && effective.getTimeoutMillis() <= 1000,
+                "route 读超时应为 (0,1000]ms：路由在关键路径上，超过 1s 就该判它不可用");
+        assertTrue(effective.getConnectTimeoutMillis() > 0,
+                "route 连接超时必须为正数");
     }
 }
