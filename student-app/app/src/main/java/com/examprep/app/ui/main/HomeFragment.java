@@ -85,6 +85,9 @@ public class HomeFragment extends Fragment {
         // AI 面试：出题/评分/报告都要落到个人头上，游客必须先登录
         binding.btnAiInterview.setOnClickListener(v -> openRestricted(
                 com.examprep.app.ui.interview.InterviewActivity.class, "AI 面试"));
+        // 问 AI：RAG 问答需要登录（后端 /ai/ask 是 authenticated），游客先引导登录
+        binding.btnAskAi.setOnClickListener(v -> openRestricted(
+                com.examprep.app.ui.ask.AskActivity.class, "问 AI"));
 
         loadHome();
         return binding.getRoot();

@@ -634,4 +634,65 @@ public class Models {
         public Integer isFollowUp;
         public String createdAt;
     }
+
+    // ---------- AI 问答（/api/ai/ask）----------
+
+    /** 提问请求体（与后端 AskRequest 对齐） */
+    public static class AskBody {
+        public String question;
+        public Long subjectId;
+        public Long examCategoryId;
+
+        public AskBody(String question) {
+            this.question = question;
+        }
+    }
+
+    /** 回答来源（可点击跳转题目/资料/Wiki） */
+    public static class AskSource {
+        public Long chunkId;
+        public String title;
+        public String snippet;
+        public String refType;
+        public Long refId;
+        public String refPath;
+        public Integer offset;
+    }
+
+    /** 问答结果（与后端 AskVO 字段一一对应，camelCase） */
+    public static class AskResult {
+        public String question;
+        public String answer;
+        /** dashscope / zhipu / ollama / extractive / none */
+        public String generator;
+        /** RAG / WIKI */
+        public String engine;
+        public Boolean fallbackFromWiki;
+        public Long wikiPageId;
+        public String wikiPageSlug;
+        public String wikiTitle;
+        /** 是否降级（本地抽取/熔断） */
+        public Boolean degraded;
+        /** 是否拒答（资料里没有相关语料） */
+        public Boolean refused;
+        public Long costMillis;
+        public Long retrievalMillis;
+        public String retrievalMode;
+        public Integer recallCount;
+        public java.util.List<AskSource> sources;
+        public java.util.List<String> contexts;
+    }
+
+    /** AI 能力探测（进入页面前决定入口可用性/降级提示） */
+    public static class AiCapability {
+        public Boolean available;
+        public String generator;
+        public Boolean degraded;
+        public String degradedReason;
+        public Boolean circuitOpen;
+        public Boolean vectorEnabled;
+        public Boolean vectorIndexReady;
+        public Long chunkCount;
+        public String aiServiceStatus;
+    }
 }

@@ -48,6 +48,7 @@
         <activity android:name=".ui.follow.FollowActivity" android:exported="false" />
         <activity android:name=".ui.wiki.WikiListActivity" android:exported="false" />
         <activity android:name=".ui.wiki.WikiDetailActivity" android:exported="false" />
+        <activity android:name=".ui.ask.AskActivity" android:exported="false" />
         <activity android:name=".ui.interview.InterviewActivity" android:exported="false" />
         <activity android:name=".ui.interview.InterviewHistoryActivity" android:exported="false" />
         <activity android:name=".ui.interview.InterviewDetailActivity" android:exported="false" />

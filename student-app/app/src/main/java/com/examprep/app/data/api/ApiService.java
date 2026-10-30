@@ -444,6 +444,16 @@ public interface ApiService {
     Call<Models.ApiResult<Models.InterviewAnswerResp>> interviewAnswer(
             @Body Models.InterviewAnswerBody body);
 
+    // ---------- AI 问诊（RAG 问答）----------
+
+    /** 提问：走 ngram+向量双通道检索 + 生成（可能拒答/降级，均为 HTTP 200） */
+    @POST("ai/ask")
+    Call<Models.ApiResult<Models.AskResult>> aiAsk(@Body Models.AskBody body);
+
+    /** 能力探测：进入 AI 页前判断可用性与降级原因 */
+    @GET("ai/capability")
+    Call<Models.ApiResult<Models.AiCapability>> aiCapability();
+
     /** 面试历史列表（仅本人；审核员可 all=true 看全部） */
     @GET("ai/interview/history")
     Call<Models.ApiResult<Models.Page<Models.InterviewHistoryItem>>> interviewHistory(
