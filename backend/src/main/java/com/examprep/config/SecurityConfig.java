@@ -195,9 +195,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, AUTH_REQUIRED_GET).authenticated()
                         // 匿名可读接口
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET).permitAll()
-                        // AI 问答：需登录（不带 token → 401）。
-                        // 业务层用 SecurityUtils.currentUserIdOrNull() 取用户，天然兼容游客调用场景
-                        //（游客可提问，只是不建画像加权、不做薄弱知识点 boost）。
+                        // AI 问答：需登录（AUTH）。匿名请求直接 401 —— 不是「游客也能问」，
+                        // 因为匿名调用会白烧本地 7B 生成资源，且该接口要读画像做加权。
+                        // 业务层仍用 currentUserIdOrNull() 取用户，那是为了兼容「已登录但画像未建立」，
+                        // 不是为了给游客开口子（此处规则决定一切）。
                         .requestMatchers(HttpMethod.POST, "/ai/ask").authenticated()
                         // 管理端静态页面（Vue 单页应用）匿名可访问；页面内的管理 API 仍有角色校验
                         .requestMatchers(HttpMethod.GET, "/", "/admin/", "/admin/index.html",

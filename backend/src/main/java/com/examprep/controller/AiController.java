@@ -29,7 +29,7 @@ import java.util.List;
  * <p><b>鉴权分层</b>：
  * <ul>
  *   <li>{@code GET /ai/capability} —— PUBLIC（App 启动时探测，未登录也要能调）</li>
- *   <li>{@code POST /ai/ask} —— 需登录（游客亦可调用，但不建画像加权）</li>
+ *   <li>{@code POST /ai/ask} —— <b>需登录（AUTH）</b>；游客不可调用，匿名请求直接 401</li>
  *   <li>{@code GET /ai/knowledge-profile} / {@code GET /ai/recommendations} —— 需登录（个人画像）</li>
  * </ul>
  *
@@ -46,17 +46,22 @@ public class AiController {
 
     @Operation(summary = "AI 问答",
             description = """
-                    **访问级别：AUTH**（登录后可用；游客可调用但不建画像加权）。
+                    **访问级别：AUTH**（登录后可用；**游客不可调用**，不带 token 直接 401）。
 
                     基于站内已审核语料的检索增强问答（RAG）：
                     - `sources[]` 为**强制溯源**，App 端可点击跳转到对应题目 / 资料
                     - `generator` 如实标注生成器：`dashscope` / `zhipu` / `extractive` / `none`
-                    - `degraded=true` 表示主生成器不可用、已降级为**本地抽取**
+                    - `degraded=true` 有**两种**来源，必须结合 `generator` 判读：
+                      ① L3 溯源校验裁掉了「正文未引用的来源」（`generator` 仍为模型名）；
+                      ② L3 判幻觉后切抽取式（`generator=extractive`）。
+                      客户端不要一律当成「本地抽取」。
                     - 检索无命中时**正确拒答**（`refused=true`，`answer="未找到相关资料"`，`sources=[]`）
                     """)
     @PostMapping("/ai/ask")
     public Result<AskVO> ask(@Valid @RequestBody AskRequest request) {
-        // 游客（未登录）也允许提问：只是不建画像加权，不做薄弱知识点 boost
+        // /ai/ask 是 AUTH：匿名请求在上面的 SecurityConfig 里就被 401 拦掉，走不到这里。
+        // 这里仍用 currentUserIdOrNull() 是为了兼容「已登录但尚未建立画像」的用户，
+        // 不是给游客开口子（曾经注释写成「游客可提问」，与实现不符，已纠正）。
         Long userId = SecurityUtils.currentUserIdOrNull();
         return Result.success(aiQaService.ask(request, userId));
     }
