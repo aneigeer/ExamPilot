@@ -65,6 +65,12 @@ from ingest_pptx import (  # noqa: E402  # 复用入库/切块/向量化全套�
 #: docx 素材根目录（与 ingest_courseware.py 一致）
 SOURCE_DIR = Path(r"C:/Users/15241/Desktop/112233/Word版")
 
+#: 是否保留临时页图（不删）。运行环境有删除守卫时 `unlink` 会被拦甚至带走进程
+#: （2026-10-30 实测：识别完 15 页后 unlink 触发 SAFE_DELETE_BULK_GUARD_ERROR，
+#: 进程直接退出、入库没执行 → 下一轮 --skip-existing 又选同一篇 → livelock）。
+#: 因此默认策略改为「能留就留」，清理失败绝不终止主流程。
+KEEP_TEMP_ENV = "OCR_KEEP_TEMP"
+
 #: OCR 前图片降采样长边（像素）。
 #: 实测（PP-OCRv6 medium / CPU / enable_mkldnn=False）：
 #:   1376×768 原图 ≈ 84s/页；缩到 1100px ≈ 19s/页，置信度 0.832（略优于 0.817）。
@@ -166,7 +172,7 @@ def scan_image_only() -> List[Tuple[Path, int]]:
 # ---------------------------------------------------------------- 主流程
 def process_doc(conn: Any, engine: Any, path: Path, temp_dir: Path,
                 subject_id: int, category: str, *, dry_run: bool,
-                no_vector: bool) -> Dict[str, Any]:
+                no_vector: bool, keep_temp: bool = False) -> Dict[str, Any]:
     """OCR + 入库一篇。返回该篇的统计。"""
     title = clean_title(path.name)
     started = time.time()
@@ -196,11 +202,15 @@ def process_doc(conn: Any, engine: Any, path: Path, temp_dir: Path,
                 print(f"      {title[:18]}… 已识别 {page_no}/{len(images)} 页"
                       f"（{time.time() - started:.0f}s）", flush=True)
     finally:
-        if page_temp.exists():
+        # 清理**永不致命**：环境的删除守卫可能抛非 OSError（实测直接终止进程），
+        # 所以这里用 BaseException 兜底并只打一行提示——「识别完 → 必须入库 → 必须记账」
+        # 的优先级远高于「临时文件是否被清掉」。
+        if not keep_temp:
             try:
-                page_temp.unlink()
-            except OSError:
-                pass
+                if page_temp.exists():
+                    page_temp.unlink()
+            except BaseException as exc:  # noqa: BLE001 —— 含 RuntimeError/SystemExit 等
+                print(f"      ⚠ 跳过清理临时页图（{type(exc).__name__}），主流程继续")
 
     full = "\n\n".join(t for _, t in slides)
     chunks = split_chunks(title, slides)
@@ -244,6 +254,9 @@ def main() -> int:
                     help="跳过已入库且已切出块的课件（续跑用，幂等）")
     ap.add_argument("--dry-run", action="store_true", help="OCR 但不写库")
     ap.add_argument("--no-vector", action="store_true", help="只入库不推向量")
+    ap.add_argument("--keep-temp", action="store_true",
+                    help="不删除临时页图（默认读环境变量 OCR_KEEP_TEMP=1；"
+                         "运行环境有删除守卫时必须开，否则 unlink 可能带走进程）")
     args = ap.parse_args()
 
     image_only = scan_image_only()
@@ -299,6 +312,13 @@ def main() -> int:
         return 1
     print(f"选中 {len(deduped)} 篇{'　[DRY-RUN]' if args.dry_run else ''}")
 
+    # keep_temp：命令行优先，其次环境变量；环境有删除守卫时应恒为 True
+    import os
+
+    keep_temp = bool(args.keep_temp or os.environ.get(KEEP_TEMP_ENV) == "1")
+    if keep_temp:
+        print("临时页图保留模式：跳过所有 unlink（环境变量 %s=1 或 --keep-temp）" % KEEP_TEMP_ENV)
+
     engine = get_ocr_engine()
     if not engine.is_available():
         print("✗ paddleocr 未安装，请先执行 install-ocr.bat（不要硬跑）")
@@ -338,7 +358,8 @@ def main() -> int:
             try:
                 item = process_doc(conn, engine, path, temp_dir, subject_id,
                                    category, dry_run=args.dry_run,
-                                   no_vector=args.no_vector)
+                                   no_vector=args.no_vector,
+                                   keep_temp=keep_temp)
             except Exception as exc:  # noqa: BLE001 —— 单篇失败不中断
                 print(f"  ✗ {path.name}：{type(exc).__name__}: {str(exc)[:100]}")
                 item = {"title": title, "pages": 0, "ocr_ok": 0, "chunks": 0,
@@ -354,8 +375,8 @@ def main() -> int:
         conn.close()
         try:
             temp_dir.rmdir()
-        except OSError:
-            pass  # 还有残留临时文件时忽略
+        except BaseException:  # noqa: BLE001 —— 同样不许因清理失败影响主流程
+            pass  # 还有残留临时文件（或删除守卫拦截）时忽略
 
     print("\n==== 逐篇结果 ====")
     for r in report:
