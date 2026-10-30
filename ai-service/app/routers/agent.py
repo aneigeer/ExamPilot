@@ -40,6 +40,12 @@ def _context(request: AgentRequest) -> AgentContext:
         exam_category_id=request.exam_category_id,
         weak_knowledge_ids=weak_ids,
         trace_id=request.trace_id or "",
+        session_id=request.session_id or "",
+        history=[
+            {"question": turn.question, "answer": turn.answer}
+            for turn in request.history
+        ],
+        memory_summary=request.memory_summary or "",
     )
 
 

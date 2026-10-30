@@ -7,11 +7,14 @@ from typing import Any, Dict, List
 
 import pytest
 
+from app.agent.context_manager import build_context
 from app.agent.harness import AgentHarness
-from app.agent.planner import RulePlanner, parse_decision
+from app.agent.planner import PlannerError, RulePlanner, parse_decision
 from app.agent.tools import AgentContext, ToolRegistry, truncate
 from app.clients.java_bridge import JavaBridgeError
 from app.config import AgentSettings
+from app.routers.agent import _context
+from app.schemas import AgentRequest, AgentTurn
 
 
 class FakeBridge:
@@ -78,6 +81,49 @@ def _run(harness: AgentHarness, ctx: AgentContext) -> List[Dict[str, Any]]:
     return asyncio.run(collect())
 
 
+def test_router_context_carries_session_history_and_summary() -> None:
+    """回归：Java 已透传 sessionId/历史/摘要，Python 入口必须原样注入 AgentContext。"""
+    request = AgentRequest(
+        question="那题为什么选 B",
+        userId=3,
+        sessionId="s-abc",
+        history=[AgentTurn(question="上一问", answer="上一答")],
+        memorySummary="更早的滚动摘要",
+    )
+    ctx = _context(request)
+    assert ctx.session_id == "s-abc"
+    assert ctx.user_id == 3
+    assert ctx.history == [{"question": "上一问", "answer": "上一答"}]
+    assert ctx.memory_summary == "更早的滚动摘要"
+
+
+def test_context_manager_renders_history_and_summary() -> None:
+    bundle = build_context(
+        question="继续",
+        history=[{"question": "q1", "answer": "a1"}],
+        memory_summary="早前摘要",
+        weak_knowledge_ids=[],
+        observations=[],
+    )
+    assert "【会话记忆】" in bundle.text
+    assert "q1" in bundle.text and "a1" in bundle.text
+    assert "早前摘要" in bundle.text
+
+
+def test_meta_reports_history_and_memory() -> None:
+    ctx = AgentContext(
+        question="继续",
+        session_id="s-abc",
+        history=[{"question": "q1", "answer": "a1"}],
+        memory_summary="摘要",
+    )
+    events = _run(AgentHarness(AgentSettings(), FakeBridge()), ctx)
+    meta = events[0]["data"]
+    assert meta["sessionId"] == "s-abc"
+    assert meta["historyTurns"] == 1
+    assert meta["memoryChars"] == len("摘要")
+
+
 def test_rule_planner_routes_intents() -> None:
     planner = RulePlanner()
     weak = planner.plan(AgentContext(question="我的薄弱知识点有哪些"), [])
@@ -94,6 +140,27 @@ def test_parse_decision_tolerates_code_block() -> None:
     raw = '```json\n{"thought":"t","action":"final","answer":"a"}\n```'
     decision = parse_decision(raw)
     assert decision.action == "final" and decision.answer == "a"
+
+
+def test_parse_decision_accepts_tool_name_as_action() -> None:
+    """回归：本地 7B 常输出 action=get_question（工具名当 action）。"""
+    raw = '{"thought":"先看题目","action":"get_question","arguments":{"questionId":3}}'
+    decision = parse_decision(raw)
+    assert decision.action == "tool"
+    assert decision.tool == "get_question"
+    assert decision.arguments == {"questionId": 3}
+
+
+def test_parse_decision_tolerates_raw_control_characters() -> None:
+    """回归：7B 会把换行原样写进 JSON 字符串，strict 模式会直接解析失败。"""
+    raw = '{"thought":"先查\n资料","action":"tool","tool":"search_knowledge","arguments":{"query":"x"}}'
+    decision = parse_decision(raw)
+    assert decision.action == "tool" and decision.tool == "search_knowledge"
+
+
+def test_parse_decision_rejects_unknown_action() -> None:
+    with pytest.raises(PlannerError):
+        parse_decision('{"thought":"t","action":"do_something"}')
 
 
 def test_truncate_rule() -> None:
@@ -175,3 +242,64 @@ def test_structured_wrong_book_answer_uses_tool_data() -> None:
     final = events[-2]["data"]
     assert "错题" in final["answer"]
     assert "int 占几个字节" in final["answer"]
+
+
+# --------------------------------------------------------------------------------------
+# 端到端证据：记忆链路（HTTP → _context → build_context → planner prompt → meta）
+# --------------------------------------------------------------------------------------
+
+def test_agent_run_e2e_keeps_memory_in_prompt_and_meta(
+    client: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """走真实 /v1/agent/run：带 session_id + 2 轮 history + memory_summary。
+
+    断言三件事（缺一即说明记忆在某一段被丢弃）：
+    1. 响应 meta 事件里 historyTurns=2、memoryChars=len(memory_summary)；
+    2. 真正的**规划 prompt** 里出现【会话记忆】块，且两轮问答与摘要都在里面；
+    3. 记忆不改变决策：规划仍能落到 final。
+    """
+    from app.agent.planner import JavaBridge as _PlannerBridge
+
+    captured: Dict[str, Any] = {}
+
+    async def _fake_llm_complete(self: Any, system: str, prompt: str) -> str:
+        captured["system"] = system
+        captured["prompt"] = prompt
+        return '{"thought":"结合记忆可直接回答","action":"final","answer":"选 B，因为…"}'
+
+    async def _fake_full_answer(self: Any, question: str, subject_id: Any,
+                                draft: str, contexts: List[str]) -> Dict[str, Any]:
+        captured["draft"] = draft
+        return {"answer": draft or "选 B，因为…", "generator": "stub",
+                "degraded": False, "refused": False, "sources": []}
+
+    monkeypatch.setattr(_PlannerBridge, "llm_complete", _fake_llm_complete)
+    monkeypatch.setattr(_PlannerBridge, "full_answer", _fake_full_answer)
+
+    summary = "用户此前问过进程调度，答错优先级调度"
+    response = client.post("/v1/agent/run", json={
+        "question": "那题为什么选 B",
+        "userId": 3,
+        "sessionId": "s-e2e",
+        "memorySummary": summary,
+        "history": [
+            {"question": "第一轮问题", "answer": "第一轮回答"},
+            {"question": "第二轮问题", "answer": "第二轮回答"},
+        ],
+    })
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    meta = next(e["data"] for e in body["events"] if e["event"] == "meta")
+    assert meta["sessionId"] == "s-e2e"
+    assert meta["historyTurns"] == 2
+    assert meta["memoryChars"] == len(summary)
+
+    prompt = captured.get("prompt") or ""
+    assert "【会话记忆】" in prompt
+    for fragment in ("第一轮问题", "第二轮回答", summary):
+        assert fragment in prompt, f"记忆片段未进入规划 prompt：{fragment}"
+
+    assert body["answer"].startswith("选 B")
+    # 证据留痕：把注入上下文的前 200 字打进测试输出，便于人工核对
+    print("\n[planner prompt 前 200 字]", prompt[:200].replace("\n", " / "))

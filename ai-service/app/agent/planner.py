@@ -15,12 +15,15 @@ from typing import Any, Dict, List, Optional
 
 from ..clients.java_bridge import JavaBridge, JavaBridgeError
 from .context_manager import ContextPolicy, build_context
-from .tools import AgentContext, tool_catalog_text
+from .tools import AgentContext, TOOL_SPECS, tool_catalog_text
 
 logger = logging.getLogger(__name__)
 
 #: 规划提示词版本（写入 meta / 轨迹，便于改版后做回归对比）
-PROMPT_VERSION = "agent-planner-v2"
+PROMPT_VERSION = "agent-planner-v3"
+
+#: 合法工具名集合：本地 7B 常把工具名直接写进 action，需要按工具调用解释
+TOOL_NAMES = frozenset(str(spec["name"]) for spec in TOOL_SPECS)
 
 SYSTEM_PROMPT = (
     "你是一个大学生备考助教 Agent。你可以按需调用只读工具获取站内数据，然后给出回答。\n"
@@ -82,15 +85,22 @@ def parse_decision(raw: str) -> Decision:
     if start < 0 or end <= start:
         raise PlannerError("模型输出不含 JSON 对象")
     try:
-        data = json.loads(raw[start:end + 1])
+        # strict=False：本地 7B 常把换行等控制字符直接写进 JSON 字符串
+        data = json.loads(raw[start:end + 1], strict=False)
     except json.JSONDecodeError as exc:
         raise PlannerError(f"模型输出 JSON 解析失败：{exc}") from exc
     if not isinstance(data, dict):
         raise PlannerError("模型输出不是 JSON 对象")
-    action = str(data.get("action") or "").lower()
+    action = str(data.get("action") or "").strip().lower()
+    tool = str(data.get("tool") or "").strip()
     if action not in ("tool", "final"):
-        raise PlannerError(f"非法 action：{action}")
-    tool = str(data.get("tool") or "")
+        # 本地 7B 的常见偏差：把工具名直接写进 action（如 action=get_question）。
+        # 语义明确，按工具调用解释；未知 action 仍然拒绝，避免把幻觉当成决策。
+        if action in TOOL_NAMES:
+            tool = tool or action
+            action = "tool"
+        else:
+            raise PlannerError(f"非法 action：{action}")
     arguments = data.get("arguments") or {}
     if action == "tool" and not tool:
         raise PlannerError("action=tool 但未给 tool")
