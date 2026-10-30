@@ -105,3 +105,6 @@ backup/
 ai-service/tools/ocr_progress.json
 ai-service/tools/ocr_batch.log
 ai-service/tools/__ocr_tmp/
+
+# 评测报告（时间戳生成物，可重跑再生，不入库）
+ai-service/eval/reports/
