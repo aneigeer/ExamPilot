@@ -275,8 +275,8 @@ def main() -> int:
             continue
         seen_titles.add(title)
         deduped.append((path, count))
-    if args.limit:
-        deduped = deduped[:args.limit]
+    # ★ 顺序很关键：**先**按已入库跳过，**再**取前 N 篇（--limit）。
+    #   反过来会出现「截断到前 10 篇 → 全是已入库 → 每轮空跑」的假死循环（已踩）。
     if args.skip_existing:
         conn_probe = pymysql.connect(**db_config())
         try:
@@ -292,6 +292,8 @@ def main() -> int:
         deduped = [(p, c) for p, c in deduped if clean_title(p.name) not in done]
         if before != len(deduped):
             print(f"  已入库跳过 {before - len(deduped)} 篇（--skip-existing）")
+    if args.limit:
+        deduped = deduped[:args.limit]
     if not deduped:
         print("没有命中任何文档")
         return 1
