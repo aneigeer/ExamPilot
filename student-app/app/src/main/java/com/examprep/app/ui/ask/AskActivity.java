@@ -35,6 +35,17 @@ import retrofit2.Response;
  * <p><b>这个页面之前的缺口</b>：后端 {@code /api/ai/ask} 早就实现了，但 App 里没有任何调用它的地方，
  * 用户手册写的「首页 AI 助手」实际是空的。本页把这条链路接上。
  *
+ * <p><b>★ degraded 不等于「本地抽取」</b>（实测踩过这个坑）：后端的 {@code degraded} 有**两种来源**，
+ * 必须结合 {@code generator} 才能给出正确文案——
+ * <ul>
+ *   <li>L3 溯源校验「来源里有无正文未引用的条目」→ 裁掉多余来源并置 {@code degraded=true}，
+ *       <b>但 generator 仍是 ollama/zhipu</b>（答案确实来自模型，只是来源被裁剪）；</li>
+ *   <li>L3 判定幻觉（无引用编号/引用越界）→ 丢掉模型正文切抽取式，
+ *       此时 {@code generator=extractive}，才是真正的"降级为本地抽取"。</li>
+ * </ul>
+ * 若把两者都写成「本地抽取」，用户看到的会是**假信息**（模型答案被说成本地抽取）。
+ * 因此文案一律按 {@link #bannerFor} 的 generator 分支决定。
+ *
  * <p><b>三条必须显式呈现的语义</b>（否则用户会被误导）：
  * <ol>
  *   <li>{@code refused=true} → 明确写「资料里没有找到相关内容」，<b>不显示空回答</b>；
@@ -111,7 +122,7 @@ public class AskActivity extends AppCompatActivity {
                 }
                 aiAvailable = !Boolean.FALSE.equals(cap.available);
                 if (!aiAvailable) {
-                    showBanner("AI 暂不可用：" + (TextUtils.isEmpty(cap.degradedReason)
+                    showBanner("AI 服务暂不可用：" + (TextUtils.isEmpty(cap.degradedReason)
                             ? "服务未就绪" : cap.degradedReason));
                     binding.btnSend.setEnabled(false);
                 } else if (Boolean.TRUE.equals(cap.degraded) || !TextUtils.isEmpty(cap.degradedReason)) {
@@ -192,9 +203,13 @@ public class AskActivity extends AppCompatActivity {
 
     private void render(Models.AskResult result) {
         boolean refused = Boolean.TRUE.equals(result.refused);
-        // 降级提示：只在真的降级时显示，且用顶部横幅而不是混进回答正文（正文是事实，横幅是状态）
-        if (Boolean.TRUE.equals(result.degraded)) {
-            showBanner("当前为本地抽取回答，可能不如模型完整");
+        // 状态提示放顶部横幅（正文是事实，横幅是状态）。
+        // 拒答时不再叠横幅：拒答文案本身已经说清「资料里没有」，再叠一个是噪音。
+        if (!refused) {
+            String banner = bannerFor(result);
+            if (banner != null) {
+                showBanner(banner);
+            }
         }
         adapter.append(AskAdapter.item(AskAdapter.TYPE_ANSWER, result.answer, result));
 
@@ -248,6 +263,44 @@ public class AskActivity extends AppCompatActivity {
     // ==================================================================
     // 工具
     // ==================================================================
+
+    /**
+     * 根据 generator + degraded 决定横幅文案
+     *
+     * <p>四种情形，一个都不能混：
+     * <pre>
+     *   generator ∈ {dashscope, zhipu, ollama} 且 degraded=true
+     *        → 模型答的，只是 L3 裁剪了未被引用的来源 → 提示「已裁剪，建议核对来源」
+     *   generator = extractive
+     *        → 真的降级：模型不可用或 L3 判幻觉，答案由本地抽取生成 → 提示「不如模型完整」
+     *   generator = none
+     *        → 无生成器（通常已拒答）→ 提示「服务暂不可用」
+     *   degraded=false 且 generator 正常
+     *        → 不提示
+     * </pre>
+     *
+     * @return 横幅文案；null 表示无需提示
+     */
+    private static String bannerFor(Models.AskResult result) {
+        if (result == null) {
+            return null;
+        }
+        String generator = result.generator == null ? "" : result.generator.toLowerCase();
+        boolean degraded = Boolean.TRUE.equals(result.degraded);
+        switch (generator) {
+            case "extractive":
+                return "当前为本地抽取回答，可能不如模型完整";
+            case "none":
+                return "AI 服务暂不可用";
+            case "dashscope":
+            case "zhipu":
+            case "ollama":
+                // 注意：这里 degraded=true 的语义是「来源被 L3 裁剪」，不是模型不可用
+                return degraded ? "部分来源未被正文引用，已自动裁剪；建议核对下方来源" : null;
+            default:
+                return degraded ? "答案已通过溯源校验，部分来源可能被裁剪" : null;
+        }
+    }
 
     /**
      * 把 [1][2] 渲染成上标
