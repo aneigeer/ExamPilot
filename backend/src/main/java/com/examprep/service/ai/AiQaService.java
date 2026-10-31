@@ -202,10 +202,26 @@ public class AiQaService {
         // ---------- ⑥ 组装 ----------
         boolean degraded = verified.degraded()
                 || !PromptBuilder.isLlmGenerator(verified.generator());
-        vo.setAnswer(verified.content());
+        boolean refused = answerPostProcessor.isRefusal(verified);
+        // ★ 输出不变量（QA 阶段二验收提出的「refused=true 却带非空正文」）：
+        //   拒答时正文一律归一为统一拒答文案，二选一里取**文案**而不是空串——
+        //   因为前端/接口文档本来就以 "未找到相关资料" 这一句作为拒答口径，
+        //   空串会让「拒答」和「后端 bug 返回空」难以区分。
+        //   触发场景：抽取式兜底也没取到 sources（isRefusal 的第一个条件），
+        //   此时正文是有的、但**不可溯源**，按拒答处理才与「反幻觉」的承诺一致。
+        String answerText = refused ? PromptBuilder.REFUSAL_TEXT : verified.content();
+        if (refused && !PromptBuilder.REFUSAL_TEXT.equals(verified.content())) {
+            log.warn("[AI] 拒答但正文非空（generator={}, sources={}），按不变量归一为拒答文案，"
+                            + "原正文 {} 字已丢弃：{}",
+                    verified.generator(),
+                    verified.sources() == null ? 0 : verified.sources().size(),
+                    verified.content() == null ? 0 : verified.content().length(),
+                    truncateForLog(verified.content()));
+        }
+        vo.setAnswer(answerText);
         vo.setGenerator(verified.generator());
         vo.setDegraded(degraded);
-        vo.setRefused(answerPostProcessor.isRefusal(verified));
+        vo.setRefused(refused);
         vo.setSources(toSourceVO(verified.sources()));
         vo.setContexts(contexts.stream().map(ChunkContext::title).toList());
         vo.setCostMillis(System.currentTimeMillis() - start);
@@ -319,6 +335,15 @@ public class AiQaService {
         log.info("[AI] routeFallback=EMPTY_WIDEN 结果：放宽后命中 {} 条（原 skill={}，原 sourceTypes={}）",
                 widened.contexts().size(), route == null ? "-" : route.skill(), sourceTypes);
         return widened;
+    }
+
+    /** 日志里截断正文，避免把整段答案打进日志 */
+    private static String truncateForLog(String text) {
+        if (text == null) {
+            return "";
+        }
+        String oneLine = text.replaceAll("\s+", " ").trim();
+        return oneLine.length() <= 80 ? oneLine : oneLine.substring(0, 80) + "…";
     }
 
     private List<SourceRefVO> toSourceVO(List<SourceRef> sources) {
