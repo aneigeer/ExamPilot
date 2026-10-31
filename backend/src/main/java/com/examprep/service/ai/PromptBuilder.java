@@ -82,6 +82,16 @@ public class PromptBuilder {
     /**
      * 构造 user prompt：问题 + 编号上下文
      *
+     * <p>同时是 P3 注入告警的<b>唯一观测点</b>（见 {@link InjectionSignalDetector}）：
+     * 命中疑似指令只打 WARN 日志，正文一字不改、判定不变。
+     *
+     * <p><b>覆盖范围（别扩大解释）</b>：本方法只服务 <b>RAG 生成链路</b>——
+     * {@code /api/ai/ask}（{@code AiQaService#ask}）与 {@code /internal/agent/answer}
+     * （{@code AiQaService#answerWithContexts}）都会走到这里；
+     * 但 <b>Wiki 热层命中不走这里</b>（{@code AiQaService} 命中 Wiki 页后提前 return 预编译内容），
+     * 所以「注入文本藏在 Wiki 页正文里」当前不会被告警。对外口径只能写
+     * 「RAG 生成链路具备注入告警」，不能写「全链路」。
+     *
      * @param question 用户问题原文
      * @param contexts 检索命中的语料块（已按相关度降序）
      */
@@ -97,7 +107,9 @@ public class PromptBuilder {
             boolean suspicious = warnIfInjectionLike(i + 1, ctx, loggedWarnings < MAX_INJECTION_WARNINGS);
             if (suspicious) {
                 suspiciousBlocks++;
-                loggedWarnings++;
+                if (loggedWarnings < MAX_INJECTION_WARNINGS) {
+                    loggedWarnings++;
+                }
             }
             sb.append('[').append(i + 1).append("] ")
                     .append("标题：").append(nullToEmpty(ctx.title())).append('\n')
@@ -138,7 +150,9 @@ public class PromptBuilder {
         if (emitWarn) {
             log.warn("[AI][注入告警] 语料疑似指令 slot=[{}] chunkId={} refType={} refId={} "
                             + "title={} 正文命中={} 标题命中={}",
-                    slot, ctx.chunkId(), ctx.refType(), ctx.refId(), ctx.title(),
+                    slot, ctx.chunkId(), ctx.refType(), ctx.refId(),
+                    // ★ 标题来自 UGC：必须压平空白 + 截断，否则长标题刷屏、含换行还能伪造日志行
+                    InjectionSignalDetector.briefForLog(ctx.title()),
                     hits, titleHits);
         }
         return true;
