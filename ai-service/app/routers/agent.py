@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 from typing import AsyncIterator, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ..agent.events import sse
@@ -26,6 +27,42 @@ from ..schemas import AgentRequest, AgentRunResponse
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["agent"])
+
+#: 内部令牌请求头（与 Java ``InternalTokenFilter.HEADER`` 保持一致）
+INTERNAL_TOKEN_HEADER = "X-Internal-Token"
+
+
+def _internal_token() -> str:
+    """当前配置的内部令牌（单独抽出来便于测试替换）。"""
+    return get_settings().agent.internal_token
+
+
+def require_internal_token(
+    x_internal_token: str = Header(default="", alias=INTERNAL_TOKEN_HEADER),
+) -> None:
+    """``/v1/agent/*`` 的内部令牌闸门（Java ↔ Python 专用链路）。
+
+    **为什么要它**：``/v1/agent/run|stream`` 会把 ``userId`` 直接交给工具层去查
+    该用户的错题本/学情等私有数据。只要 8000 端口可直连，任何人伪造
+    ``userId`` 就能读到别人的数据；加了令牌后只有持有 ``AI_INTERNAL_TOKEN``
+    的 Java 后端能调用。
+
+    **未配置令牌时放行并告警**：本地开发与单测不配 ``AI_INTERNAL_TOKEN`` 是常态，
+    此时硬拒会让整条链路不可用；但会在日志里明确告警，避免"以为有防护"。
+    生产环境必须两侧都配置同一个值。
+
+    Raises:
+        HTTPException: 令牌缺失或不匹配 → 401。
+    """
+    expected = _internal_token()
+    if not expected:
+        logger.warning(
+            "[Agent] 未配置 AI_INTERNAL_TOKEN，/v1/agent/* 处于无鉴权模式（仅限本地开发）"
+        )
+        return
+    if not secrets.compare_digest(x_internal_token or "", expected):
+        # 不区分"没带"与"带错"，避免给爆破者提供区分信息
+        raise HTTPException(status_code=401, detail="UNAUTHORIZED")
 
 
 def _context(request: AgentRequest) -> AgentContext:
@@ -70,6 +107,7 @@ def _harness(max_steps_override: int | None) -> AgentHarness:
 
 @router.post(
     "/v1/agent/stream",
+    dependencies=[Depends(require_internal_token)],
     summary="Agent 流式执行（SSE）",
     description=(
         "事件顺序：meta → thought → tool_call → tool_result … → final → done。"
@@ -105,6 +143,7 @@ async def agent_stream(request: AgentRequest) -> StreamingResponse:
 
 @router.post(
     "/v1/agent/run",
+    dependencies=[Depends(require_internal_token)],
     response_model=AgentRunResponse,
     summary="Agent 非流式执行",
     description="一次性执行并返回完整事件数组，供离线评估与调试使用。",

@@ -303,3 +303,83 @@ def test_agent_run_e2e_keeps_memory_in_prompt_and_meta(
     assert body["answer"].startswith("选 B")
     # 证据留痕：把注入上下文的前 200 字打进测试输出，便于人工核对
     print("\n[planner prompt 前 200 字]", prompt[:200].replace("\n", " / "))
+
+
+# --------------------------------------------------------------------------------------
+# V1 鉴权：/v1/agent/* 内部令牌（X-Internal-Token）
+# --------------------------------------------------------------------------------------
+
+def _enable_token(monkeypatch: pytest.MonkeyPatch, token: str) -> None:
+    """让依赖读到指定令牌（不改 frozen dataclass，直接换读取函数）。"""
+    from app.routers import agent as agent_router
+
+    monkeypatch.setattr(agent_router, "_internal_token", lambda: token)
+
+
+_AGENT_BODY: Dict[str, Any] = {
+    "question": "我的薄弱知识点有哪些",
+    "userId": 3,
+    "sessionId": "s-auth",
+}
+
+
+def test_agent_requires_token_when_configured(client: Any,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    """配了令牌：不带 X-Internal-Token → 401（run 与 stream 都要拦）。"""
+    _enable_token(monkeypatch, "s3cret")
+    for path in ("/v1/agent/run", "/v1/agent/stream"):
+        resp = client.post(path, json=_AGENT_BODY)
+        assert resp.status_code == 401, f"{path} 应 401，实际 {resp.status_code}"
+        body = resp.json()
+        # 不泄露"是缺了还是错了"，统一 UNAUTHORIZED；且仍走统一错误体
+        assert body["message"] == "UNAUTHORIZED"
+        assert "code" in body and "degraded" in body
+
+
+def test_agent_rejects_wrong_token(client: Any,
+                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """配了令牌：带错令牌 → 401。"""
+    _enable_token(monkeypatch, "s3cret")
+    resp = client.post("/v1/agent/run", json=_AGENT_BODY,
+                       headers={"X-Internal-Token": "wrong"})
+    assert resp.status_code == 401
+    assert resp.json()["message"] == "UNAUTHORIZED"
+
+
+def test_agent_accepts_correct_token(client: Any,
+                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    """配了令牌且带对 → 正常执行（run 返回事件数组，stream 返回 200 SSE）。"""
+    from app.agent.planner import JavaBridge as _PlannerBridge
+
+    _enable_token(monkeypatch, "s3cret")
+
+    async def _fake_llm_complete(self: Any, system: str, prompt: str) -> str:
+        return '{"thought":"直接回答","action":"final","answer":"你的薄弱点是进程调度"}'
+
+    async def _fake_full_answer(self: Any, question: str, subject_id: Any,
+                                draft: str, contexts: List[str]) -> Dict[str, Any]:
+        return {"answer": draft or "你的薄弱点是进程调度", "generator": "stub",
+                "degraded": False, "refused": False, "sources": []}
+
+    monkeypatch.setattr(_PlannerBridge, "llm_complete", _fake_llm_complete)
+    monkeypatch.setattr(_PlannerBridge, "full_answer", _fake_full_answer)
+
+    headers = {"X-Internal-Token": "s3cret"}
+    run_resp = client.post("/v1/agent/run", json=_AGENT_BODY, headers=headers)
+    assert run_resp.status_code == 200, run_resp.text
+    assert run_resp.json()["answer"]
+
+    stream_resp = client.post("/v1/agent/stream", json=_AGENT_BODY, headers=headers)
+    assert stream_resp.status_code == 200
+    assert stream_resp.headers["content-type"].startswith("text/event-stream")
+    assert "event: meta" in stream_resp.text or "meta" in stream_resp.text
+
+
+def test_agent_allows_when_token_unconfigured(client: Any,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    """未配置令牌（本地开发/单测常态）：放行，但依赖要能正常跑通。"""
+    from app.routers.agent import require_internal_token
+
+    _enable_token(monkeypatch, "")
+    require_internal_token(x_internal_token="")  # 不抛即通过
+    assert client.post("/v1/agent/run", json=_AGENT_BODY).status_code != 401
