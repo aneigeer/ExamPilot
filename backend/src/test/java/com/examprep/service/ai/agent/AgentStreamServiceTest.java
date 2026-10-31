@@ -16,10 +16,12 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -60,11 +62,20 @@ class AgentStreamServiceTest {
     private AgentStreamService service(String baseUrl,
                                        AgentRunService runService,
                                        AiQaService aiQaService) {
+        return service(baseUrl, runService, aiQaService, null);
+    }
+
+    /** 带内部令牌的工厂（null/空 = 不发送该头） */
+    private AgentStreamService service(String baseUrl,
+                                       AgentRunService runService,
+                                       AiQaService aiQaService,
+                                       String internalToken) {
         AiProperties properties = new AiProperties();
         properties.getAgent().setEnabled(true);
         properties.getAgent().setStreamTimeoutMillis(5000L);
         properties.getFastapi().setBaseUrl(baseUrl);
         properties.getFastapi().setPathPrefix("/v1");
+        properties.setInternalToken(internalToken);
 
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(1);
@@ -190,5 +201,69 @@ class AgentStreamServiceTest {
         verify(runService).finish(eq(99L), eq(AiAgentRun.STATUS_SUCCESS),
                 eq("回退答案"), eq("extractive"), eq(0), eq(0), anyLong(), eq(true),
                 anyString(), isNull());
+    }
+
+    // ------------------------------------------------------------------
+    // 内部令牌：Python 侧 /v1/agent/* 已校验 X-Internal-Token（1fa7cc1）
+    //   - 配置了 token → 必须带，否则配置一上线 Java→Python 全部 401
+    //   - 未配置 → 不得带（本地零配置仍要能跑）
+    // ------------------------------------------------------------------
+
+    /** 最小可完成一次 relay 的 SSE（含 final + done，保证正常收尾） */
+    private static final String MINIMAL_SSE =
+            "event: final\ndata: {\"answer\":\"A\",\"generator\":\"extractive\","
+                    + "\"degraded\":true,\"refused\":false,\"step_count\":1,\"tool_calls\":0}\n\n"
+                    + "event: done\ndata: {\"totalMs\":5}\n\n";
+
+    /** 起一个假 Python，把收到的 X-Internal-Token 原样塞进 capture[0] */
+    private static HttpServer stubPython(AtomicReference<String> capture) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/agent/stream", exchange -> {
+            capture.set(exchange.getRequestHeaders().getFirst("X-Internal-Token"));
+            byte[] bytes = MINIMAL_SSE.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        return server;
+    }
+
+    @Test
+    @DisplayName("配置了内部令牌：请求必须带 X-Internal-Token（否则 Python 侧 401）")
+    void sendsInternalTokenHeaderWhenConfigured() throws Exception {
+        AtomicReference<String> received = new AtomicReference<>();
+        HttpServer server = stubPython(received);
+        try {
+            AgentStreamService service = service(
+                    "http://127.0.0.1:" + server.getAddress().getPort(),
+                    mock(AgentRunService.class), mock(AiQaService.class), "s3cret-token");
+            service.relay(new CapturingEmitter(0), run(), request(), () -> {
+            });
+
+            assertEquals("s3cret-token", received.get(),
+                    "配置了 app.ai.internal.token 时必须原样带上该头");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    @DisplayName("未配置内部令牌：请求不得带该头（本地零配置仍可跑）")
+    void omitsInternalTokenHeaderWhenBlank() throws Exception {
+        AtomicReference<String> received = new AtomicReference<>("sentinel");
+        HttpServer server = stubPython(received);
+        try {
+            AgentStreamService service = service(
+                    "http://127.0.0.1:" + server.getAddress().getPort(),
+                    mock(AgentRunService.class), mock(AiQaService.class), "");
+            service.relay(new CapturingEmitter(0), run(), request(), () -> {
+            });
+
+            assertNull(received.get(), "未配置令牌时不应发送该头（发空串也会被 Python 判为错误令牌）");
+        } finally {
+            server.stop(0);
+        }
     }
 }

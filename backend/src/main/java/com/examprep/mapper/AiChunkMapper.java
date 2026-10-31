@@ -46,13 +46,15 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
               AND MATCH(c.title, c.content) AGAINST (#{booleanQuery} IN BOOLEAN MODE)
               AND (#{examCategoryId} IS NULL OR c.exam_category_id = #{examCategoryId})
               AND (#{subjectId}       IS NULL OR c.subject_id       = #{subjectId})
+              AND (#{sourceTypesCsv} IS NULL OR FIND_IN_SET(c.source_type, #{sourceTypesCsv}))
             ORDER BY ft_score DESC
             LIMIT #{recallLimit}
             """)
     List<Map<String, Object>> searchByFulltext(@Param("booleanQuery") String booleanQuery,
                                               @Param("examCategoryId") Long examCategoryId,
                                               @Param("subjectId") Long subjectId,
-                                              @Param("recallLimit") int recallLimit);
+                                              @Param("recallLimit") int recallLimit,
+                                              @Param("sourceTypesCsv") String sourceTypesCsv);
 
     /**
      * LIKE 降级召回（对应风险 R8：ngram 插件不可用时的兜底路径）
@@ -87,13 +89,15 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
                 <otherwise>AND 1 = 0</otherwise>
               </choose>
               <if test="subjectId != null">AND c.subject_id = #{subjectId}</if>
+              <if test="sourceTypesCsv != null">AND FIND_IN_SET(c.source_type, #{sourceTypesCsv})</if>
             ORDER BY c.source_updated_at DESC
             LIMIT #{recallLimit}
             </script>
             """)
     List<Map<String, Object>> searchByLike(@Param("keywords") List<String> keywords,
                                            @Param("subjectId") Long subjectId,
-                                           @Param("recallLimit") int recallLimit);
+                                           @Param("recallLimit") int recallLimit,
+                                           @Param("sourceTypesCsv") String sourceTypesCsv);
 
     /**
      * 某来源的全部块（增量同步时比对 content_hash 用）

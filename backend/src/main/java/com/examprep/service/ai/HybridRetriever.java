@@ -50,7 +50,18 @@ public class HybridRetriever {
     public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
                            Set<Long> weakKpIds) {
         return retrieve(question, subjectId, examCategoryId, weakKpIds,
-                properties.getRetrieval().getTopK(), true);
+                properties.getRetrieval().getTopK(), true, null);
+    }
+
+    /**
+     * 按生产配置检索，并限定来源类型（A3）
+     *
+     * @param sourceTypes 只保留这些 {@code source_type} 的块；<b>null 或空 = 不过滤</b>
+     */
+    public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
+                           Set<Long> weakKpIds, Set<String> sourceTypes) {
+        return retrieve(question, subjectId, examCategoryId, weakKpIds,
+                properties.getRetrieval().getTopK(), true, sourceTypes);
     }
 
     /**
@@ -60,7 +71,7 @@ public class HybridRetriever {
      */
     public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
                            Set<Long> weakKpIds, int topK) {
-        return retrieve(question, subjectId, examCategoryId, weakKpIds, topK, true);
+        return retrieve(question, subjectId, examCategoryId, weakKpIds, topK, true, null);
     }
 
     /**
@@ -68,9 +79,42 @@ public class HybridRetriever {
      */
     public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
                            Set<Long> weakKpIds, int topK, boolean applyGate) {
+        return retrieve(question, subjectId, examCategoryId, weakKpIds, topK, applyGate, null);
+    }
+
+    /**
+     * 完整入口：Top-K + 闸门开关 + 来源类型过滤
+     *
+     * <p><b>过滤在两路各做一次，但只在各自该做的地方做</b>：
+     * <ul>
+     *   <li>ngram 通道 → 交给 SQL（{@code FIND_IN_SET}）。因为召回是 {@code LIMIT recallLimit} 的，
+     *       先取后筛会让目标类型被其它类型挤掉配额；</li>
+     *   <li>向量通道 → 在 Java 侧按 {@code source_type} 筛（Qdrant 的 payload 过滤目前没做
+     *       类型维度，回表后 ctx 自带 source_type，这里筛一次成本极低）。</li>
+     * </ul>
+     * 两路用的是**同一份白名单**，不会出现「一路过滤一路不过滤」的半吊子状态。
+     *
+     * @param sourceTypes 只保留这些来源类型；null/空 = 不过滤（行为与之前完全一致）
+     */
+    public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
+                           Set<Long> weakKpIds, int topK, boolean applyGate,
+                           Set<String> sourceTypes) {
         int safeTopK = Math.max(1, topK);
+        Set<String> typeFilter = normalizeSourceTypes(sourceTypes);
         VectorChannel.Scan scan = scanByVector(question, subjectId, safeTopK, applyGate);
         List<ChunkContext> vectorContexts = scan.contexts();
+        if (typeFilter != null && !vectorContexts.isEmpty()) {
+            // 向量通道无类型维度过滤：回表后按同一白名单筛，保证两路口径一致
+            int before = vectorContexts.size();
+            vectorContexts = vectorContexts.stream()
+                    .filter(ctx -> ctx.sourceType() != null
+                            && typeFilter.contains(ctx.sourceType().toUpperCase(java.util.Locale.ROOT)))
+                    .toList();
+            if (vectorContexts.size() != before) {
+                log.debug("[AI] 向量通道按 sourceTypes={} 过滤 {}→{} 条",
+                        typeFilter, before, vectorContexts.size());
+            }
+        }
 
         RetrievalService.RetrievalResult ngram = retrievalService.retrieve(
                 question, subjectId, examCategoryId, weakKpIds,
@@ -78,7 +122,8 @@ public class HybridRetriever {
                         properties.getRetrieval().getRecallLimit(),
                         safeTopK,
                         properties.getRetrieval().getRejectThreshold(),
-                        applyGate));
+                        applyGate),
+                typeFilter);
 
         List<ChunkContext> contexts;
         String mode;
@@ -118,6 +163,21 @@ public class HybridRetriever {
      *
      * <p>FastAPI / Qdrant / 模型任一不可用时，上层自动降级到 ngram。
      */
+    /**
+     * 归一化来源类型：去空白、转大写、只留白名单值；null/空 → null（= 不过滤）
+     */
+    private static Set<String> normalizeSourceTypes(Set<String> sourceTypes) {
+        if (sourceTypes == null || sourceTypes.isEmpty()) {
+            return null;
+        }
+        Set<String> normalized = sourceTypes.stream()
+                .filter(org.springframework.util.StringUtils::hasText)
+                .map(v -> v.trim().toUpperCase(java.util.Locale.ROOT))
+                .filter(v -> java.util.Set.of("QUESTION", "KNOWLEDGE", "RESOURCE", "COURSEWARE").contains(v))
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        return normalized.isEmpty() ? null : normalized;
+    }
+
     private VectorChannel.Scan scanByVector(String question, Long subjectId, int topK,
                                             boolean applyGate) {
         if (!vectorChannel.isEnabled()) {

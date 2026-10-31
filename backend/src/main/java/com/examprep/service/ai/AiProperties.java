@@ -303,8 +303,14 @@ public class AiProperties {
         /** 健康检查超时（毫秒） */
         private int healthTimeoutMillis = 1000;
 
-        /** 索引推送超时（毫秒）。批量 upsert 比检索慢 */
-        private int indexTimeoutMillis = 5000;
+        /**
+         * 索引推送超时（毫秒）。批量 upsert 比检索慢
+         *
+         * <p><b>默认 60000 与 {@code application.yml} 对齐</b>：批量灌库时一次 upsert 可能几万块，
+         * 5s 会直接把整批判超时（曾经代码默认 5000 / yml 60000 的漂移，正是那种「测试跑 5s、
+         * 生产跑 60s」的口径分裂）。由 {@code AiConfigConsistencyTest} 兜住两边一致。
+         */
+        private int indexTimeoutMillis = 60000;
 
         /**
          * ★ AI 面试接口超时（毫秒）

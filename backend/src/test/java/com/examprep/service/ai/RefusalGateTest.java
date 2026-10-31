@@ -87,7 +87,10 @@ class RefusalGateTest {
 
     private HybridRetriever build(VectorChannel.Scan scan) {
         RetrievalService retrieval = mock(RetrievalService.class);
-        when(retrieval.retrieve(anyString(), any(), any(), any(), any()))
+        // HybridRetriever 现在走 6 参重载（config + sourceTypes），把 stub 打在这个签名上，
+        // 否则 mock 返回 null，测试会以 NPE 的形式"假失败"（本次就踩到了）
+        when(retrieval.retrieve(anyString(), any(), any(), any(),
+                any(RetrievalService.RetrievalConfig.class), any()))
                 .thenReturn(passedNgram());
         VectorChannel vector = mock(VectorChannel.class);
         when(vector.isEnabled()).thenReturn(true);

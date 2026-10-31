@@ -49,6 +49,10 @@ public class RetrievalService {
     /** 召回模式：无命中 */
     public static final String MODE_NONE = "NONE";
 
+    /** 允许的来源类型白名单（与 {@code ai_chunk.source_type} 一致；过滤只认这几个值） */
+    private static final Set<String> SOURCE_TYPE_WHITELIST =
+            Set.of("QUESTION", "KNOWLEDGE", "RESOURCE", "COURSEWARE");
+
     /**
      * 检索并重排
      *
@@ -60,12 +64,21 @@ public class RetrievalService {
      */
     public RetrievalResult retrieve(String question, Long subjectId, Long examCategoryId,
                                     Set<Long> weakKpIds) {
-        long start = System.currentTimeMillis();
+        return retrieve(question, subjectId, examCategoryId, weakKpIds, (Set<String>) null);
+    }
+
+    /**
+     * 检索并重排（带来源类型过滤）
+     *
+     * @param sourceTypes 只保留这些 {@code source_type} 的块；<b>null 或空 = 不过滤</b>（今天的行为）
+     */
+    public RetrievalResult retrieve(String question, Long subjectId, Long examCategoryId,
+                                    Set<Long> weakKpIds, Set<String> sourceTypes) {
         RetrievalConfig cfg = new RetrievalConfig(
                 properties.getRetrieval().getRecallLimit(),
                 properties.getRetrieval().getTopK(),
                 properties.getRetrieval().getRejectThreshold());
-        return retrieve(question, subjectId, examCategoryId, weakKpIds, cfg);
+        return retrieve(question, subjectId, examCategoryId, weakKpIds, cfg, sourceTypes);
     }
 
     /**
@@ -73,7 +86,23 @@ public class RetrievalService {
      */
     public RetrievalResult retrieve(String question, Long subjectId, Long examCategoryId,
                                     Set<Long> weakKpIds, RetrievalConfig config) {
+        return retrieve(question, subjectId, examCategoryId, weakKpIds, config, null);
+    }
+
+    /**
+     * 检索并重排（完整参数：配置 + 来源类型过滤）
+     *
+     * <p><b>过滤为什么走 SQL 而不是 Java 侧过滤</b>：召回是 {@code LIMIT recallLimit} 的，
+     * 若先取 50 条再在 Java 里筛掉不需要的类型，向量/字号都会被非目标类型挤占，
+     * 过滤后可能一条不剩——SQL 里筛才能真正把配额留给目标类型。
+     *
+     * @param sourceTypes 只保留这些来源类型；null/空 = 不过滤
+     */
+    public RetrievalResult retrieve(String question, Long subjectId, Long examCategoryId,
+                                    Set<Long> weakKpIds, RetrievalConfig config,
+                                    Set<String> sourceTypes) {
         long start = System.currentTimeMillis();
+        String sourceTypesCsv = toCsv(sourceTypes);
 
         if (!StringUtils.hasText(question)) {
             return RetrievalResult.refuse(MODE_NONE, 0, System.currentTimeMillis() - start);
@@ -88,13 +117,13 @@ public class RetrievalService {
 
         String andQuery = booleanQueryBuilder.buildAndQuery(question);
         if (andQuery != null) {
-            rows = safeFulltext(andQuery, examCategoryId, subjectId, recallLimit);
+            rows = safeFulltext(andQuery, examCategoryId, subjectId, recallLimit, sourceTypesCsv);
             mode = MODE_FULLTEXT_AND;
         }
         if (rows.isEmpty()) {
             String orQuery = booleanQueryBuilder.buildOrQuery(question);
             if (orQuery != null) {
-                rows = safeFulltext(orQuery, examCategoryId, subjectId, recallLimit);
+                rows = safeFulltext(orQuery, examCategoryId, subjectId, recallLimit, sourceTypesCsv);
                 mode = MODE_FULLTEXT_OR;
             }
         }
@@ -103,7 +132,7 @@ public class RetrievalService {
             List<String> terms = booleanQueryBuilder.likeKeywords(question, 5);
             if (!terms.isEmpty()) {
                 try {
-                    rows = aiChunkMapper.searchByLike(terms, subjectId, recallLimit);
+                    rows = aiChunkMapper.searchByLike(terms, subjectId, recallLimit, sourceTypesCsv);
                     mode = MODE_LIKE;
                 } catch (Exception e) {
                     log.warn("[AI] LIKE 降级召回失败: {}", e.getMessage());
@@ -209,6 +238,28 @@ public class RetrievalService {
     }
 
     /**
+     * 来源类型集合 → SQL {@code FIND_IN_SET} 用的 CSV
+     *
+     * <p>空 / null 一律返回 {@code null}，SQL 里 {@code #{sourceTypesCsv} IS NULL} 即「不过滤」——
+     * 让「不传过滤」与「过滤集合为空」走同一条 SQL，不产生两套行为。
+     * 只放行白名单值，避免脏值被拼进 SQL 的匹配列表。
+     */
+    static String toCsv(java.util.Collection<String> sourceTypes) {
+        if (sourceTypes == null || sourceTypes.isEmpty()) {
+            return null;
+        }
+        return sourceTypes.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .map(v -> v.toUpperCase(java.util.Locale.ROOT))
+                .filter(SOURCE_TYPE_WHITELIST::contains)
+                .distinct()
+                .sorted()
+                .reduce((a, b) -> a + "," + b)
+                .orElse(null);
+    }
+
+    /**
      * 最佳块的内容词覆盖度 = 命中的内容词单元数 / 内容词单元总数
      *
      * <p>在 title + content 上做大小写不敏感子串匹配，取值 [0,1]。
@@ -234,9 +285,11 @@ public class RetrievalService {
 
     /** 全文召回包一层 try：ngram 插件缺失 / 索引损坏时降级而不是 500 */
     private List<Map<String, Object>> safeFulltext(String booleanQuery, Long examCategoryId,
-                                                   Long subjectId, int recallLimit) {
+                                                   Long subjectId, int recallLimit,
+                                                   String sourceTypesCsv) {
         try {
-            return aiChunkMapper.searchByFulltext(booleanQuery, examCategoryId, subjectId, recallLimit);
+            return aiChunkMapper.searchByFulltext(booleanQuery, examCategoryId, subjectId,
+                    recallLimit, sourceTypesCsv);
         } catch (Exception e) {
             log.warn("[AI] 全文召回失败（将降级）：{} | query={}", e.getMessage(), booleanQuery);
             return List.of();

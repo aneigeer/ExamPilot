@@ -704,6 +704,96 @@ class RetrievalServiceTest {
     }
 
     // ==================================================================
+    // A3：来源类型过滤（sourceTypes）
+    // ==================================================================
+
+    /**
+     * 过滤必须在<b>SQL 里</b>生效，而不是先取 50 条再筛
+     *
+     * <p>为什么这条要真连库测：Java 侧筛也能让「结果全是 COURSEWARE」成立，
+     * 但那是**假通过**——召回配额早已被其它类型占掉，过滤后可能只剩 1~2 条。
+     * 所以这里同时断言「命中非空」，把「筛完就没货」的情况暴露出来。
+     */
+    @Test
+    @DisplayName("sourceTypes=[COURSEWARE]：召回结果 source_type 全部为 COURSEWARE 且非空")
+    void sourceTypesFilterReturnsOnlyRequestedType() {
+        if (aiChunkMapper.countActive() == 0) {
+            System.out.println("索引为空，跳过过滤测试。");
+            return;
+        }
+        String question = "Redis 缓存一致性怎么保证";
+        RetrievalService.RetrievalResult filtered = retrievalService.retrieve(
+                question, null, null, Set.of(), Set.of("COURSEWARE"));
+
+        System.out.println();
+        System.out.println("── sourceTypes 过滤（" + question + "）──");
+        System.out.println("模式=" + filtered.mode() + " 召回=" + filtered.recallCount()
+                + " 返回=" + filtered.contexts().size());
+        filtered.contexts().forEach(ctx ->
+                System.out.println("  " + ctx.sourceType() + " | " + truncate(ctx.title(), 34)));
+
+        assertTrue(filtered.contexts().size() > 0,
+                "过滤 COURSEWARE 后一条不剩：说明过滤没在 SQL 生效（都被其它类型占满了配额）");
+        for (ChunkContext ctx : filtered.contexts()) {
+            assertEquals("COURSEWARE", ctx.sourceType(),
+                    "过滤 COURSEWARE 却返回了 " + ctx.sourceType() + " 类型");
+        }
+    }
+
+    /**
+     * 「不过滤」必须与「不传参数」完全等价
+     *
+     * <p>这条守的是**行为不变**：路由默认关闭时 AiQaService 传的是 null，
+     * 一旦 null 被当成「过滤成空集合」，线上会突然一条都检索不到——比功能缺失更严重。
+     */
+    @Test
+    @DisplayName("sourceTypes=null：与不传参数逐条一致（chunkId 列表完全相同）")
+    void nullSourceTypesEqualsNoArgument() {
+        if (aiChunkMapper.countActive() == 0) {
+            System.out.println("索引为空，跳过等价性测试。");
+            return;
+        }
+        String question = "值传递和地址传递有什么区别";
+        List<Long> withoutArg = retrievalService
+                .retrieve(question, null, null, Set.of())
+                .contexts().stream().map(ChunkContext::chunkId).toList();
+        List<Long> withNull = retrievalService
+                .retrieve(question, null, null, Set.of(), (Set<String>) null)
+                .contexts().stream().map(ChunkContext::chunkId).toList();
+        List<Long> withEmpty = retrievalService
+                .retrieve(question, null, null, Set.of(), Set.of())
+                .contexts().stream().map(ChunkContext::chunkId).toList();
+
+        System.out.println();
+        System.out.println("── 不过滤等价性（" + question + "）──");
+        System.out.println("不传参数=" + withoutArg + " | null=" + withNull + " | 空集=" + withEmpty);
+
+        assertEquals(withoutArg, withNull, "null 必须等价于「不传参数」");
+        assertEquals(withoutArg, withEmpty, "空集合也必须等价于「不传参数」（否则等于检索不到）");
+        assertTrue(withoutArg.size() > 0, "对照组本身应有命中，否则等价性断言是空转");
+    }
+
+    /** 过滤白名单：脏值/小写不应把 SQL 写坏，且应与大写归一后等价 */
+    @Test
+    @DisplayName("sourceTypes 大小写与脏值归一并不会放宽过滤")
+    void sourceTypesAreNormalizedBeforeSql() {
+        if (aiChunkMapper.countActive() == 0) {
+            System.out.println("索引为空，跳过归一化测试。");
+            return;
+        }
+        String question = "Redis 缓存一致性怎么保证";
+        List<Long> upper = retrievalService
+                .retrieve(question, null, null, Set.of(), Set.of("COURSEWARE"))
+                .contexts().stream().map(ChunkContext::chunkId).toList();
+        List<Long> lowerWithJunk = retrievalService
+                .retrieve(question, null, null, Set.of(), Set.of("courseware", "  ", "BOGUS_TYPE"))
+                .contexts().stream().map(ChunkContext::chunkId).toList();
+
+        assertEquals(upper, lowerWithJunk,
+                "小写 + 脏值应与大写干净值等价（脏值被丢弃，不会把结果放宽成空/全量）");
+    }
+
+    // ==================================================================
     // 布尔查询串构造
     // ==================================================================
 
@@ -1010,7 +1100,7 @@ class RetrievalServiceTest {
             return;
         }
         List<String> keywords = List.of("值传递", "地址传递");
-        var rows = aiChunkMapper.searchByLike(keywords, null, 50);
+        var rows = aiChunkMapper.searchByLike(keywords, null, 50, null);
         System.out.println("LIKE 降级召回条数：" + rows.size());
         assertFalse(rows.isEmpty(), "LIKE 降级模式应能召回「值传递/地址传递」");
         for (var row : rows) {
@@ -1118,7 +1208,7 @@ class RetrievalServiceTest {
             // 锚点失效（语料被改写/清空）时退回关键词 OR 反查，并明确告警，
             // 避免「标答丢了」和「检索没召回」混为一谈。
             markAnchorMiss(evalCase);
-            ids.addAll(aiChunkMapper.searchByLike(List.of(evalCase.expectKeywords()), null, 20)
+            ids.addAll(aiChunkMapper.searchByLike(List.of(evalCase.expectKeywords()), null, 20, null)
                     .stream()
                     .map(r -> String.valueOf(r.get("id")))
                     .filter(s -> s.matches("\\d+"))

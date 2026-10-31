@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -39,6 +40,9 @@ import java.util.Set;
 public class AiQaService {
 
     private final HybridRetriever hybridRetriever;
+
+    /** 语义路由（A1）：决定 skill 与来源过滤；未启用/失败时返回默认值，不影响回答 */
+    private final AiRouteClient routeClient;
     private final KnowledgeProfileService profileService;
     private final ExtractiveAnswerClient extractiveAnswerClient;
     private final AnswerPostProcessor answerPostProcessor;
@@ -137,10 +141,28 @@ public class AiQaService {
             return vo;
         }
 
+        // ---------- 阶段1.5 语义路由（A1/A2）----------
+        // 位置很关键：**在 Wiki 热层命中之后、检索之前**。
+        //   - 放在 Wiki 之前是浪费：Wiki 命中直接返回，路由结果根本用不上（还多一次 300ms 往返）；
+        //   - 放在检索之后则没有意义：过滤条件必须在召回时就生效（LIMIT 配额问题）。
+        // ★ 路由只是优化项：AiRouteClient 保证**永不抛异常**，失败/超时/关闭都返回
+        //   「默认 COURSE_QA + 空过滤」= 今天的行为，所以这里不需要 try/catch，也不会影响回答。
+        AiRouteClient.RouteResult route = routeClient.route(question, req.getSubjectId());
+        Set<String> sourceTypes = route.hasSourceFilter()
+                ? new LinkedHashSet<>(route.sourceTypes())
+                : null;
+        if (route.degraded()) {
+            log.info("[AI] 路由降级（{}），按默认 skill={} 且不过滤来源继续检索",
+                    route.reason(), route.skill());
+        } else {
+            log.info("[AI] 路由命中 skill={} sourceTypes={} confidence={}",
+                    route.skill(), route.sourceTypes(), String.format("%.2f", route.confidence()));
+        }
+
         // ---------- 阶段1+2+3 检索：向量召回 + ngram 召回 + 双通道融合 ----------
         // 统一收口到 HybridRetriever，Agent 工具与离线评估复用同一条链路
         HybridRetriever.Outcome outcome = hybridRetriever.retrieve(
-                question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds);
+                question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds, sourceTypes);
         List<ChunkContext> contexts = outcome.contexts();
         String mode = outcome.mode();
 

@@ -6,6 +6,7 @@ import com.examprep.dto.ai.AgentStreamRequest;
 import com.examprep.dto.ai.AskVO;
 import com.examprep.dto.ai.SourceRefVO;
 import com.examprep.entity.AiAgentRun;
+import com.examprep.security.InternalTokenFilter;
 import com.examprep.service.ai.AiProperties;
 import com.examprep.service.ai.AiQaService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -255,10 +256,17 @@ public class AgentStreamService {
         body.put("memorySummary", sessionService.summary(run.getSessionId()));
         body.put("history", sessionService.history(run.getSessionId(), run.getUserId(), 6));
 
-        HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
-                .header("Accept", "text/event-stream")
+                .header("Accept", "text/event-stream");
+        // ★ Python 侧 /v1/agent/* 现在校验内部令牌（缺失/错误 → 401）。
+        // 未配置时不发该头，保持「本地零配置也能跑」；配置后 Java↔Python 才对得上。
+        String internalToken = properties.getInternalToken();
+        if (internalToken != null && !internalToken.isBlank()) {
+            builder.header(InternalTokenFilter.HEADER, internalToken);
+        }
+        HttpRequest httpRequest = builder
                 .POST(HttpRequest.BodyPublishers.ofString(
                         objectMapper.writeValueAsString(body)))
                 .build();

@@ -114,6 +114,21 @@ class AiConfigConsistencyTest {
     }
 
     @Test
+    @DisplayName("index-timeout-millis：yml 显式声明且与代码默认值一致（曾 5000 vs 60000 漂移）")
+    void indexTimeoutMatchesYml() throws IOException {
+        String text = yml();
+        assertTrue(text.contains("index-timeout-millis:"), "application.yml 未声明 index-timeout-millis");
+
+        int effective = properties.getFastapi().getIndexTimeoutMillis();
+        int codeDefault = new AiProperties().getFastapi().getIndexTimeoutMillis();
+        assertEquals(codeDefault, effective,
+                "index-timeout-millis 代码默认值(" + codeDefault + ") 与 yml 生效值(" + effective
+                        + ") 不一致 —— 批量灌库时一边判超时、一边不判");
+        assertTrue(effective >= 30_000,
+                "index-timeout-millis=" + effective + "ms 过短：批量 upsert 会被误判超时");
+    }
+
+    @Test
     @DisplayName("route.enabled / route.timeout-millis：yml 显式声明且与代码默认值一致")
     void routeConfigMatchesYml() throws IOException {
         String text = yml();
