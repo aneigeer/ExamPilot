@@ -39,6 +39,7 @@ from .routers import llm as llm_router
 from .routers import ocr as ocr_router
 from .routers import search as search_router
 from .routers import interview as interview_router
+from .routers import route as route_router
 from .routers import wiki as wiki_router
 from .schemas import ErrorResponse
 from .worker.job_worker import start_workers
@@ -151,6 +152,7 @@ def create_app() -> FastAPI:
     app.include_router(ask_router.router)
     app.include_router(wiki_router.router)
     app.include_router(interview_router.router)
+    app.include_router(route_router.router)
 
     # —— 全局异常处理器
     register_exception_handlers(app)
