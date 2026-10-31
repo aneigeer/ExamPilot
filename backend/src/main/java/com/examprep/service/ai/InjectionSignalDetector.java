@@ -84,9 +84,12 @@ public final class InjectionSignalDetector {
             new Probe("REVEAL_PROMPT_EN", Pattern.compile(
                     "(?i)(?:reveal|print|repeat|show|output|leak|echo)[^\\n]{0,20}"
                             + "(?:system\\s*prompt|initial\\s*prompt|your\\s*prompt|instructions?)")),
-            // 6. 中文角色劫持：只用明确的劫持措辞（「你现在是」在中文课件里极少见，可保留）
+            // 6. 中文角色劫持：明确的劫持措辞才命中（中文课件里几乎没有"你现在是xxx助手"的表述）
+            //    ★ 2026-10-31 取证发现的漏检：载体换成"现在开始你是…"（少一个"从"）就漏了，
+            //      所以这里把常见变体写全：从现在开始你是 / 现在开始你是 / 现在你是 / 你现在扮演 …
             new Probe("ROLE_HIJACK", Pattern.compile(
-                    "(?:你现在是|从现在开始你是|现在开始你扮演|假装你是|你不再是)")),
+                    "(?:从现在开始你是|现在开始你是|你现在是|现在你是|现在开始你扮演"
+                            + "|你现在扮演|你的新身份是|假装你是|你不再是)")),
             // 7. 英文角色劫持：★ 共现判据（见类注释"误报控制"）—— act as a buffer/cache/proxy 不算
             new Probe("ROLE_HIJACK_EN", Pattern.compile(
                     "(?i)(?:you\\s+are\\s+now|act\\s+as)\\b[^\\n]{0,40}?"
