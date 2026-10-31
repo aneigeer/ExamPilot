@@ -5,7 +5,9 @@
 #        backend/target/：clean 删 target/classes 时另一个 JVM 正在 Class.forName，
 #        于是报一堆 ClassNotFoundException / TypeNotPresentException（还夹着 "168 tests"
 #        这种「用例没跑完」的假象）。真跑一次就好，但排查花了半小时。
-#        本脚本把这个坑固化成工具：**先查有没有别的 Maven 在跑，有就拒绝**。
+#        本脚本把这个坑固化成工具：**先查有没有别的 Maven 在跑、以及有没有正在运行的后端实例**，
+#        有就拒绝。第二种（运行中的 java -jar）是 20:47 又踩到的一次：clean 删掉 target/classes 后，
+#        别人的 8081 复验因为懒加载失败报了 ClassNotFoundException（症状：/internal/** 正常但 JWT 链 500）。
 #
 #  用法：
 #    powershell -ExecutionPolicy Bypass -File .\scripts\跑测试.ps1
@@ -15,7 +17,7 @@
 #
 #  纪律（与 README「测试与构建纪律」一致）：
 #    ① 日常用 `mvn -B test`（增量），clean 只在怀疑 stale 时用；
-#    ② 跑 clean 前先确认没有别的 Maven 在跑；
+#    ② 跑 clean 前先确认没有别的 Maven 在跑、也没有正在运行的后端实例（8080/8081）；
 #    ③ 报「全绿」必须带命令原文与 `Tests run` 行 —— 本脚本会把两者都打出来。
 # ============================================================
 param(
@@ -75,7 +77,42 @@ if ($others.Count -gt 0) {
     Write-Host "已按 -Force 继续（结果可能不可信）。" -ForegroundColor Yellow
 }
 
-# ---------- 2. 组装命令 ----------
+# ---------- 1b. 运行中的后端实例检测（20:47 那次真实事故） ----------
+# ★ 为什么必须查这个：`mvn clean` 会删 target/classes，而**已启动的**后端是
+#   java -jar 进程，class 是懒加载的——删掉之后它再触发某个类（如 LoginUser）
+#   就 ClassNotFoundException，表现为「大面积 500，但 /internal/** 正常」。
+#   我第一次只查了 Maven Launcher，没查运行中的应用，于是在别人起 8081 复验时
+#   跑了 clean test，把人家的验证打成了假失败。
+$apps = @()
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -like '*exam-prep-backend*' -and $_.ProcessId -ne $PID } |
+    ForEach-Object {
+        $apps += [pscustomobject]@{
+            Pid     = $_.ProcessId
+            Started = $_.CreationDate
+        }
+    }
+$ports = @()
+foreach ($p in @(8080, 8081, 8082)) {
+    $conn = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue
+    if ($conn) { $ports += "$p(pid=$($conn[0].OwningProcess))" }
+}
+
+if ($apps.Count -gt 0 -or $ports.Count -gt 0) {
+    Write-Host "⚠️ 检测到正在运行的后端实例：$($apps.Count) 个进程 / 监听端口：$($ports -join ', ')" -ForegroundColor Yellow
+    foreach ($a in $apps) { Write-Host ("   pid={0}  启动={1}" -f $a.Pid, $a.Started) }
+    Write-Host ""
+    Write-Host "mvn clean / 重编译会删除并重写 target/classes，正在运行的应用会因懒加载失败" -ForegroundColor Yellow
+    Write-Host "报 ClassNotFoundException（典型症状：/internal/** 正常但 JWT 过滤器链 500）。" -ForegroundColor Yellow
+    if (-not $Force) {
+        Write-Host ""
+        Write-Host "已中止：请先停掉这些实例（或在没有 clean 的情况下用 -Clean 之外的方式跑）。" -ForegroundColor Red
+        exit 3
+    }
+    Write-Host "已按 -Force 继续（对方正在跑的验证会被打废）。" -ForegroundColor Yellow
+}
+
+
 $mvnArgs = @('-B')
 if ($Clean) { $mvnArgs += 'clean' }
 $mvnArgs += 'test'
