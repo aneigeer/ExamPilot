@@ -64,6 +64,15 @@ public class PromptBuilder {
     public static final String REFUSAL_TEXT = "未找到相关资料";
 
     /**
+     * 单次 {@link #userPrompt} 最多逐条输出的注入告警条数
+     *
+     * <p>只为控制日志体积：一份脏课件可能让 topK 里 5–12 条全命中，
+     * 逐条打会把日志刷满、看不出"还有没有别的"；超出的部分在末尾汇总一行。
+     * <b>不影响检测本身</b>（命中计数仍然准确）。
+     */
+    private static final int MAX_INJECTION_WARNINGS = 3;
+
+    /**
      * 构造 system prompt
      */
     public String systemPrompt() {
@@ -79,13 +88,24 @@ public class PromptBuilder {
     public String userPrompt(String question, List<ChunkContext> contexts) {
         StringBuilder sb = new StringBuilder();
         sb.append("【参考资料】\n");
+        // P3 观测：命中明细最多打 MAX_INJECTION_WARNINGS 条，其余在末尾汇总一行，
+        // 否则一份脏语料会把日志刷满、反而看不出还有没有别的告警。
+        int suspiciousBlocks = 0;
+        int loggedWarnings = 0;
         for (int i = 0; i < contexts.size(); i++) {
             ChunkContext ctx = contexts.get(i);
-            // ★ P3 观测点：只打日志，不改写 ctx.content()，拼进去的仍是原文
-            warnIfInjectionLike(i + 1, ctx);
+            boolean suspicious = warnIfInjectionLike(i + 1, ctx, loggedWarnings < MAX_INJECTION_WARNINGS);
+            if (suspicious) {
+                suspiciousBlocks++;
+                loggedWarnings++;
+            }
             sb.append('[').append(i + 1).append("] ")
                     .append("标题：").append(nullToEmpty(ctx.title())).append('\n')
                     .append("内容：").append(nullToEmpty(ctx.content())).append('\n');
+        }
+        if (suspiciousBlocks > loggedWarnings) {
+            log.warn("[AI][注入告警] 本次提示词共 {} 条语料块命中注入信号，已省略 {} 条明细（上游数据质量需巡检）",
+                    suspiciousBlocks, suspiciousBlocks - loggedWarnings);
         }
         sb.append('\n').append("【问题】\n").append(question == null ? "" : question.trim()).append('\n');
         sb.append("\n请依据上述参考资料作答并在句末标注来源编号。");
@@ -99,21 +119,29 @@ public class PromptBuilder {
      * {@code slot}（第几条资料）、{@code chunkId}、{@code title}、命中模式与位置。
      * 标题与正文分别扫（标题同样来自 UGC，也会进提示词）。
      *
-     * @param slot 资料序号（1-based，与提示词里的 {@code [n]} 对齐）
-     * @param ctx  语料块
+     * <p><b>注意</b>：命中信息只进日志，<b>绝不写进提示词</b>——哪怕一句"以下内容含可疑指令"
+     * 也会改变模型输入，就违背了「只观测」的前提。
+     *
+     * @param slot     资料序号（1-based，与提示词里的 {@code [n]} 对齐）
+     * @param ctx      语料块
+     * @param emitWarn 是否输出明细日志（超出上限时只计数、不逐条打）
+     * @return 该块是否命中注入信号（供调用方汇总）
      */
-    private void warnIfInjectionLike(int slot, ChunkContext ctx) {
+    private boolean warnIfInjectionLike(int slot, ChunkContext ctx, boolean emitWarn) {
         List<InjectionSignalDetector.Signal> hits =
                 InjectionSignalDetector.detect(nullToEmpty(ctx.content()));
         List<InjectionSignalDetector.Signal> titleHits =
                 InjectionSignalDetector.detect(nullToEmpty(ctx.title()));
         if (hits.isEmpty() && titleHits.isEmpty()) {
-            return;
+            return false;
         }
-        log.warn("[AI][注入告警] 语料疑似指令 slot=[{}] chunkId={} refType={} refId={} "
-                        + "title={} 正文命中={} 标题命中={}",
-                slot, ctx.chunkId(), ctx.refType(), ctx.refId(), ctx.title(),
-                hits, titleHits);
+        if (emitWarn) {
+            log.warn("[AI][注入告警] 语料疑似指令 slot=[{}] chunkId={} refType={} refId={} "
+                            + "title={} 正文命中={} 标题命中={}",
+                    slot, ctx.chunkId(), ctx.refType(), ctx.refId(), ctx.title(),
+                    hits, titleHits);
+        }
+        return true;
     }
 
     private String nullToEmpty(String s) {
