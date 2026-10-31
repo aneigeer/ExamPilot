@@ -95,6 +95,19 @@ public class PromptBuilder {
      * <p>取值口径：{@code dashscope / zhipu / ollama / fastapi / agent-llm} 都返回 true。
      * 空/空白按「非模型」处理（调用方拿不到生成器名时不该硬按模型路径校验，
      * 那种情况本身就该被当作降级）。
+     *
+     * <p><b>影响面（改这个方法前先看这里）</b>——全仓共 3 个调用点，改判定等于同时改三处行为：
+     * <ol>
+     *   <li>{@code AnswerPostProcessor:49} —— <b>L3 引用校验的闸门</b>：返回 false 就整段跳过校验，
+     *       模型编造的 {@code [9]} 会原样返回给用户（本方法曾用正向枚举，正是这么漏的）；</li>
+     *   <li>{@code AiQaService:204} —— {@code degraded = answer.degraded() || !isLlmGenerator(...)}；</li>
+     *   <li>{@code AgentInternalController:233} —— 同一公式的内部定稿接口。</li>
+     * </ol>
+     *
+     * <p><b>{@code wiki} 是否会被误伤：不会</b>。Wiki 热层命中走的是 {@code AiQaService} 的
+     * <b>提前 return 分支</b>（直接构造 AskVO 并显式 {@code setDegraded(false)}），
+     * 既不经过 {@code verify()}，也不经过上面第 2 个调用点。所以 wiki 落在「算 LLM」这一侧
+     * 是安全的——反向白名单不需要为它开特例。
      */
     public static boolean isLlmGenerator(String generator) {
         if (generator == null || generator.isBlank()) {
