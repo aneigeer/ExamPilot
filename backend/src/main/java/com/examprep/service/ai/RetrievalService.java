@@ -49,9 +49,6 @@ public class RetrievalService {
     /** 召回模式：无命中 */
     public static final String MODE_NONE = "NONE";
 
-    /** 允许的来源类型白名单（与 {@code ai_chunk.source_type} 一致；过滤只认这几个值） */
-    private static final Set<String> SOURCE_TYPE_WHITELIST =
-            Set.of("QUESTION", "KNOWLEDGE", "RESOURCE", "COURSEWARE");
 
     /**
      * 检索并重排
@@ -240,23 +237,11 @@ public class RetrievalService {
     /**
      * 来源类型集合 → SQL {@code FIND_IN_SET} 用的 CSV
      *
-     * <p>空 / null 一律返回 {@code null}，SQL 里 {@code #{sourceTypesCsv} IS NULL} 即「不过滤」——
-     * 让「不传过滤」与「过滤集合为空」走同一条 SQL，不产生两套行为。
-     * 只放行白名单值，避免脏值被拼进 SQL 的匹配列表。
+     * <p>归一化与白名单收敛在 {@link AiSourceTypes}（与 {@code HybridRetriever} 共用一份，
+     * 避免「加类型只改一处」导致另一边静默失效）。null/空 → {@code null}（= 不过滤）。
      */
     static String toCsv(java.util.Collection<String> sourceTypes) {
-        if (sourceTypes == null || sourceTypes.isEmpty()) {
-            return null;
-        }
-        return sourceTypes.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .map(v -> v.toUpperCase(java.util.Locale.ROOT))
-                .filter(SOURCE_TYPE_WHITELIST::contains)
-                .distinct()
-                .sorted()
-                .reduce((a, b) -> a + "," + b)
-                .orElse(null);
+        return AiSourceTypes.toCsv(sourceTypes);
     }
 
     /**

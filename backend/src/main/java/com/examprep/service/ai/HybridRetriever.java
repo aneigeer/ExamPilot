@@ -142,7 +142,21 @@ public class HybridRetriever {
         //（「区块链智能合约怎么写」词法覆盖度 0.75，余弦只有 0.5957）。
         // 只在向量通道**真的给回了候选**时判定——bestSimilarity=0 意味着通道不可用/无命中，
         // 此时应由 ngram 侧闸门决定，绝不能用 0 去拒掉一切。
-        double vectorBest = scan.bestSimilarity();
+        // ★ 语义闸门用「过滤之后」的最高相似度（架构师复核指出的问题）
+        // 超集最大值 ≥ 子集最大值：若沿用未过滤的 best，一条被 skill 过滤掉的**高相似**块
+        // 会掩盖目标类型侧真实的低相似（例：COURSEWARE_QA 时一条 0.75 的 QUESTION 块
+        // 让课件侧 0.50 不被拒），结果是用勉强相关的块作答。
+        // 过滤后为空时（没有可评估的目标类型候选）退回未过滤上界：那种「0 分」不代表
+        // 「整库都不像」，拿去拒答会把问题问死。
+        double vectorBestUnfiltered = scan.bestSimilarity();
+        double vectorBest = vectorContexts.isEmpty()
+                ? vectorBestUnfiltered
+                : vectorContexts.stream().mapToDouble(ChunkContext::ftScore)
+                        .max().orElse(vectorBestUnfiltered);
+        if (vectorBest != vectorBestUnfiltered) {
+            log.debug("[AI] 语义闸门使用过滤后 top1 余弦 {}（未过滤上界 {}）",
+                    String.format("%.4f", vectorBest), String.format("%.4f", vectorBestUnfiltered));
+        }
         boolean semanticReject = applyGate
                 && properties.getVector().isEnabled()
                 && vectorBest > 0
@@ -159,25 +173,17 @@ public class HybridRetriever {
     }
 
     /**
+     * 归一化来源类型：委托 {@link AiSourceTypes}（<b>白名单只有一份</b>）；null/空 → null（不过滤）
+     */
+    private static Set<String> normalizeSourceTypes(Set<String> sourceTypes) {
+        return AiSourceTypes.normalize(sourceTypes);
+    }
+
+    /**
      * 向量通道检索：可选增强，任何异常都收敛成空列表
      *
      * <p>FastAPI / Qdrant / 模型任一不可用时，上层自动降级到 ngram。
      */
-    /**
-     * 归一化来源类型：去空白、转大写、只留白名单值；null/空 → null（= 不过滤）
-     */
-    private static Set<String> normalizeSourceTypes(Set<String> sourceTypes) {
-        if (sourceTypes == null || sourceTypes.isEmpty()) {
-            return null;
-        }
-        Set<String> normalized = sourceTypes.stream()
-                .filter(org.springframework.util.StringUtils::hasText)
-                .map(v -> v.trim().toUpperCase(java.util.Locale.ROOT))
-                .filter(v -> java.util.Set.of("QUESTION", "KNOWLEDGE", "RESOURCE", "COURSEWARE").contains(v))
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        return normalized.isEmpty() ? null : normalized;
-    }
-
     private VectorChannel.Scan scanByVector(String question, Long subjectId, int topK,
                                             boolean applyGate) {
         if (!vectorChannel.isEnabled()) {

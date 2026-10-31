@@ -150,19 +150,13 @@ public class AiQaService {
         AiRouteClient.RouteResult route = routeClient.route(question, req.getSubjectId());
         // ★ 降级时不用它给的 sourceTypes：路由没把握时它的过滤会把正确答案滤掉
         //（实测「分块大小怎么选」被滤成 refused，见 RouteResult.effectiveSourceTypes 注释）
-        Set<String> sourceTypes = route.effectiveSourceTypes();
-        if (route.degraded()) {
-            log.info("[AI] 路由降级（{}），按默认 skill={} 且不过滤来源继续检索（忽略其 sourceTypes={}）",
-                    route.reason(), route.skill(), route.sourceTypes());
-        } else {
-            log.info("[AI] 路由命中 skill={} sourceTypes={} confidence={}",
-                    route.skill(), route.sourceTypes(), String.format("%.2f", route.confidence()));
-        }
+        Set<String> sourceTypes = routeSourceTypes(route);
+        logRouteDecision(route, sourceTypes);
 
         // ---------- 阶段1+2+3 检索：向量召回 + ngram 召回 + 双通道融合 ----------
         // 统一收口到 HybridRetriever，Agent 工具与离线评估复用同一条链路
-        HybridRetriever.Outcome outcome = hybridRetriever.retrieve(
-                question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds, sourceTypes);
+        HybridRetriever.Outcome outcome = retrieveWithRouteFallback(
+                question, req, weakKpIds, route, sourceTypes);
         List<ChunkContext> contexts = outcome.contexts();
         String mode = outcome.mode();
 
@@ -273,6 +267,60 @@ public class AiQaService {
     }
 
     /** 溯源列表转 VO；<b>永不为 null</b> */
+    /**
+     * 路由 → 实际用于检索的来源过滤集合
+     *
+     * <p><b>降级时返回 null（不过滤）</b>：路由自己说「没把握」时还会带一套默认 sourceTypes，
+     * 照用会把正确答案滤掉（实测「分块大小怎么选」被滤成 refused）。
+     * 口径写在这里而不是散在调用点，避免以后有人绕过。
+     */
+    Set<String> routeSourceTypes(AiRouteClient.RouteResult route) {
+        return route == null ? null : route.effectiveSourceTypes();
+    }
+
+    /** 路由决策日志：非降级打命中，降级打「忽略其 sourceTypes」 */
+    private void logRouteDecision(AiRouteClient.RouteResult route, Set<String> effective) {
+        if (route == null) {
+            return;
+        }
+        if (route.degraded()) {
+            log.info("[AI] 路由降级（{}），skill={}，忽略其 sourceTypes={} → 实际过滤={}",
+                    route.reason(), route.skill(), route.sourceTypes(), effective);
+        } else {
+            log.info("[AI] 路由命中 skill={} sourceTypes={} confidence={}",
+                    route.skill(), route.sourceTypes(), String.format("%.2f", route.confidence()));
+        }
+    }
+
+    /**
+     * 检索 + 「空结果放宽一次」兜底（EMPTY_WIDEN）
+     *
+     * <p><b>为什么需要这次重试</b>：skill 隔离按类型过滤，一旦路由把问题判成
+     * {@code COURSE_QA}（只查 QUESTION+KNOWLEDGE）而答案其实在课件里，过滤后会一条都搜不到，
+     * 直接拒答——用户看到「没有相关资料」，但库里明明有。
+     *
+     * <p><b>边界</b>：仅当「本次确实加了过滤」且「过滤后为空」才重试一次，
+     * 重试用 {@code sourceTypes=null}（= 今天的行为），<b>不递归</b>；放宽后仍空则照常拒答
+     * （说明是真没有，不是被过滤掉）。
+     */
+    HybridRetriever.Outcome retrieveWithRouteFallback(String question, AskRequest req,
+                                                      Set<Long> weakKpIds,
+                                                      AiRouteClient.RouteResult route,
+                                                      Set<String> sourceTypes) {
+        HybridRetriever.Outcome outcome = hybridRetriever.retrieve(
+                question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds, sourceTypes);
+        if (sourceTypes == null || !outcome.contexts().isEmpty()) {
+            return outcome;
+        }
+        log.warn("[AI] routeFallback=EMPTY_WIDEN skill={} sourceTypes={} 过滤后命中 0 条 → 放宽过滤重试一次",
+                route == null ? "-" : route.skill(), sourceTypes);
+        HybridRetriever.Outcome widened = hybridRetriever.retrieve(
+                question, req.getSubjectId(), req.getExamCategoryId(), weakKpIds, (Set<String>) null);
+        log.info("[AI] routeFallback=EMPTY_WIDEN 结果：放宽后命中 {} 条（原 skill={}，原 sourceTypes={}）",
+                widened.contexts().size(), route == null ? "-" : route.skill(), sourceTypes);
+        return widened;
+    }
+
     private List<SourceRefVO> toSourceVO(List<SourceRef> sources) {
         List<SourceRefVO> list = new ArrayList<>();
         if (sources == null) {
