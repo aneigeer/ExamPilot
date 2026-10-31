@@ -1,6 +1,7 @@
 package com.examprep.service.ai;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -15,7 +16,11 @@ import java.util.Set;
  *
  * <p>注意：L2 只是辅助，<b>真正的硬约束在 L3（{@link AnswerPostProcessor}）</b>——
  * 代码层校验「正文中的 [n] 是否在 sources 中存在」，不信任模型自述。
+ *
+ * <p>另含 P3 观测点：语料正文命中"疑似注入指令"模式时打 WARN 日志，
+ * 见 {@link InjectionSignalDetector}。该观测<b>只记录、不改写正文、不影响判定</b>。
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PromptBuilder {
@@ -76,6 +81,8 @@ public class PromptBuilder {
         sb.append("【参考资料】\n");
         for (int i = 0; i < contexts.size(); i++) {
             ChunkContext ctx = contexts.get(i);
+            // ★ P3 观测点：只打日志，不改写 ctx.content()，拼进去的仍是原文
+            warnIfInjectionLike(i + 1, ctx);
             sb.append('[').append(i + 1).append("] ")
                     .append("标题：").append(nullToEmpty(ctx.title())).append('\n')
                     .append("内容：").append(nullToEmpty(ctx.content())).append('\n');
@@ -83,6 +90,30 @@ public class PromptBuilder {
         sb.append('\n').append("【问题】\n").append(question == null ? "" : question.trim()).append('\n');
         sb.append("\n请依据上述参考资料作答并在句末标注来源编号。");
         return sb.toString();
+    }
+
+    /**
+     * 语料疑似注入指令时打 WARN（<b>仅观测</b>，不阻断、不改写、不做额外调用）
+     *
+     * <p>日志字段固定为 {@code [AI][注入告警]}，便于 grep / 日志平台按前缀聚合：
+     * {@code slot}（第几条资料）、{@code chunkId}、{@code title}、命中模式与位置。
+     * 标题与正文分别扫（标题同样来自 UGC，也会进提示词）。
+     *
+     * @param slot 资料序号（1-based，与提示词里的 {@code [n]} 对齐）
+     * @param ctx  语料块
+     */
+    private void warnIfInjectionLike(int slot, ChunkContext ctx) {
+        List<InjectionSignalDetector.Signal> hits =
+                InjectionSignalDetector.detect(nullToEmpty(ctx.content()));
+        List<InjectionSignalDetector.Signal> titleHits =
+                InjectionSignalDetector.detect(nullToEmpty(ctx.title()));
+        if (hits.isEmpty() && titleHits.isEmpty()) {
+            return;
+        }
+        log.warn("[AI][注入告警] 语料疑似指令 slot=[{}] chunkId={} refType={} refId={} "
+                        + "title={} 正文命中={} 标题命中={}",
+                slot, ctx.chunkId(), ctx.refType(), ctx.refId(), ctx.title(),
+                hits, titleHits);
     }
 
     private String nullToEmpty(String s) {
