@@ -592,3 +592,8 @@ cd ..\backend; java -jar target\exam-prep-backend-1.0.0-SNAPSHOT.jar --server.po
 4. **敏感信息不入库**：数据库口令、JWT 密钥走 `application-local.yml`（已 `.gitignore`）
 5. **脚本幂等**：`sql/*.sql` 均可重复执行
 6. **不虚报**：文档与对外材料中的数字必须可复现（本文所有指标均来自实测命令）
+7. **测试与构建纪律**（2026-10-31 实测教训，三条）：
+   - 日常只跑 `mvn -B test`（增量编译足够发现编译错误）；**`clean` 只在怀疑 stale 时用**，且必须独占窗口
+   - 两个 Maven 指向同一个 `target/` 时，`clean` 删目录会让另一个 JVM 批量 `ClassNotFoundException`
+     （实测 102 个 error、32 个用例根本没跑到）。跑 clean 前先确认没有其它 Maven 进程（查 `java.exe` 命令行含 `Launcher`）
+   - 汇报「测试全绿」必须带**命令原文 + `Tests run` 行**，不接受只说"绿了"
