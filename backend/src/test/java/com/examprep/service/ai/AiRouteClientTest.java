@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -249,6 +250,30 @@ class AiRouteClientTest {
         assertEquals(AiRouteClient.DEFAULT_SKILL, result.skill());
         assertTrue(result.degraded());
         assertEquals("CALL_FAILED", result.reason());
+    }
+
+    @Test
+    @DisplayName("降级路由的 sourceTypes 一律不用于过滤（否则会把正确答案滤掉）")
+    void degradedRouteDoesNotFilter() {
+        // Python 侧 SIM_LOW 的真实形态：降级=true，但仍带回一套默认过滤
+        nextBody = "{\"skill\":\"COURSE_QA\",\"source_types\":[\"QUESTION\",\"KNOWLEDGE\"],"
+                + "\"confidence\":0.573,\"margin\":0.01,\"degraded\":true,\"reason\":\"SIM_LOW\"}";
+
+        AiRouteClient.RouteResult result = client.route("分块大小怎么选", null);
+
+        assertTrue(result.degraded());
+        assertTrue(result.hasSourceFilter(), "原始响应里确实带了过滤条件");
+        assertNull(result.effectiveSourceTypes(),
+                "降级时不得把它猜的类型用于过滤（实测会滤掉课件里的正确答案并误拒答）");
+    }
+
+    @Test
+    @DisplayName("正常路由才把 sourceTypes 交给检索过滤")
+    void onlineRouteAppliesFilter() {
+        AiRouteClient.RouteResult result = client.route("值传递和地址传递有什么区别", null);
+
+        assertFalse(result.degraded());
+        assertEquals(java.util.Set.of("QUESTION", "KNOWLEDGE"), result.effectiveSourceTypes());
     }
 
     @Test

@@ -148,12 +148,12 @@ public class AiQaService {
         // ★ 路由只是优化项：AiRouteClient 保证**永不抛异常**，失败/超时/关闭都返回
         //   「默认 COURSE_QA + 空过滤」= 今天的行为，所以这里不需要 try/catch，也不会影响回答。
         AiRouteClient.RouteResult route = routeClient.route(question, req.getSubjectId());
-        Set<String> sourceTypes = route.hasSourceFilter()
-                ? new LinkedHashSet<>(route.sourceTypes())
-                : null;
+        // ★ 降级时不用它给的 sourceTypes：路由没把握时它的过滤会把正确答案滤掉
+        //（实测「分块大小怎么选」被滤成 refused，见 RouteResult.effectiveSourceTypes 注释）
+        Set<String> sourceTypes = route.effectiveSourceTypes();
         if (route.degraded()) {
-            log.info("[AI] 路由降级（{}），按默认 skill={} 且不过滤来源继续检索",
-                    route.reason(), route.skill());
+            log.info("[AI] 路由降级（{}），按默认 skill={} 且不过滤来源继续检索（忽略其 sourceTypes={}）",
+                    route.reason(), route.skill(), route.sourceTypes());
         } else {
             log.info("[AI] 路由命中 skill={} sourceTypes={} confidence={}",
                     route.skill(), route.sourceTypes(), String.format("%.2f", route.confidence()));

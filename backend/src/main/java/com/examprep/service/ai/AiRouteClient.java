@@ -285,6 +285,26 @@ public class AiRouteClient {
         public boolean hasSourceFilter() {
             return sourceTypes != null && !sourceTypes.isEmpty();
         }
+
+        /**
+         * ★ 可直接用于检索过滤的集合；<b>路由降级时一律返回 null（不过滤）</b>
+         *
+         * <p><b>为什么降级时不能信它给的 sourceTypes</b>（E2E 实测踩到）：
+         * 问「分块大小怎么选」时 Python 返回
+         * {@code skill=COURSE_QA, source_types=[QUESTION,KNOWLEDGE], degraded=true, reason=SIM_LOW}——
+         * 也就是「路由自己没把握，但仍给了一套默认过滤」。若照用，课件里那段**本来能答对**的
+         * RAG 分块内容会被整段滤掉：向量通道 20→1 条，最终 {@code refused=true} 并引用了
+         * 一条毫不相关的行测题。
+         *
+         * <p>结论：<b>降级 = 它的判断不可信</b>，此时应退化成「不过滤」（= 今天的行为），
+         * 而不是退化成「按它猜的类型过滤」。
+         */
+        public java.util.Set<String> effectiveSourceTypes() {
+            if (degraded || !hasSourceFilter()) {
+                return null;
+            }
+            return new java.util.LinkedHashSet<>(sourceTypes);
+        }
     }
 
     // ==================================================================
