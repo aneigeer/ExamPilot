@@ -592,8 +592,23 @@ cd ..\backend; java -jar target\exam-prep-backend-1.0.0-SNAPSHOT.jar --server.po
 4. **敏感信息不入库**：数据库口令、JWT 密钥走 `application-local.yml`（已 `.gitignore`）
 5. **脚本幂等**：`sql/*.sql` 均可重复执行
 6. **不虚报**：文档与对外材料中的数字必须可复现（本文所有指标均来自实测命令）
-7. **测试与构建纪律**（2026-10-31 实测教训，三条）：
-   - 日常只跑 `mvn -B test`（增量编译足够发现编译错误）；**`clean` 只在怀疑 stale 时用**，且必须独占窗口
-   - 两个 Maven 指向同一个 `target/` 时，`clean` 删目录会让另一个 JVM 批量 `ClassNotFoundException`
-     （实测 102 个 error、32 个用例根本没跑到）。跑 clean 前先确认没有其它 Maven 进程（查 `java.exe` 命令行含 `Launcher`）
+7. **测试与构建纪律**（2026-10-31 实测教训，五条）：
+   - **同一时间只允许一个「构建负责人」**。当天两个人都各自查了「有没有 Maven」、都看到"FREE"、然后同时开跑 ——
+     所以"我查过了"并不构成独占证明，只有**约定好谁跑**才算
+   - 日常只跑 `mvn -B test`（增量编译足够发现编译错误）；**`clean` 只在怀疑 stale 时用**，且必须独占窗口。
+     `clean` 不是普通测试命令，它是**破坏性操作**（删整个 `target/`）：谁跑谁负责先确认窗口
+   - **判断"窗口空闲"必须三项一起看**（只查一项就宣布空闲，等于把风险转嫁给别人）：
+     ```powershell
+     # ① 有没有别的 Maven 在跑
+     Get-CimInstance Win32_Process -Filter "Name='java.exe'" | ? { $_.CommandLine -like '*classworlds.launcher.Launcher*' }
+     # ② 有没有正在运行的后端实例（java -jar 起着的应用，class 是懒加载的）
+     Get-CimInstance Win32_Process -Filter "Name='java.exe'" | ? { $_.CommandLine -like '*exam-prep-backend*' }
+     # ③ 关键端口有没有被占（8080/8081）
+     Get-NetTCPConnection -State Listen -LocalPort 8080,8081 -ErrorAction SilentlyContinue
+     ```
+     有任何一个命中就别跑 `clean`。直接用 `scripts/跑测试.ps1`，它把这三项都查了，命中即中止（`-Force` 才强行）
+   - 两种「假失败」的识别指纹，**别当功能回归查代码**：
+     - 两个 Maven 同指一个 `target/` → 批量 `ClassNotFoundException`（实测 102 个 error、`Tests run` 只有 168，32 个用例没跑到）
+     - `clean` 打废正在运行的应用 → **`/api/internal/**` 正常，但 `/api/ai/*` 全 500**，
+       日志是 `ClassNotFoundException: LoginUser`，且 `target/classes` 里 class 的 mtime 在跑动期间被改写
    - 汇报「测试全绿」必须带**命令原文 + `Tests run` 行**，不接受只说"绿了"
