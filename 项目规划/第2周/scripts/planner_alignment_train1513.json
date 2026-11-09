@@ -1,0 +1,15 @@
+{
+  "input": "training/data/sft_train.jsonl",
+  "tag": "train1513",
+  "rows": 4751,
+  "planner_final": 283,
+  "subset_exact": 283,
+  "subset_normalized": 283,
+  "exact_equal": 283,
+  "answer_longer": 0,
+  "material_chars_median": 94,
+  "answer_chars_median": 93,
+  "material_chars_min": 30,
+  "answer_chars_max": 119,
+  "violations": []
+}

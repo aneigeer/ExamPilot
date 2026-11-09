@@ -1,0 +1,688 @@
+{
+    "meta":  {
+                 "testId":  "W8-2-20261108-181712",
+                 "startedAt":  "2026-11-08 18:17:12",
+                 "finishedAt":  "2026-11-08 18:17:13",
+                 "sprint":  "W8-2 刷题端到端测试 + 数据库核对",
+                 "environment":  {
+                                     "backend":  "http://127.0.0.1:8080/api (Spring Boot, PID 28584, profile=local)",
+                                     "aiService":  "http://127.0.0.1:8000 (FastAPI, PID 12400)",
+                                     "mysql":  "127.0.0.1:3306 exam_prep (UP)",
+                                     "redis":  "127.0.0.1:6379 (DOWN，已知)",
+                                     "dbClient":  "D:\\bigplan\\tools\\mysql-8.0.46\\bin\\mysql.exe",
+                                     "aiInternalToken":  "local-smoke-token (本次未调用 AI 接口)"
+                                 },
+                 "accounts":  {
+                                  "student":  {
+                                                  "studentNo":  "2021001",
+                                                  "userId":  3,
+                                                  "tokenMasked":  "eyJhbGci..."
+                                              },
+                                  "admin":  {
+                                                "studentNo":  "admin",
+                                                "tokenMasked":  "eyJhbGci..."
+                                            }
+                              },
+                 "runIdentifiers":  {
+                                        "subjectId":  190,
+                                        "subjectSingleChoiceApproved":  2470,
+                                        "practiceId":  21,
+                                        "questionCorrect":  1612,
+                                        "questionWrong":  3663,
+                                        "correctOption":  "D",
+                                        "wrongOption":  "A",
+                                        "practiceId2":  22,
+                                        "questionId2":  1000
+                                    }
+             },
+    "summary":  {
+                    "totalCases":  36,
+                    "passed":  33,
+                    "failed":  3,
+                    "dbChecks":  8,
+                    "dbPassed":  8,
+                    "defects":  3
+                },
+    "cases":  [
+                  {
+                      "id":  "TC-01",
+                      "title":  "学生登录（2021001/123456）",
+                      "expected":  "HTTP 200 且返回 token",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/auth/login",
+                                      "body":  "{\"studentNo\":\"2021001\",\"password\":\"123456\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "userId=3",
+                      "responseRaw":  "{\"code\":200,\"message\":\"登录成功\",\"data\":{\"token\":\"eyJhbGci...\",\"expiresIn\":604800,\"user\":{\"id\":3,\"nickname\":\"李同学\",\"maskedStudentNo\":\"2021****01\",\"role\":\"STUDENT\",\"collegeId\":1,\"grade\":\"2021\"}},\"traceId\":\"01c718625ab12962\"}"
+                  },
+                  {
+                      "id":  "TC-02",
+                      "title":  "错误密码登录",
+                      "expected":  "HTTP 4xx",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/auth/login",
+                                      "body":  "{\"studentNo\":\"2021001\",\"password\":\"WrongPass_123456\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  1001,
+                      "pass":  false,
+                      "note":  "actual status=200, code=1001, message=学号或密码错误",
+                      "responseRaw":  "{\"code\":1001,\"message\":\"学号或密码错误\",\"traceId\":\"d35149f1527bbc14\"}"
+                  },
+                  {
+                      "id":  "TC-03",
+                      "title":  "管理员登录（admin/admin123）",
+                      "expected":  "HTTP 200 且返回 token",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/auth/login",
+                                      "body":  "{\"studentNo\":\"admin\",\"password\":\"admin123\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "role=ADMIN",
+                      "responseRaw":  "{\"code\":200,\"message\":\"登录成功\",\"data\":{\"token\":\"eyJhbGci...\",\"expiresIn\":604800,\"user\":{\"id\":1,\"nickname\":\"系统管理员\",\"maskedStudentNo\":\"******\",\"role\":\"ADMIN\",\"collegeId\":1,\"grade\":\"2021\"}},\"traceId\":\"d91c952f3f8f82e5\"}"
+                  },
+                  {
+                      "id":  "TC-04",
+                      "title":  "无 token 访问 /practice/start",
+                      "expected":  "HTTP 401/403",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/start",
+                                      "body":  "{\"subjectId\":190,\"count\":2}"
+                                  },
+                      "httpStatus":  401,
+                      "businessCode":  null,
+                      "pass":  true,
+                      "note":  "actual status=401",
+                      "responseRaw":  ""
+                  },
+                  {
+                      "id":  "TC-05",
+                      "title":  "科目列表 /subjects",
+                      "expected":  "HTTP 200 且非空",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/subjects",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "subjects=114",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":[{\"id\":214,\"name\":\"操作系统\",\"description\":\"操作系统 课程课件（PPT 导入）\",\"questionCount\":0,\"resourceCount\":0,\"sort\":0,\"status\":1},{\"id\":1,\"name\":\"高等数学A\",\"description\":\"微积分、级数、常微分方程\",\"questionCount\":3,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":6,\"name\":\"CET4 词汇\",\"description\":\"四级核心词汇\",\"questionCount\":0,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":10,\"name\":\"CET6 词汇\",\"description\":\"六级核心词汇\",\"questionCount\":0,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":12,\"name\":\"MS Office 高级应用\",\"description\":\"Word / Excel / PPT 综合应用\",\"questionCount\":0,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":100,\"name\":\"计算机基础\",\"description\":\"课程编号 130090064｜2024-2025-1｜1学分/16学时｜考核：考试\",\"questionCount\":1,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":190,\"name\":\"行政职业能力测验\",\"description\":\"行政职业能力测验（国考行测）\",\"questionCount\":2470,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":200,\"name\":\"考研数学（一）\",\"description\":\"高等数学、线性代数、概率论与数理统计\",\"questionCount\":0,\"resourceCount\":0,\"sort\":1,\"status\":1},{\"id\":2,\"name\":\"线性代数\",\"description\":\"矩阵、行列式、向量空间\",\"questionCount\":2,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":7,\"name\":\"CET4 阅读\",\"description\":\"仔细阅读与长篇阅读\",\"questionCount\":0,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":11,\"name\":\"CET6 阅读\",\"description\":\"六级阅读强化\",\"questionCount\":0,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":13,\"name\":\"C语言二级\",\"description\":\"二级 C 语言程序设计\",\"questionCount\":0,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":101,\"name\":\"心理健康教育（一）\",\"description\":\"课程编号 130090489｜2024-2025-1｜0.5学分/8学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":201,\"name\":\"考研数学（二）\",\"description\":\"高等数学、线性代数\",\"questionCount\":0,\"resourceCount\":0,\"sort\":2,\"status\":1},{\"id\":3,\"name\":\"大学英语\",\"description\":\"综合英语与读写译\",\"questionCount\":0,\"resourceCount\":0,\"sort\":3,\"status\":1},{\"id\":8,\"name\":\"CET4 听力\",\"description\":\"短篇新闻、长对话、听力篇章\",\"questionCount\":0,\"resourceCount\":0,\"sort\":3,\"status\":1},{\"id\":102,\"name\":\"信息与计算科学导论\",\"description\":\"课程编号 130140111｜2024-2025-1｜1学分/16学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":3,\"status\":1},{\"id\":202,\"name\":\"考研数学（三）\",\"description\":\"微积分、线性代数、概率论与数理统计\",\"questionCount\":0,\"resourceCount\":0,\"sort\":3,\"status\":1},{\"id\":4,\"name\":\"数据结构\",\"description\":\"线性表、树、图、查找与排序\",\"questionCount\":4,\"resourceCount\":0,\"sort\":4,\"status\":1},{\"id\":9,\"name\":\"CET4 写作翻译\",\"description\":\"作文与段落翻译\",\"questionCount\":0,\"resourceCount\":0,\"sort\":4,\"status\":1},{\"id\":103,\"name\":\"解析几何\",\"description\":\"课程编号 130141012｜2024-2025-1｜2学分/32学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":4,\"status\":1},{\"id\":203,\"name\":\"考研英语（一）\",\"description\":\"完形填空、阅读理解、新题型、翻译、写作\",\"questionCount\":0,\"resourceCount\":0,\"sort\":4,\"status\":1},{\"id\":5,\"name\":\"C语言程序设计\",\"description\":\"语法基础、函数、指针、结构体\",\"questionCount\":17,\"resourceCount\":5,\"sort\":5,\"status\":1},{\"id\":104,\"name\":\"数学分析（一）\",\"description\":\"课程编号 130140214｜2024-2025-1｜5学分/80学时｜考核：考试\",\"questionCount\":1,\"resourceCount\":0,\"sort\":5,\"status\":1},{\"id\":204,\"name\":\"考研英语（二）\",\"description\":\"完形填空、阅读理解、新题型、翻译、写作\",\"questionCount\":0,\"resourceCount\":0,\"sort\":5,\"status\":1},{\"id\":105,\"name\":\"高等代数I\",\"description\":\"课程编号 130140217｜2024-2025-1｜3.5学分/56学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":6,\"status\":1},{\"id\":210,\"name\":\"考研政治\",\"description\":\"马克思主义基本原理、毛中特、史纲、思修法基、形势与政策\",\"questionCount\":0,\"resourceCount\":0,\"sort\":6,\"status\":1},{\"id\":106,\"name\":\"大学生职业生涯规划\",\"description\":\"课程编号 230100035｜2024-2025-1｜1学分/20学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":7,\"status\":1},{\"id\":107,\"name\":\"大学英语（一）\",\"description\":\"课程编号 230110446｜2024-2025-1｜2学分/64学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":8,\"status\":1},{\"id\":108,\"name\":\"形势与政策I\",\"description\":\"课程编号 230260005｜2024-2025-1｜0.5学分/6学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":9,\"status\":1},{\"id\":109,\"name\":\"思想道德与法治\",\"description\":\"课程编号 230260013｜2024-2025-1｜3学分/32学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":10,\"status\":1},{\"id\":110,\"name\":\"计算机基础实验\",\"description\":\"课程编号 330090065｜2024-2025-1｜1学分/24学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":11,\"status\":1},{\"id\":111,\"name\":\"基础体育课\",\"description\":\"课程编号 430180004｜2024-2025-1｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":12,\"status\":1},{\"id\":112,\"name\":\"军事训练\",\"description\":\"课程编号 832119327｜2024-2025-1｜2学分/2学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":13,\"status\":1},{\"id\":113,\"name\":\"心理健康教育（二）\",\"description\":\"课程编号 130090490｜2024-2025-2｜0.5学分/8学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":14,\"status\":1},{\"id\":114,\"name\":\"C++程序设计\",\"description\":\"课程编号 130090522｜2024-2025-2｜2学分/32学时｜考核：考试\",\"questionCount\":1,\"resourceCount\":0,\"sort\":15,\"status\":1},{\"id\":115,\"name\":\"大学物理2\",\"description\":\"课程编号 130140025｜2024-2025-2｜4学分/64学时｜考核：考试\",\"questionCount\":1,\"resourceCount\":0,\"sort\":16,\"status\":1},{\"id\":116,\"name\":\"数学分析（二）\",\"description\":\"课程编号 130140215｜2024-2025-2｜5学分/80学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":17,\"status\":1},{\"id\":117,\"name\":\"高等代数Ⅱ\",\"description\":\"课程编号 130140218｜2024-2025-2｜3学分/48学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":18,\"status\":1},{\"id\":118,\"name\":\"形势与政策II\",\"description\":\"课程编号 130260007｜2024-2025-2｜0.5学分/6学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":19,\"status\":1},{\"id\":119,\"name\":\"劳动教育概论\",\"description\":\"课程编号 133000001｜2024-2025-2｜0.5学分/8学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":20,\"status\":1},{\"id\":120,\"name\":\"应用文写作\",\"description\":\"课程编号 230150006｜2024-2025-2｜1.5学分/24学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":21,\"status\":1},{\"id\":121,\"name\":\"马克思主义基本原理\",\"description\":\"课程编号 230260002｜2024-2025-2｜3学分/32学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":22,\"status\":1},{\"id\":122,\"name\":\"军事理论\",\"description\":\"课程编号 230260011｜2024-2025-2｜2学分/24学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":23,\"status\":1},{\"id\":123,\"name\":\"创新创业基础\",\"description\":\"课程编号 240100004｜2024-2025-2｜2学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":24,\"status\":1},{\"id\":124,\"name\":\"大学英语（二）\",\"description\":\"课程编号 266690001｜2024-2025-2｜2学分/64学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":25,\"status\":1},{\"id\":125,\"name\":\"C++程序设计实验\",\"description\":\"课程编号 330090523｜2024-2025-2｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":26,\"status\":1},{\"id\":126,\"name\":\"大学物理2实验\",\"description\":\"课程编号 366790001｜2024-2025-2｜0.5学分/24学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":27,\"status\":1},{\"id\":127,\"name\":\"认知实习\",\"description\":\"课程编号 430140157｜2024-2025-2｜1学分/1学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":28,\"status\":1},{\"id\":128,\"name\":\"体育选项课I\",\"description\":\"课程编号 430180005｜2024-2025-2｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":29,\"status\":1},{\"id\":129,\"name\":\"心理健康教育（三）\",\"description\":\"课程编号 467170001｜2024-2025-2｜1学分/16学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":30,\"status\":1},{\"id\":130,\"name\":\"数据库原理\",\"description\":\"课程编号 107050003｜2025-2026-1｜1.5学分/24学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":31,\"status\":1},{\"id\":131,\"name\":\"面向对象分析与设计\",\"description\":\"课程编号 107050009｜2025-2026-1｜1.5学分/24学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":32,\"status\":1},{\"id\":132,\"name\":\"林学概论\",\"description\":\"课程编号 130010050｜2025-2026-1｜1学分/16学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":33,\"status\":1},{\"id\":133,\"name\":\"大学英语（三）\",\"description\":\"课程编号 130110022｜2025-2026-1｜1.5学分/24学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":34,\"status\":1},{\"id\":134,\"name\":\"常微分方程\",\"description\":\"课程编号 130140127｜2025-2026-1｜2.5学分/40学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":35,\"status\":1},{\"id\":135,\"name\":\"程序设计基础\",\"description\":\"课程编号 130140128｜2025-2026-1｜2学分/32学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":36,\"status\":1},{\"id\":136,\"name\":\"专业英语（信息与计算科学）\",\"description\":\"课程编号 130140151｜2025-2026-1｜1.5学分/24学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":37,\"status\":1},{\"id\":137,\"name\":\"数学分析（三）\",\"description\":\"课程编号 130140216｜2025-2026-1｜3.5学分/56学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":38,\"status\":1},{\"id\":138,\"name\":\"国家安全教育\",\"description\":\"课程编号 167070002｜2025-2026-1｜1学分/10学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":39,\"status\":1},{\"id\":139,\"name\":\"中国近现代史纲要\",\"description\":\"课程编号 230260004｜2025-2026-1｜3学分/32学时｜考核：考试\",\"questionCount\":0,\"resourceCount\":0,\"sort\":40,\"status\":1},{\"id\":140,\"name\":\"形势与政策Ⅲ\",\"description\":\"课程编号 230260006｜2025-2026-1｜0.5学分/6学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":41,\"status\":1},{\"id\":141,\"name\":\"数据库原理（实践）\",\"description\":\"课程编号 307050004｜2025-2026-1｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":42,\"status\":1},{\"id\":142,\"name\":\"面向对象分析与设计（实践）\",\"description\":\"课程编号 307050014｜2025-2026-1｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":43,\"status\":1},{\"id\":143,\"name\":\"程序设计基础（实践）\",\"description\":\"课程编号 330140129｜2025-2026-1｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":44,\"status\":1},{\"id\":144,\"name\":\"体育选项课II\",\"description\":\"课程编号 430180006｜2025-2026-1｜1学分/32学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":45,\"status\":1},{\"id\":145,\"name\":\"数学建模\",\"description\":\"课程编号 107050005｜2025-2026-2｜3学分/48学时｜考核：考查\",\"questionCount\":0,\"resourceCount\":0,\"sort\":46,\"status\":1},{\"id\":14...[TRUNCATED]"
+                  },
+                  {
+                      "id":  "TC-06",
+                      "title":  "题目分页列表（核对 total=2500）",
+                      "expected":  "HTTP 200 且 total=2500",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/questions?page=1\u0026size=5",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "actual total=2500, 库中已审核父题=2500",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"page\":1,\"size\":5,\"total\":2500,\"list\":[{\"id\":4022,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队乒乓球双打，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"吴和韩组队网球双打\"},{\"key\":\"B\",\"content\":\"吴和宋组队网球双打\"},{\"key\":\"C\",\"content\":\"宋和韩组队羽毛球双打\"},{\"key\":\"D\",\"content\":\"吴和宋组队羽毛球双打六. 资料分析：(一)\"}]},{\"id\":4021,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"以下哪项中的两人可能同时组队网球和羽毛球双打？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"王和吴\"},{\"key\":\"B\",\"content\":\"王和宋\"},{\"key\":\"C\",\"content\":\"吴和宋\"},{\"key\":\"D\",\"content\":\"韩和宋\"}]},{\"id\":4020,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若吴参加 3 个项目，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"宋参加网球项目\"},{\"key\":\"B\",\"content\":\"王参加网球项目\"},{\"key\":\"C\",\"content\":\"宋参加乒乓球项目\"},{\"key\":\"D\",\"content\":\"王参加羽毛球项目\"}]},{\"id\":4019,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队网球双打，则以下哪项一定正确？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"吴参加乒乓球项目\"},{\"key\":\"B\",\"content\":\"王参加羽毛球项目\"},{\"key\":\"C\",\"content\":\"宋参加乒乓球项目\"},{\"key\":\"D\",\"content\":\"吴参加羽毛球项目\"}]},{\"id\":4018,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"对于 3 支双打队伍的组成情况，以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"网球——王、宋；乒乓球——吴、宋；羽毛球——王、韩\"},{\"key\":\"B\",\"content\":\"网球——吴、韩；乒乓球——吴、王；羽毛球——韩、宋\"},{\"key\":\"C\",\"content\":\"网球——韩、宋；乒乓球——吴、王；羽毛球——王、宋\"},{\"key\":\"D\",\"content\":\"网球——王、宋；乒乓球——吴、韩；羽毛球——王、吴\"}]}]},\"traceId\":\"3cc2e468d143530b\"}"
+                  },
+                  {
+                      "id":  "TC-06b",
+                      "title":  "列表接口答案隐藏口径",
+                      "expected":  "不含 answerContent/analysis，选项 isAnswer 为 null",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/questions?page=1\u0026size=5",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "answerContent null=True, analysis null=True, option.isAnswer 非空=False",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"page\":1,\"size\":5,\"total\":2500,\"list\":[{\"id\":4022,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队乒乓球双打，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"吴和韩组队网球双打\"},{\"key\":\"B\",\"content\":\"吴和宋组队网球双打\"},{\"key\":\"C\",\"content\":\"宋和韩组队羽毛球双打\"},{\"key\":\"D\",\"content\":\"吴和宋组队羽毛球双打六. 资料分析：(一)\"}]},{\"id\":4021,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"以下哪项中的两人可能同时组队网球和羽毛球双打？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"王和吴\"},{\"key\":\"B\",\"content\":\"王和宋\"},{\"key\":\"C\",\"content\":\"吴和宋\"},{\"key\":\"D\",\"content\":\"韩和宋\"}]},{\"id\":4020,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若吴参加 3 个项目，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"宋参加网球项目\"},{\"key\":\"B\",\"content\":\"王参加网球项目\"},{\"key\":\"C\",\"content\":\"宋参加乒乓球项目\"},{\"key\":\"D\",\"content\":\"王参加羽毛球项目\"}]},{\"id\":4019,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队网球双打，则以下哪项一定正确？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"吴参加乒乓球项目\"},{\"key\":\"B\",\"content\":\"王参加羽毛球项目\"},{\"key\":\"C\",\"content\":\"宋参加乒乓球项目\"},{\"key\":\"D\",\"content\":\"吴参加羽毛球项目\"}]},{\"id\":4018,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"对于 3 支双打队伍的组成情况，以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"网球——王、宋；乒乓球——吴、宋；羽毛球——王、韩\"},{\"key\":\"B\",\"content\":\"网球——吴、韩；乒乓球——吴、王；羽毛球——韩、宋\"},{\"key\":\"C\",\"content\":\"网球——韩、宋；乒乓球——吴、王；羽毛球——王、宋\"},{\"key\":\"D\",\"content\":\"网球——王、宋；乒乓球——吴、韩；羽毛球——王、吴\"}]}]},\"traceId\":\"3cc2e468d143530b\"}"
+                  },
+                  {
+                      "id":  "TC-07",
+                      "title":  "题目详情答案暴露口径（PUBLIC 浏览接口）",
+                      "expected":  "HTTP 200；详情按契约含答案与解析（浏览复习用途）",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/questions/4022",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "questionId=4022, answerContent=False, 选项 isAnswer=true=True, 含解析=True；注意：该接口 PUBLIC 且含答案",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"id\":4022,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队乒乓球双打，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"吴和韩组队网球双打\",\"isAnswer\":false},{\"key\":\"B\",\"content\":\"吴和宋组队网球双打\",\"isAnswer\":false},{\"key\":\"C\",\"content\":\"宋和韩组队羽毛球双打\",\"isAnswer\":false},{\"key\":\"D\",\"content\":\"吴和宋组队羽毛球双打六. 资料分析：(一)\",\"isAnswer\":true}],\"analysis\":\"第一步：分析题干条件。（1）王、韩没有参加同一个项目；（2）韩羽毛球宋网球；（3）王乒乓球吴网球，王乒乓球吴网球；（4）每支队伍由其中 2 人组成，4 人均至少参加了其中的一支队伍；（5）宋和韩组队乒乓球双打。第二步：根据题干条件进行推理。根据条件（4）与（5），可知乒乓球队人已满，则王与吴均不能参加乒乓球项目，结合条件（3），肯前必肯后，可得吴不参加网球项目，排除 A. B 两项；根据吴不参加乒乓球项目，也不参加网球项目，结合条件（4），4 人均至少参加了其中的一支队伍，可得吴必须参加羽毛球项目，那么宋和韩不可能同时参加羽毛球项目，排除 C 项。\"},\"traceId\":\"46ba8efde8b7231d\"}"
+                  },
+                  {
+                      "id":  "TC-08",
+                      "title":  "练习前 /me/stats 基线",
+                      "expected":  "HTTP 200",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/stats",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "practiceCount=17, totalAnswered=16, totalCorrect=8, wrongBookCount=7",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceCount\":17,\"totalAnswered\":16,\"totalCorrect\":8,\"accuracy\":50.0,\"wrongBookCount\":7,\"favoriteResourceCount\":0,\"favoriteQuestionCount\":0,\"downloadCount\":2,\"uploadCount\":5,\"unreadNoticeCount\":8},\"traceId\":\"b7ae2240b7edb483\"}"
+                  },
+                  {
+                      "id":  "TC-09",
+                      "title":  "练习前 /me/mastery 基线",
+                      "expected":  "HTTP 200",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/mastery",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "items=3",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"subjectName\":\"全部科目\",\"items\":[{\"knowledgeId\":2,\"knowledgeName\":\"数据类型与变量\",\"answered\":4,\"correct\":2,\"masteryRate\":50.0},{\"knowledgeId\":29,\"knowledgeName\":\"判断推理\",\"answered\":3,\"correct\":1,\"masteryRate\":33.3},{\"knowledgeId\":26,\"knowledgeName\":\"常识判断\",\"answered\":2,\"correct\":1,\"masteryRate\":50.0}]},\"traceId\":\"c752d6284e1774aa\"}"
+                  },
+                  {
+                      "id":  "TC-10",
+                      "title":  "练习前 /me/practice-trend 基线",
+                      "expected":  "HTTP 200",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/practice-trend?days=7",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "7日累计作答=3",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"days\":7,\"items\":[{\"date\":\"2026-11-02\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-03\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-04\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-05\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-06\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-07\",\"answered\":1,\"correct\":0},{\"date\":\"2026-11-08\",\"answered\":2,\"correct\":1}]},\"traceId\":\"143f28d57cf09a03\"}"
+                  },
+                  {
+                      "id":  "TC-11",
+                      "title":  "开始练习（科目 190，2 题单选）",
+                      "expected":  "HTTP 200；practiceId；totalCount=2；题面不含答案",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/start",
+                                      "body":  "{\"questionType\":\"SINGLE_CHOICE\",\"count\":2,\"subjectId\":190,\"mode\":\"BY_TYPE\",\"objectiveFilter\":\"ONLY_OBJECTIVE\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "practiceId=21, 首题=1612",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"answeredCount\":0,\"totalCount\":2,\"finished\":false,\"question\":{\"id\":1612,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"下列金融机构与其可以从事的金融业务对应正确的是：\",\"difficulty\":3,\"source\":\"2018年国考行测（地市级）\",\"tags\":\"国考,行测,2018,地市级,常识判断\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"商业银行——股票承销业务\"},{\"key\":\"B\",\"content\":\"人寿保险公司——医疗责任保险业务\"},{\"key\":\"C\",\"content\":\"小额贷款公司——城乡居民储蓄存款业务\"},{\"key\":\"D\",\"content\":\"中国出口信用保险公司——海外投资保险业务\"}]}},\"traceId\":\"6d49b246fb8e231c\"}"
+                  },
+                  {
+                      "id":  "TC-12",
+                      "title":  "答题1：正确作答",
+                      "expected":  "HTTP 200；judged=true；correct=true；返回 correctAnswer 与解析",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"questionId\":1612,\"userAnswer\":\"D\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "correctAnswer=D, answeredCount=1",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"questionId\":1612,\"type\":\"SINGLE_CHOICE\",\"judged\":true,\"correct\":true,\"correctAnswer\":\"D\",\"analysis\":\"本题考查经济常识，主要考查经济业务的主体和具体业务之间的对应关系。A 项错误，商业银行的主要业务范围是吸收公众存款、发放贷款以及办理票据贴现等，不能承担股票承销业务，股票承销业务一般由证券公司承担，因此对应错误。B 项错误，《保险法》第九十五条规定：“保险人不得兼营人身保险业务和财产保险业务。”人寿保险公司的业务属于人身保险业务，而医疗责任保险业务属于财产保险业务，根据保险人不得兼营人身保险业务和财产保险业务的规定，人寿保险公司不能经营医疗责任保险业务，因此对应错误。C 项错误，《关于小额贷款公司试点的指导意见》规定：“小额贷款公司是由自然人、企业法人与其他社会组织投资设立，不吸收公众存款，经营小额贷款业务的有限责任公司或股份有限公司。”故小额贷款公司不能承接城乡居民储蓄存款业务，因此对应错误。D 项正确，中国出口信用保险公司，简称中国信保，是由国家出资设立、支持中国对外经济贸易发展与合作、具有独立法人地位的国有政策性保险公司，其业务范围包括海外投资保险业务、中长期出口信用保险业务、短期出口信用保险业务、来华投资保险业务等，因此对应正确。\",\"needSelfEval\":false,\"answeredCount\":1,\"totalCount\":2,\"correctCount\":1},\"traceId\":\"c94d71bd42fe1f6f\"}"
+                  },
+                  {
+                      "id":  "TC-13",
+                      "title":  "取下一题（第 2 题）",
+                      "expected":  "HTTP 200；finished=false；返回第 2 题",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/next",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "questionId=3663",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"answeredCount\":1,\"totalCount\":2,\"finished\":false,\"question\":{\"id\":3663,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：\",\"difficulty\":3,\"source\":\"2025年国考行测（行政执法）\",\"tags\":\"国考,行测,2025,行政执法,言语理解与表达\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"源远流长\"},{\"key\":\"B\",\"content\":\"标新立异\"},{\"key\":\"C\",\"content\":\"一枝独秀\"},{\"key\":\"D\",\"content\":\"一以贯之\"}]}},\"traceId\":\"2635ee67c190bf2c\"}"
+                  },
+                  {
+                      "id":  "TC-14",
+                      "title":  "答题2：故意答错",
+                      "expected":  "HTTP 200；judged=true；correct=false；返回 correctAnswer 与解析",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"questionId\":3663,\"userAnswer\":\"A\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "correctAnswer=D, answeredCount=2",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"judged\":true,\"correct\":false,\"correctAnswer\":\"D\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\",\"needSelfEval\":false,\"answeredCount\":2,\"totalCount\":2,\"correctCount\":1},\"traceId\":\"db54cfc00d3dadbb\"}"
+                  },
+                  {
+                      "id":  "TC-15",
+                      "title":  "重复提交同一题同一答案（幂等）",
+                      "expected":  "HTTP 200；answeredCount/correctCount 不重复累加",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"questionId\":3663,\"userAnswer\":\"A\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "第一次 answeredCount=2, 第二次 answeredCount=2, correct=False",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"judged\":true,\"correct\":false,\"correctAnswer\":\"D\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\",\"needSelfEval\":false,\"answeredCount\":2,\"totalCount\":2,\"correctCount\":1},\"traceId\":\"78275d4e1fc1e1d7\"}"
+                  },
+                  {
+                      "id":  "TC-16",
+                      "title":  "全部答完后取下一题",
+                      "expected":  "HTTP 200；finished=true",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/next",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "finished=True",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"answeredCount\":2,\"totalCount\":2,\"finished\":true},\"traceId\":\"53cb75fd96f9a0d6\"}"
+                  },
+                  {
+                      "id":  "TC-17",
+                      "title":  "结束练习并出报告",
+                      "expected":  "HTTP 200；answered=2, correct=1, accuracy=50, 2 条逐题明细",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/finish",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "accuracy=50.0, details=2, finishedAt=2026-11-08T18:17:13",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"subjectName\":\"行政职业能力测验\",\"mode\":\"BY_TYPE\",\"totalCount\":2,\"answeredCount\":2,\"correctCount\":1,\"accuracy\":50.0,\"status\":\"FINISHED\",\"startedAt\":\"2026-11-08T18:17:13\",\"finishedAt\":\"2026-11-08T18:17:13\",\"details\":[{\"questionId\":1612,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"下列金融机构与其可以从事的金融业务对应正确的是：\",\"userAnswer\":\"D\",\"correct\":true,\"scoreGot\":1.0,\"correctAnswer\":\"D\",\"analysis\":\"本题考查经济常识，主要考查经济业务的主体和具体业务之间的对应关系。A 项错误，商业银行的主要业务范围是吸收公众存款、发放贷款以及办理票据贴现等，不能承担股票承销业务，股票承销业务一般由证券公司承担，因此对应错误。B 项错误，《保险法》第九十五条规定：“保险人不得兼营人身保险业务和财产保险业务。”人寿保险公司的业务属于人身保险业务，而医疗责任保险业务属于财产保险业务，根据保险人不得兼营人身保险业务和财产保险业务的规定，人寿保险公司不能经营医疗责任保险业务，因此对应错误。C 项错误，《关于小额贷款公司试点的指导意见》规定：“小额贷款公司是由自然人、企业法人与其他社会组织投资设立，不吸收公众存款，经营小额贷款业务的有限责任公司或股份有限公司。”故小额贷款公司不能承接城乡居民储蓄存款业务，因此对应错误。D 项正确，中国出口信用保险公司，简称中国信保，是由国家出资设立、支持中国对外经济贸易发展与合作、具有独立法人地位的国有政策性保险公司，其业务范围包括海外投资保险业务、中长期出口信用保险业务、短期出口信用保险业务、来华投资保险业务等，因此对应正确。\"},{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：\",\"userAnswer\":\"A\",\"correct\":false,\"scoreGot\":0.0,\"correctAnswer\":\"D\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\"}]},\"traceId\":\"70c838c443de3932\"}"
+                  },
+                  {
+                      "id":  "TC-18",
+                      "title":  "练习报告逐题明细",
+                      "expected":  "HTTP 200；q1 正确、q2 错误，userAnswer/解析齐全",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/report",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "q1 correct=True, q2 correct=False, 明细条数=2",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"subjectName\":\"行政职业能力测验\",\"mode\":\"BY_TYPE\",\"totalCount\":2,\"answeredCount\":2,\"correctCount\":1,\"accuracy\":50.0,\"status\":\"FINISHED\",\"startedAt\":\"2026-11-08T18:17:13\",\"finishedAt\":\"2026-11-08T18:17:13\",\"details\":[{\"questionId\":1612,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"下列金融机构与其可以从事的金融业务对应正确的是：\",\"userAnswer\":\"D\",\"correct\":true,\"scoreGot\":1.0,\"correctAnswer\":\"D\",\"analysis\":\"本题考查经济常识，主要考查经济业务的主体和具体业务之间的对应关系。A 项错误，商业银行的主要业务范围是吸收公众存款、发放贷款以及办理票据贴现等，不能承担股票承销业务，股票承销业务一般由证券公司承担，因此对应错误。B 项错误，《保险法》第九十五条规定：“保险人不得兼营人身保险业务和财产保险业务。”人寿保险公司的业务属于人身保险业务，而医疗责任保险业务属于财产保险业务，根据保险人不得兼营人身保险业务和财产保险业务的规定，人寿保险公司不能经营医疗责任保险业务，因此对应错误。C 项错误，《关于小额贷款公司试点的指导意见》规定：“小额贷款公司是由自然人、企业法人与其他社会组织投资设立，不吸收公众存款，经营小额贷款业务的有限责任公司或股份有限公司。”故小额贷款公司不能承接城乡居民储蓄存款业务，因此对应错误。D 项正确，中国出口信用保险公司，简称中国信保，是由国家出资设立、支持中国对外经济贸易发展与合作、具有独立法人地位的国有政策性保险公司，其业务范围包括海外投资保险业务、中长期出口信用保险业务、短期出口信用保险业务、来华投资保险业务等，因此对应正确。\"},{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：\",\"userAnswer\":\"A\",\"correct\":false,\"scoreGot\":0.0,\"correctAnswer\":\"D\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\"}]},\"traceId\":\"1175fd523b9c65f8\"}"
+                  },
+                  {
+                      "id":  "TC-19",
+                      "title":  "答题卡",
+                      "expected":  "HTTP 200；2 项且状态 FINISHED",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/card",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "items=2",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"totalCount\":2,\"answeredCount\":2,\"correctCount\":1,\"status\":\"FINISHED\",\"items\":[{\"index\":1,\"questionId\":1612,\"typeName\":\"单选题\",\"stem\":\"下列金融机构与其可以从事的金融业务对应正确的是：\",\"answered\":true,\"correct\":true,\"current\":false},{\"index\":2,\"questionId\":3663,\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式...\",\"answered\":true,\"correct\":false,\"current\":false}]},\"traceId\":\"f2aeada18f64fe92\"}"
+                  },
+                  {
+                      "id":  "TC-20",
+                      "title":  "错题本包含刚答错的题",
+                      "expected":  "HTTP 200；列表包含 questionId=3663",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/wrong-book",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "错题数量=8, 命中=True",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":[{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\"},{\"questionId\":1000,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"《中共中央关于全面深化改革若干重大问题的决定》是十八届三中全会通过的，故 A 项错误。《中共中央关于全面推进依法治国若干重大问题的决定》是十八届四中全会通过的，故 B 项错误。“全面建成小康社会”的战略目标是十八大提出的，故 C 项错误。2014 年 12 月，习近平总书记在江苏调研时将“三个全面”上升到了“四个全面”，要“协调推进全面建成小康社会、全面深化改革、全面推进依法治国、全面从严治党，推动改革开放和社会主义现代化建设迈上新台阶”，新增了“全面从严治党”。首次将“从严治党” 提升到“全面从严治党”的高度。\"},{\"questionId\":1449,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"将选项逐一代入，判断各选项前后部分的逻辑关系。A 项：“故人西辞黄鹤楼”出自李白的《黄鹤楼送孟浩然之广陵》，表达的是送别之情，与出游无关，“越王勾践破吴归”出自李白的《越中览古》，是一篇怀古之作，前后逻辑关系不一致，排除；B 项：“故人西辞黄鹤楼”表达的是送别之情，不是黄鹤楼这个场所，“千古兴亡多少事”出自辛弃疾的怀古之作《南乡子·登京口北固亭有怀》，前后逻辑关系不一致，排除；C 项：“故人西辞黄鹤楼”表达的是送别之情，“折戟沉沙铁未销”出自唐代诗人杜牧的《赤壁》，表达的是怀古之情，前后逻辑关系一致，当选；D 项：“西出阳关无故人”出自王维的《送元二使安西》，表达的是离别之情，与怀古无关，前后逻辑关系不一致，排除。\"},{\"questionId\":1428,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"把下面的六个图形分为两类，使每一类图形都有各自的共同特征或规律，分类正确的一项是：\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"本题为分组分类题目。元素组成不同，属性无明显规律，考虑数数。第一个图和第二个图出现了线条之间相交叉，考虑点数量，但并无规律。后发现③④图形为“田”字变形，考虑笔画数考点。观察发现，图①③⑤的奇点数均为 4，图②④中奇点数为 2，⑥无奇点数。即①③⑤为两笔画图形，②④⑥为一笔画图形。\"},{\"questionId\":3,\"type\":\"TRUE_FALSE\",\"typeName\":\"判断题\",\"stem\":\"C 语言中数组的下标从 1 开始。\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"C 语言数组下标从 0 开始。\"},{\"questionId\":31,\"type\":\"ORDERING\",\"typeName\":\"排序题\",\"stem\":\"把冒泡排序步骤按顺序排列\",\"correct\":false,\"selfEval\":\"PRACTICE\"},{\"questionId\":30,\"type\":\"MATCHING\",\"typeName\":\"匹配题\",\"stem\":\"把左列概念与右列解释配对\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"A-1 B-3 C-2\"},{\"questionId\":2,\"type\":\"MULTI_CHOICE\",\"typeName\":\"多选题\",\"stem\":\"以下哪些是 C 语言的合法关键字？（多选）\",\"correct\":false,\"selfEval\":\"PRACTICE\",\"analysis\":\"function 与 define 都不是 C 关键字：define 是预处理指令，function 不是保留字。\"}],\"traceId\":\"37281250a8278588\"}"
+                  },
+                  {
+                      "id":  "TC-21",
+                      "title":  "收藏题目（切换开启）",
+                      "expected":  "HTTP 200；favorited=true",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/favorites?targetType=QUESTION\u0026targetId=3663",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "favorited=True",
+                      "responseRaw":  "{\"code\":200,\"message\":\"已收藏\",\"data\":{\"favorited\":true},\"traceId\":\"efb37c45424647d9\"}"
+                  },
+                  {
+                      "id":  "TC-22",
+                      "title":  "取消收藏（切换关闭，恢复原状态）",
+                      "expected":  "HTTP 200；favorited=false",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/favorites?targetType=QUESTION\u0026targetId=3663",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "favorited=False",
+                      "responseRaw":  "{\"code\":200,\"message\":\"已取消收藏\",\"data\":{\"favorited\":false},\"traceId\":\"0df5f6176e255197\"}"
+                  },
+                  {
+                      "id":  "TC-23",
+                      "title":  "练习后 /me/stats 变化",
+                      "expected":  "practiceCount +1、totalAnswered +2、totalCorrect +1",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/stats",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "delta: practiceCount=1, answered=2, correct=1, wrongBookCount=8 (before 7)",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceCount\":18,\"totalAnswered\":18,\"totalCorrect\":9,\"accuracy\":50.0,\"wrongBookCount\":8,\"favoriteResourceCount\":0,\"favoriteQuestionCount\":0,\"downloadCount\":2,\"uploadCount\":5,\"unreadNoticeCount\":8},\"traceId\":\"c408e5eb312637fe\"}"
+                  },
+                  {
+                      "id":  "TC-24",
+                      "title":  "练习后 /me/mastery",
+                      "expected":  "HTTP 200；掌握度随作答变化（无知识点映射时可能不变）",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/mastery",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "items before=3, after=4",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"subjectName\":\"全部科目\",\"items\":[{\"knowledgeId\":2,\"knowledgeName\":\"数据类型与变量\",\"answered\":4,\"correct\":2,\"masteryRate\":50.0},{\"knowledgeId\":29,\"knowledgeName\":\"判断推理\",\"answered\":3,\"correct\":1,\"masteryRate\":33.3},{\"knowledgeId\":26,\"knowledgeName\":\"常识判断\",\"answered\":3,\"correct\":2,\"masteryRate\":66.7},{\"knowledgeId\":27,\"knowledgeName\":\"言语理解与表达\",\"answered\":1,\"correct\":0,\"masteryRate\":0.0}]},\"traceId\":\"4a8cba019acc3fc3\"}"
+                  },
+                  {
+                      "id":  "TC-25",
+                      "title":  "练习后 /me/practice-trend 变化",
+                      "expected":  "HTTP 200；7 日累计作答 +2",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/practice-trend?days=7",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "7日累计作答 before=3, after=5",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"days\":7,\"items\":[{\"date\":\"2026-11-02\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-03\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-04\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-05\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-06\",\"answered\":0,\"correct\":0},{\"date\":\"2026-11-07\",\"answered\":1,\"correct\":0},{\"date\":\"2026-11-08\",\"answered\":4,\"correct\":2}]},\"traceId\":\"6739807e7d360a4d\"}"
+                  },
+                  {
+                      "id":  "TC-26",
+                      "title":  "对不存在的 practiceId 提交答案",
+                      "expected":  "HTTP 4xx",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/999999999/answer",
+                                      "body":  "{\"questionId\":1612,\"userAnswer\":\"D\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  2003,
+                      "pass":  false,
+                      "note":  "actual status=200, code=2003, message=练习记录不存在",
+                      "responseRaw":  "{\"code\":2003,\"message\":\"练习记录不存在\",\"traceId\":\"b123e152be360093\"}"
+                  },
+                  {
+                      "id":  "TC-27",
+                      "title":  "重复 finish（幂等性）",
+                      "expected":  "HTTP 200；状态 FINISHED；finishedAt 不变；明细不变",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/finish",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "status=FINISHED, finishedAt=2026-11-08T18:17:13 (first=2026-11-08T18:17:13)",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":21,\"subjectName\":\"行政职业能力测验\",\"mode\":\"BY_TYPE\",\"totalCount\":2,\"answeredCount\":2,\"correctCount\":1,\"accuracy\":50.0,\"status\":\"FINISHED\",\"startedAt\":\"2026-11-08T18:17:13\",\"finishedAt\":\"2026-11-08T18:17:13\",\"details\":[{\"questionId\":1612,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"下列金融机构与其可以从事的金融业务对应正确的是：\",\"userAnswer\":\"D\",\"correct\":true,\"scoreGot\":1.0,\"correctAnswer\":\"D\",\"analysis\":\"本题考查经济常识，主要考查经济业务的主体和具体业务之间的对应关系。A 项错误，商业银行的主要业务范围是吸收公众存款、发放贷款以及办理票据贴现等，不能承担股票承销业务，股票承销业务一般由证券公司承担，因此对应错误。B 项错误，《保险法》第九十五条规定：“保险人不得兼营人身保险业务和财产保险业务。”人寿保险公司的业务属于人身保险业务，而医疗责任保险业务属于财产保险业务，根据保险人不得兼营人身保险业务和财产保险业务的规定，人寿保险公司不能经营医疗责任保险业务，因此对应错误。C 项错误，《关于小额贷款公司试点的指导意见》规定：“小额贷款公司是由自然人、企业法人与其他社会组织投资设立，不吸收公众存款，经营小额贷款业务的有限责任公司或股份有限公司。”故小额贷款公司不能承接城乡居民储蓄存款业务，因此对应错误。D 项正确，中国出口信用保险公司，简称中国信保，是由国家出资设立、支持中国对外经济贸易发展与合作、具有独立法人地位的国有政策性保险公司，其业务范围包括海外投资保险业务、中长期出口信用保险业务、短期出口信用保险业务、来华投资保险业务等，因此对应正确。\"},{\"questionId\":3663,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：\",\"userAnswer\":\"A\",\"correct\":false,\"scoreGot\":0.0,\"correctAnswer\":\"D\",\"analysis\":\"搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》\"}]},\"traceId\":\"588903f8645cb7de\"}"
+                  },
+                  {
+                      "id":  "TC-28",
+                      "title":  "缺字段 userAnswer",
+                      "expected":  "HTTP 400",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"questionId\":1612}"
+                                  },
+                      "httpStatus":  400,
+                      "businessCode":  400,
+                      "pass":  true,
+                      "note":  "actual status=400, code=400",
+                      "responseRaw":  "{\"code\":400,\"message\":\"答案不能为空\",\"traceId\":\"de5e0409f6dfaa50\"}"
+                  },
+                  {
+                      "id":  "TC-29",
+                      "title":  "缺字段 questionId",
+                      "expected":  "HTTP 400",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"userAnswer\":\"D\"}"
+                                  },
+                      "httpStatus":  400,
+                      "businessCode":  400,
+                      "pass":  true,
+                      "note":  "actual status=400, code=400",
+                      "responseRaw":  "{\"code\":400,\"message\":\"题目不能为空\",\"traceId\":\"6028de7c8fc07041\"}"
+                  },
+                  {
+                      "id":  "TC-30",
+                      "title":  "userAnswer 为空白字符串",
+                      "expected":  "HTTP 400",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/21/answer",
+                                      "body":  "{\"questionId\":1612,\"userAnswer\":\"   \"}"
+                                  },
+                      "httpStatus":  400,
+                      "businessCode":  400,
+                      "pass":  true,
+                      "note":  "actual status=400, code=400",
+                      "responseRaw":  "{\"code\":400,\"message\":\"答案不能为空\",\"traceId\":\"65101fa5f16b9902\"}"
+                  },
+                  {
+                      "id":  "TC-31",
+                      "title":  "新建练习（用于异常用例，1 题）",
+                      "expected":  "HTTP 200 且返回 practiceId",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/start",
+                                      "body":  "{\"questionType\":\"SINGLE_CHOICE\",\"count\":1,\"subjectId\":190,\"mode\":\"SEQUENCE\",\"objectiveFilter\":\"ONLY_OBJECTIVE\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "practiceId2=22, questionId=1000",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":22,\"answeredCount\":0,\"totalCount\":1,\"finished\":false,\"question\":{\"id\":1000,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：\",\"difficulty\":3,\"source\":\"2016年国考行测（副省级）\",\"tags\":\"国考,行测,2016,副省级,常识判断\",\"score\":1,\"objective\":true,\"auditStatus\":\"APPROVED\",\"options\":[{\"key\":\"A\",\"content\":\"党的十八大通过了《中共中央关于全面深化改革若干重大问题的决定》\"},{\"key\":\"B\",\"content\":\"十八届三中全会通过了《中共中央关于全面推进依法治国若干重大问题的决定》\"},{\"key\":\"C\",\"content\":\"十八届四中全会提出了“全面建成小康社会”的战略目标\"},{\"key\":\"D\",\"content\":\"习近平总书记在江苏调研时将“从严治党”首次提升到“全面从严”的高度\"}]}},\"traceId\":\"68d80f9d4e1426bf\"}"
+                  },
+                  {
+                      "id":  "TC-32",
+                      "title":  "超长答案（20000 字符）",
+                      "expected":  "HTTP 4xx（超长应被拒绝）",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/22/answer",
+                                      "body":  "{\"questionId\":1000,\"userAnswer\":\"\u003c20000 个 A，已省略\u003e\"}"
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  false,
+                      "note":  "actual status=200, code=200, judged=True, 实际入库长度=20000",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"questionId\":1000,\"type\":\"SINGLE_CHOICE\",\"judged\":true,\"correct\":false,\"correctAnswer\":\"D\",\"analysis\":\"《中共中央关于全面深化改革若干重大问题的决定》是十八届三中全会通过的，故 A 项错误。《中共中央关于全面推进依法治国若干重大问题的决定》是十八届四中全会通过的，故 B 项错误。“全面建成小康社会”的战略目标是十八大提出的，故 C 项错误。2014 年 12 月，习近平总书记在江苏调研时将“三个全面”上升到了“四个全面”，要“协调推进全面建成小康社会、全面深化改革、全面推进依法治国、全面从严治党，推动改革开放和社会主义现代化建设迈上新台阶”，新增了“全面从严治党”。首次将“从严治党” 提升到“全面从严治党”的高度。\",\"needSelfEval\":false,\"answeredCount\":1,\"totalCount\":1,\"correctCount\":0},\"traceId\":\"d57b5e526c016a87\"}"
+                  },
+                  {
+                      "id":  "TC-33",
+                      "title":  "提交不属于本练习的题目 ID",
+                      "expected":  "HTTP 400",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/22/answer",
+                                      "body":  "{\"questionId\":999999999,\"userAnswer\":\"A\"}"
+                                  },
+                      "httpStatus":  400,
+                      "businessCode":  400,
+                      "pass":  true,
+                      "note":  "actual status=400, code=400, message=该题不属于本次练习",
+                      "responseRaw":  "{\"code\":400,\"message\":\"该题不属于本次练习\",\"traceId\":\"3db9c9affae84290\"}"
+                  },
+                  {
+                      "id":  "TC-34",
+                      "title":  "收尾：结束练习2",
+                      "expected":  "HTTP 200",
+                      "request":  {
+                                      "method":  "POST",
+                                      "url":  "http://127.0.0.1:8080/api/practice/22/finish",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "practiceId2=22 status=FINISHED",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":22,\"subjectName\":\"行政职业能力测验\",\"mode\":\"SEQUENCE\",\"totalCount\":1,\"answeredCount\":1,\"correctCount\":0,\"accuracy\":0.0,\"status\":\"FINISHED\",\"startedAt\":\"2026-11-08T18:17:13\",\"finishedAt\":\"2026-11-08T18:17:13\",\"details\":[{\"questionId\":1000,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：\",\"userAnswer\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...[TRUNCATED]"
+                  },
+                  {
+                      "id":  "TC-35",
+                      "title":  "收尾时点 /me/stats（用于数据库比对）",
+                      "expected":  "HTTP 200",
+                      "request":  {
+                                      "method":  "GET",
+                                      "url":  "http://127.0.0.1:8080/api/me/stats",
+                                      "body":  ""
+                                  },
+                      "httpStatus":  200,
+                      "businessCode":  200,
+                      "pass":  true,
+                      "note":  "practiceCount=19, totalAnswered=19, totalCorrect=9, wrongBookCount=8",
+                      "responseRaw":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceCount\":19,\"totalAnswered\":19,\"totalCorrect\":9,\"accuracy\":47.4,\"wrongBookCount\":8,\"favoriteResourceCount\":0,\"favoriteQuestionCount\":0,\"downloadCount\":2,\"uploadCount\":5,\"unreadNoticeCount\":8},\"traceId\":\"6fb927ebb181bb0b\"}"
+                  }
+              ],
+    "dbChecks":  [
+                     {
+                         "id":  "DB-00",
+                         "purpose":  "读取 q1 的正确/干扰选项",
+                         "sql":  "SELECT option_key,is_answer FROM question_option WHERE question_id=1612 ORDER BY sort",
+                         "expected":  "至少一个 is_answer=1",
+                         "resultRaw":  "A\t0\r\nB\t0\r\nC\t0\r\nD\t1",
+                         "conclusion":  "correct=D, wrong=A",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-01",
+                         "purpose":  "练习会话 1 行（practice_record id=21）",
+                         "sql":  "SELECT id,user_id,subject_id,mode,question_type,total_count,answered_count,correct_count,status,started_at,finished_at FROM practice_record WHERE id=21",
+                         "expected":  "user_id 一致；total_count=2；answered_count=2；correct_count=1；status=FINISHED",
+                         "resultRaw":  "21\t3\t190\tBY_TYPE\tSINGLE_CHOICE\t2\t2\t1\tFINISHED\t2026-11-08 18:17:13\t2026-11-08 18:17:13",
+                         "conclusion":  "行数据: 21 | 3 | 190 | BY_TYPE | SINGLE_CHOICE | 2 | 2 | 1 | FINISHED | 2026-11-08 18:17:13 | 2026-11-08 18:17:13",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-02",
+                         "purpose":  "本次答题记录 2 行（answer_detail）",
+                         "sql":  "SELECT id,practice_record_id,question_id,user_answer,is_correct,self_eval,score_got,answered_at FROM answer_detail WHERE practice_record_id=21 ORDER BY id",
+                         "expected":  "2 行；第 1 行 user_answer=正确项且 is_correct=1；第 2 行 user_answer=错误项且 is_correct=0",
+                         "resultRaw":  "51 | 21 | 1612 | D | 1 | NULL | 1.0 | 2026-11-08 18:17:13\r\n52 | 21 | 3663 | A | 0 | NULL | 0.0 | 2026-11-08 18:17:13",
+                         "conclusion":  "行数=2",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-03",
+                         "purpose":  "重复提交不产生重复答题记录",
+                         "sql":  "SELECT COUNT(*) FROM answer_detail WHERE practice_record_id=21 AND question_id=3663",
+                         "expected":  "q2 在本次练习中仅 1 行",
+                         "resultRaw":  "1",
+                         "conclusion":  "实际=1（重复提交前后均为 1）",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-04",
+                         "purpose":  "错题表 1 行（wrong_book question_id=3663）",
+                         "sql":  "SELECT id,user_id,question_id,source,wrong_count,last_wrong_at,mastered,review_stage,next_review_at FROM wrong_book WHERE user_id=3 AND question_id=3663",
+                         "expected":  "存在且 source=PRACTICE、mastered=0、review_stage=0",
+                         "resultRaw":  "11 | 3 | 3663 | PRACTICE | 1 | 2026-11-08 18:17:13 | 0 | 0 | 2026-11-09 18:17:13",
+                         "conclusion":  "行数=1",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-05",
+                         "purpose":  "用户统计与接口返回一致（收尾时点 statsFinal）",
+                         "sql":  "SELECT COUNT(*),COALESCE(SUM(answered_count),0),COALESCE(SUM(correct_count),0) FROM practice_record WHERE user_id=3;SELECT COUNT(*),COALESCE(SUM(ad.is_correct),0) FROM answer_detail ad JOIN practice_record pr ON ad.practice_record_id=pr.id WHERE pr.user_id=3 AND ad.user_answer IS NOT NULL;SELECT COUNT(*) FROM wrong_book WHERE user_id=3 AND mastered=0;",
+                         "expected":  "库中 practiceCount/answered/correct/wrongBookCount 与 /me/stats 完全一致（19/19/9/8）",
+                         "resultRaw":  "19\t19\t9\r\n19\t9\r\n8",
+                         "conclusion":  "库: practiceCount=19, answered=19, correct=9, wrongBookCount=8",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-06",
+                         "purpose":  "收藏切换后回到未收藏状态",
+                         "sql":  "SELECT COUNT(*) FROM favorite WHERE user_id=3 AND target_type=\u0027QUESTION\u0027 AND target_id=3663",
+                         "expected":  "0 行（切换两次后恢复）",
+                         "resultRaw":  "0",
+                         "conclusion":  "实际=0",
+                         "pass":  true
+                     },
+                     {
+                         "id":  "DB-07",
+                         "purpose":  "超长答案落库核对",
+                         "sql":  "SELECT question_id,LENGTH(user_answer),is_correct FROM answer_detail WHERE practice_record_id=22 AND question_id=1000",
+                         "expected":  "若接口接受则 user_answer 长度=20000",
+                         "resultRaw":  "1000\t20000\t0",
+                         "conclusion":  "库中长度=20000（接口未拒绝，超长文本已入库）",
+                         "pass":  true
+                     }
+                 ],
+    "defects":  [
+                    {
+                        "id":  "D-01",
+                        "severity":  "中",
+                        "caseId":  "TC-02",
+                        "title":  "错误密码登录返回 HTTP 200（业务码 1001）而非 4xx",
+                        "reproduce":  "POST /api/auth/login {\"studentNo\":\"2021001\",\"password\":\"WrongPass_123456\"}",
+                        "impact":  "以 HTTP 状态码分支的客户端/网关/监控会把失败登录判为成功；与 W8-2 期望 4xx 不一致（现有全局约定：1000+ 业务码保持 200）"
+                    },
+                    {
+                        "id":  "D-02",
+                        "severity":  "中",
+                        "caseId":  "TC-26",
+                        "title":  "不存在的 practiceId 提交答案返回 HTTP 200（业务码 2003）而非 4xx",
+                        "reproduce":  "POST /api/practice/999999999/answer",
+                        "impact":  "同上：按 HTTP 状态判断的客户端会把无效练习提交当成成功"
+                    },
+                    {
+                        "id":  "D-03",
+                        "severity":  "低",
+                        "caseId":  "TC-32",
+                        "title":  "答案无长度上限，20000 字符被接受并入库",
+                        "reproduce":  "POST /api/practice/{id}/answer {\"questionId\":1000,\"userAnswer\":\"A\"*20000}",
+                        "impact":  "答案字段可被灌入超长文本（存储放大/刷库），缺少 @Size 约束；建议对简答类设置上限（如 5000 字）"
+                    }
+                ]
+}

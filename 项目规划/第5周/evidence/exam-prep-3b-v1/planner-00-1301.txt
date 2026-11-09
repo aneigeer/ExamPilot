@@ -1,0 +1,1 @@
+{"thought": "需要先调用工具获取站内数据", "action": "tool", "tool": "严格遵守", "arguments": {}}

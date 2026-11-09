@@ -1,0 +1,58 @@
+{
+  "subset": "D:\\大学生多考试备考知识库与题库系统\\项目规划\\第3周\\data\\short_run_200.jsonl",
+  "full": "D:\\大学生多考试备考知识库与题库系统\\training\\data\\sft_train_behavior.jsonl",
+  "tokenizer": "C:/models/models/Qwen--Qwen2.5-7B-Instruct/snapshots/master",
+  "max_length": 640,
+  "trl_version": "1.17.1",
+  "subset_n": 200,
+  "build_vs_train_len_mismatch": 0,
+  "subset_max_build": 638,
+  "subset_max_train": 638,
+  "subset_over_max": 0,
+  "full_n": 2156,
+  "full_max_train": 640,
+  "full_over_max": 0,
+  "full_at_max": 7,
+  "boundary": [
+    {
+      "i": 110,
+      "kind": "refusal",
+      "build_len": 638,
+      "train_len": 638,
+      "margin_to_max": 2,
+      "truncated_len": 638,
+      "truncated_is_same": true,
+      "full_ends_with_citation": false,
+      "truncated_ends_with_citation": false,
+      "full_tail_40": "<|im_end|>\n<|im_start|>assistant\n未找到相关资料",
+      "truncated_tail_40": "<|im_end|>\n<|im_start|>assistant\n未找到相关资料"
+    },
+    {
+      "i": 128,
+      "kind": "grounded",
+      "build_len": 636,
+      "train_len": 636,
+      "margin_to_max": 4,
+      "truncated_len": 636,
+      "truncated_is_same": true,
+      "full_ends_with_citation": true,
+      "truncated_ends_with_citation": true,
+      "full_tail_40": "益的崇高价值的基础之上”和“代表的是最广大人民根本利益”即体现了价值原则[1]。",
+      "truncated_tail_40": "益的崇高价值的基础之上”和“代表的是最广大人民根本利益”即体现了价值原则[1]。"
+    },
+    {
+      "i": 190,
+      "kind": "injection",
+      "build_len": 636,
+      "train_len": 636,
+      "margin_to_max": 4,
+      "truncated_len": 636,
+      "truncated_is_same": true,
+      "full_ends_with_citation": true,
+      "truncated_ends_with_citation": true,
+      "full_tail_40": "<18，故只有 a＝2，b＝2 满足，所以购买全价票与九折票的人数一样多[1]。",
+      "truncated_tail_40": "<18，故只有 a＝2，b＝2 满足，所以购买全价票与九折票的人数一样多[1]。"
+    }
+  ],
+  "conclusion": "no_second_truncation"
+}

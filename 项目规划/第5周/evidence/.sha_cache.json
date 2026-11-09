@@ -1,0 +1,135 @@
+{
+  "D:\\大学生多考试备考知识库与题库系统\\training\\output\\qwen2.5-3b-exam-lora-v1\\adapter_model.safetensors": {
+    "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef",
+    "size": 119801528,
+    "mtime": 1793939721,
+    "secs": 0.1,
+    "computed_at": "2026-11-06T21:41:20"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\output\\qwen2.5-3b-exam-lora-v1\\checkpoint-130\\adapter_model.safetensors": {
+    "sha256": "9b67fc2eecf1457948fc82a72159049c45796ba7ede653c888bf3a7096135a6d",
+    "size": 119801528,
+    "mtime": 1793939639,
+    "secs": 0.1,
+    "computed_at": "2026-11-06T21:41:20"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\output\\qwen2.5-3b-exam-lora-v1\\checkpoint-135\\adapter_model.safetensors": {
+    "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef",
+    "size": 119801528,
+    "mtime": 1793939721,
+    "secs": 0.1,
+    "computed_at": "2026-11-06T21:41:20"
+  },
+  "C:\\models\\exam-3b-v1-merged\\model-00001-of-00002.safetensors": {
+    "sha256": "7e16c8ed440468976812ea5e788bfabc9fa617f3fbf137c9100ebd3b49b2d01b",
+    "size": 3995916856,
+    "mtime": 1793939838,
+    "secs": 3.0,
+    "computed_at": "2026-11-06T21:41:23"
+  },
+  "C:\\models\\exam-3b-v1-merged\\model-00002-of-00002.safetensors": {
+    "sha256": "6f2af9122b35cb568c12a6c3389d2031502cd1c9d0a8bf386a8046b4a044bf9d",
+    "size": 2176010112,
+    "mtime": 1793939840,
+    "secs": 1.71,
+    "computed_at": "2026-11-06T21:41:25"
+  },
+  "C:\\models\\exam-3b-v1-merged\\model.safetensors.index.json": {
+    "sha256": "d0977c46b2cf868502aa6318c5d441cdafd8a1b0c8008455ab36f4d1cba1bb83",
+    "size": 36059,
+    "mtime": 1793939840,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T21:41:25"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\tools\\llama\\conv_b6000.py": {
+    "sha256": "2e73750c607b61ff4cfcade65005c30b8248decc05fbcb52c09cc8c2c0b55552",
+    "size": 366965,
+    "mtime": 1793618686,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T21:41:25"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\tools\\quantize_gguf.py": {
+    "sha256": "c8aa513c989c7ebc4a1fd825ddbefb9e172583e5494a382306c5056e954b5b75",
+    "size": 5936,
+    "mtime": 1793624186,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T21:41:25"
+  },
+  "C:\\models\\exam-3b-v1-f16.gguf": {
+    "sha256": "c08390efdb7359299205cbc69d593ac40da2f191ed332b39d1a9b7cebe214538",
+    "size": 6178316704,
+    "mtime": 1793939879,
+    "secs": 5.23,
+    "computed_at": "2026-11-06T21:41:30"
+  },
+  "C:\\models\\exam-3b-v1-q4_0.gguf": {
+    "sha256": "da55d937600c0cc3a827aa2b3875b5eca7553269d25f1da67441f1ab3bcde1fa",
+    "size": 1742627232,
+    "mtime": 1793939943,
+    "secs": 1.64,
+    "computed_at": "2026-11-06T21:41:37"
+  },
+  "C:\\models\\qwen2.5-3b-instruct-f16.gguf": {
+    "sha256": "7d1ef0e92695a817a414c0675a7eb6f26618f548cc3eee7739b359f2a10959a2",
+    "size": 6178317184,
+    "mtime": 1793940409,
+    "secs": 5.26,
+    "computed_at": "2026-11-06T21:41:47"
+  },
+  "C:\\models\\qwen2.5-3b-instruct-q4_0.gguf": {
+    "sha256": "354a0c1fe9f96395f40c2371e0f1b3fee38cf71c92b718e0e478b72e796e8521",
+    "size": 1742627712,
+    "mtime": 1793940451,
+    "secs": 1.43,
+    "computed_at": "2026-11-06T21:41:54"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\Modelfile.exam-prep-3b-v1": {
+    "sha256": "43e3d209d95c9c28e4146ab451b50be7339d9f7765da070a4a89185d7906b644",
+    "size": 985,
+    "mtime": 1793889703,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T21:42:00"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\Modelfile.baseline-3b-q4_0": {
+    "sha256": "382b3961b3be5c8ffb3763e3c87f9177531a430d7fc1083665406a250b4cdeb2",
+    "size": 308,
+    "mtime": 1793940462,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T21:42:00"
+  },
+  "C:\\models\\exam-3b-v1-q8_0.gguf": {
+    "sha256": "9b4998d14d7e8711241fa7dfa257b86a383cb3ff3d8150fb3675c8e67fd6708c",
+    "size": 3285475744,
+    "mtime": 1793972583,
+    "secs": 2.96,
+    "computed_at": "2026-11-06T23:50:13"
+  },
+  "C:\\models\\qwen2.5-3b-instruct-q8_0.gguf": {
+    "sha256": "eefea94d6b6c154419f335bf1aeac6b479c1e08580bb43b3329eb9c111359ec0",
+    "size": 3285476224,
+    "mtime": 1793976791,
+    "secs": 2.75,
+    "computed_at": "2026-11-06T23:50:21"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\Modelfile.exam-prep-3b-v1-f16": {
+    "sha256": "087dd0b757e2ebd5196329722b7b581168a8462ee91b01ed2f7079ebb85b5e22",
+    "size": 198,
+    "mtime": 1793972196,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T23:50:28"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\Modelfile.exam-prep-3b-v1-q8": {
+    "sha256": "b777a28a9f837767b2d3c1ad12b5bfa74f04eaccaed97fa526bee45c64307496",
+    "size": 101,
+    "mtime": 1793972583,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T23:50:28"
+  },
+  "D:\\大学生多考试备考知识库与题库系统\\training\\Modelfile.baseline-3b-q8_0": {
+    "sha256": "46d09fd302718a4b80b02178227af44699b4a49575f6b991f6708050cc7a8e9c",
+    "size": 181,
+    "mtime": 1793976792,
+    "secs": 0.0,
+    "computed_at": "2026-11-06T23:50:28"
+  }
+}

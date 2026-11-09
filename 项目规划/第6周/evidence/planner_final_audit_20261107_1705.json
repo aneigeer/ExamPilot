@@ -1,0 +1,650 @@
+{
+  "generated_at": "2026-11-07T17:04:24",
+  "data": "D:\\大学生多考试备考知识库与题库系统\\training\\data\\eval_planner.jsonl",
+  "n_final": 16,
+  "decode": {
+    "temperature": 0,
+    "top_p": 1,
+    "num_predict": 400,
+    "num_ctx": 4096,
+    "seed": 7
+  },
+  "thresholds": {
+    "material_containment": 0.3,
+    "gold_sim": 0.45,
+    "question_coverage": 0.15,
+    "f2_margin": 0.3
+  },
+  "models": {
+    "tuned": {
+      "model": "exam-prep-3b-v1-q8",
+      "records": [
+        {
+          "chunk_id": 9466,
+          "question": "用资料里的内容解释「大模型生成SFT数据方法面试题」，并在句末标注引用。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"SFT数据集构建通常有两种方法：人工标注和使用LLM（比如GPT-4）来生成的，人工标注对于构建垂直领域比较合适，可以减少有偏数据，但是成本略高；使用LLM生成，可以在短时间内生成大量数据。引用[1]\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "SFT数据集构建通常有两种方法：人工标注和使用LLM（比如GPT-4）来生成的，人工标注对于构建垂直领域比较合适，可以减少有偏数据，但是成本略高；使用LLM生成，可以在短时间内生成大量数据。引用[1]"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.963,
+          "gold_sim": 0.989,
+          "question_coverage": 0.242,
+          "relevant": true,
+          "cross_material_max": 0.012,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9696,
+          "question": "结合资料，概括预训练模型面试题的主要作用。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"Note：这个过程中，我们会采用一些针对下游任务的目标函数。 3. 在训练的过程中，逐步调整参数，以最小化下游任务的损失函数，从而在特定任务上表现更好[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "Note：这个过程中，我们会采用一些针对下游任务的目标函数。 3. 在训练的过程中，逐步调整参数，以最小化下游任务的损失函数，从而在特定任务上表现更好[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.984,
+          "gold_sim": 1.0,
+          "question_coverage": 0.056,
+          "relevant": true,
+          "cross_material_max": 0.032,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9445,
+          "question": "结合资料，概括大模型损失函数面试题的主要作用。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"该公式可以看作是一个基于概率分布的比较方式，即将真实标签看做一个概率分布，将模型预测的标签也看做一个概率分布，然后计算它们之间的交叉熵。 物理意义：交叉熵损失函数可以用来衡量实际标签分布与模型预测分布之间的“信息差”。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "该公式可以看作是一个基于概率分布的比较方式，即将真实标签看做一个概率分布，将模型预测的标签也看做一个概率分布，然后计算它们之间的交叉熵。 物理意义：交叉熵损失函数可以用来衡量实际标签分布与模型预测分布之间的“信息差”。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.995,
+          "question_coverage": 0.2,
+          "relevant": true,
+          "cross_material_max": 0.023,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9660,
+          "question": "请根据资料说明「编码器和解码器面试题」的核心要点。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"1.1 编码器结构：Self-Attention层 +前馈神经网络层 6个编码器组件的结构是相同的，但是他们之间的权重是不共享的，每个编码器都可以分为2个子层。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "1.1 编码器结构：Self-Attention层 +前馈神经网络层 6个编码器组件的结构是相同的，但是他们之间的权重是不共享的，每个编码器都可以分为2个子层。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.993,
+          "question_coverage": 0.091,
+          "relevant": true,
+          "cross_material_max": 0.104,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9707,
+          "question": "资料中关于「seq2seq与Attention面试题」有哪些关键结论？请分条列出。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"当然，后面出现了放弃了RNN，只保留了Attention的剧情，大家应该都提前知道了[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "当然，后面出现了放弃了RNN，只保留了Attention的剧情，大家应该都提前知道了[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.974,
+          "gold_sim": 1.0,
+          "question_coverage": 0.222,
+          "relevant": true,
+          "cross_material_max": 0.184,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 7858,
+          "question": "请根据资料说明「专题九--公司落地篇」的核心要点。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"全国形成“技术- 场景- 资本”闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升 级，加速技术普惠化进程[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "全国形成“技术- 场景- 资本”闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升 级，加速技术普惠化进程[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.98,
+          "gold_sim": 1.0,
+          "question_coverage": 0.0,
+          "relevant": true,
+          "cross_material_max": 0.02,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9737,
+          "question": "强化学习常见面试题指的是什么？请只依据资料作答。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"环境是Agent所面对的外部世界，可以是现实世界中的物理环境，也可以是虚拟环境中的计算机模拟环境。玩家（Agent）通过与环境交互来实现其目标，目标通常由任务或问题定义[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "环境是Agent所面对的外部世界，可以是现实世界中的物理环境，也可以是虚拟环境中的计算机模拟环境。玩家（Agent）通过与环境交互来实现其目标，目标通常由任务或问题定义[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.986,
+          "gold_sim": 1.0,
+          "question_coverage": 0.0,
+          "relevant": true,
+          "cross_material_max": 0.014,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9681,
+          "question": "Embedding模型面试题是什么？依据资料简要回答。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"这里是ELMo的诞生：*【arxiv】Deep contextualized word representations*。Hi ELMo！ ELMo是美国家喻户晓的动画Sesame Street（芝麻街）的角色[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "这里是ELMo的诞生：*【arxiv】Deep contextualized word representations*。Hi ELMo！ ELMo是美国家喻户晓的动画Sesame Street（芝麻街）的角色[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.989,
+          "gold_sim": 1.0,
+          "question_coverage": 0.042,
+          "relevant": true,
+          "cross_material_max": 0.034,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9460,
+          "question": "资料中关于「大模型负样本样本挖掘面试题」有哪些关键结论？请分条列出。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"以下为该采样方法具体实现的伪代码： 2.4 利用对比学习微调方式构建负例方法 对比学习是优化向量化模型的常用训练方法: 目的：优化向量化模型，使其向量化后的文本，相似的在向量空间距离近，不相似的在向量空\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "以下为该采样方法具体实现的伪代码： 2.4 利用对比学习微调方式构建负例方法 对比学习是优化向量化模型的常用训练方法: 目的：优化向量化模型，使其向量化后的文本，相似的在向量空间距离近，不相似的在向量空"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.974,
+          "question_coverage": 0.033,
+          "relevant": true,
+          "cross_material_max": 0.013,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9722,
+          "question": "用资料里的内容解释「自然语言处理与LLM面试题」，并在句末标注引用。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"人是可以理解这些语言的，但机器想理解这些就非常困难。 2. 语言的歧义性：自然语言中存在丰富的歧义现象，包括词义歧义、语法歧义、指代歧义等。[1]\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "人是可以理解这些语言的，但机器想理解这些就非常困难。 2. 语言的歧义性：自然语言中存在丰富的歧义现象，包括词义歧义、语法歧义、指代歧义等。[1]"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.982,
+          "gold_sim": 1.0,
+          "question_coverage": 0.097,
+          "relevant": true,
+          "cross_material_max": 0.036,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9610,
+          "question": "围绕「GPT模型相关面试题」，资料给出了哪些信息？请归纳。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"它是很深很深的、双向的Transformer编码器的堆叠，目的是自然语言理解*。 这个文档的读者可能是为了GPT而来，但是能够坚持看到这里的肯定寥寥无几了！铺垫了这么久，我们终于见到主角了。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "它是很深很深的、双向的Transformer编码器的堆叠，目的是自然语言理解*。 这个文档的读者可能是为了GPT而来，但是能够坚持看到这里的肯定寥寥无几了！铺垫了这么久，我们终于见到主角了。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.994,
+          "question_coverage": 0.08,
+          "relevant": true,
+          "cross_material_max": 0.106,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9469,
+          "question": "大模型进阶面试题指的是什么？请只依据资料作答。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"生成式大模型（一般简称大模型LLMs）是指能用于创作新内容，例如文本、图片、音频以及视频的一类深度学习模型[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "生成式大模型（一般简称大模型LLMs）是指能用于创作新内容，例如文本、图片、音频以及视频的一类深度学习模型[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.978,
+          "gold_sim": 1.0,
+          "question_coverage": 0.1,
+          "relevant": true,
+          "cross_material_max": 0.043,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9510,
+          "question": "根据资料，BERT相关面试题有哪些值得注意的要点？",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"BERT相关面试题：Transformer诞生2017.6#解决RNN并行难题，预训练大模型出现曙光 大事件Big Event 放弃RNN结构，采用位置偏码（Positional Encoding，PE）与自注意力机制，并且设计了多头注意力机制。[1]\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "BERT相关面试题：Transformer诞生2017.6#解决RNN并行难题，预训练大模型出现曙光 大事件Big Event 放弃RNN结构，采用位置偏码（Positional Encoding，PE）与自注意力机制，并且设计了多头注意力机制。[1]"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.991,
+          "gold_sim": 0.958,
+          "question_coverage": 0.409,
+          "relevant": true,
+          "cross_material_max": 0.113,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 8643,
+          "question": "大模型强化学习面试题是什么？依据资料简要回答。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"RRHF 通过通过排名损失使评分与人类的偏好（或者代理的奖励模型）对齐。RRHF 训练好的模型可以同时作为生成语言模型和奖励模型使用 6. 如何解决三个阶段的训练（SFT->RM->PPO）过程较长，更新迭代较慢问题？[1]\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "RRHF 通过通过排名损失使评分与人类的偏好（或者代理的奖励模型）对齐。RRHF 训练好的模型可以同时作为生成语言模型和奖励模型使用 6. 如何解决三个阶段的训练（SFT->RM->PPO）过程较长，更新迭代较慢问题？[1]"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.989,
+          "gold_sim": 1.0,
+          "question_coverage": 0.05,
+          "relevant": true,
+          "cross_material_max": 0.022,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9523,
+          "question": "资料里如何描述「Prompting相关面试题」？请做简要概述。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"紧接着，面向超大预训练语言模型，Prompting出现了三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT[1]。\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "紧接着，面向超大预训练语言模型，Prompting出现了三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT[1]。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.985,
+          "gold_sim": 1.0,
+          "question_coverage": 0.286,
+          "relevant": true,
+          "cross_material_max": 0.061,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9497,
+          "question": "请依据资料，简要说明「大模型RLHF相关面试题」的适用范围。",
+          "output": "{\"thought\": \"资料已覆盖问题，直接作答\", \"action\": \"final\", \"answer\": \"m(r)可以调节两个回复之间的差值，如果对比结果为「显著更好」，则会增加梯度值，加快更新速度。 6.3 LLaMA 2 中两个RM模型的实现逻辑？[1]\"}",
+          "parsed": {
+            "thought": "资料已覆盖问题，直接作答",
+            "action": "final",
+            "answer": "m(r)可以调节两个回复之间的差值，如果对比结果为「显著更好」，则会增加梯度值，加快更新速度。 6.3 LLaMA 2 中两个RM模型的实现逻辑？[1]"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.984,
+          "gold_sim": 1.0,
+          "question_coverage": 0.037,
+          "relevant": true,
+          "cross_material_max": 0.016,
+          "f2_signature": false
+        }
+      ],
+      "failures": [],
+      "summary": {
+        "n": 16,
+        "answered": 16,
+        "schema_pass": 16,
+        "schema_rate": 100.0,
+        "relevant_pass": 16,
+        "relevant_rate": 100.0,
+        "f2_signature": 0,
+        "irrelevant": 0
+      }
+    },
+    "base": {
+      "model": "qwen2.5-3b-instruct-q8_0-baseline",
+      "records": [
+        {
+          "chunk_id": 9466,
+          "question": "用资料里的内容解释「大模型生成SFT数据方法面试题」，并在句末标注引用。",
+          "output": "{\n  \"thought\": \"根据资料解释大模型生成SFT数据方法面试题。\",\n  \"action\": \"final\",\n  \"answer\": \"大模型生成SFT数据方法面试题解释如下：SFT数据集构建通常有两种方法：人工标注和使用LLM（比如GPT-4）来生成的。使用LLM生成SFT数据的方法可以在短时间内生成大量数据，但需要注意生成的数据可能存在偏见，需要进行人工审核和修正。\"\n}",
+          "parsed": {
+            "thought": "根据资料解释大模型生成SFT数据方法面试题。",
+            "action": "final",
+            "answer": "大模型生成SFT数据方法面试题解释如下：SFT数据集构建通常有两种方法：人工标注和使用LLM（比如GPT-4）来生成的。使用LLM生成SFT数据的方法可以在短时间内生成大量数据，但需要注意生成的数据可能存在偏见，需要进行人工审核和修正。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.6,
+          "gold_sim": 0.564,
+          "question_coverage": 0.485,
+          "relevant": true,
+          "cross_material_max": 0.032,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9696,
+          "question": "结合资料，概括预训练模型面试题的主要作用。",
+          "output": "{\"thought\":\"根据资料中的描述，概括预训练模型面试题的主要作用。\",\"action\":\"final\",\"answer\":\"预训练模型面试题的主要作用是通过训练模型以最小化下游任务的损失函数，从而在特定任务上表现更好。\"}",
+          "parsed": {
+            "thought": "根据资料中的描述，概括预训练模型面试题的主要作用。",
+            "action": "final",
+            "answer": "预训练模型面试题的主要作用是通过训练模型以最小化下游任务的损失函数，从而在特定任务上表现更好。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.707,
+          "gold_sim": 0.513,
+          "question_coverage": 0.667,
+          "relevant": true,
+          "cross_material_max": 0.073,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9445,
+          "question": "结合资料，概括大模型损失函数面试题的主要作用。",
+          "output": "{\"thought\":\"根据资料中的解释，概括大模型损失函数的主要作用。\",\"action\":\"final\",\"answer\":\"大模型损失函数的主要作用是衡量实际标签分布与模型预测分布之间的“信息差”。\"}",
+          "parsed": {
+            "thought": "根据资料中的解释，概括大模型损失函数的主要作用。",
+            "action": "final",
+            "answer": "大模型损失函数的主要作用是衡量实际标签分布与模型预测分布之间的“信息差”。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.75,
+          "gold_sim": 0.415,
+          "question_coverage": 0.5,
+          "relevant": true,
+          "cross_material_max": 0.062,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9660,
+          "question": "请根据资料说明「编码器和解码器面试题」的核心要点。",
+          "output": "{\"thought\":\"根据资料，提取编码器和解码器面试题的核心要点。\",\"action\":\"final\",\"answer\":\"编码器和解码器面试题的核心要点包括：编码器结构由Self-Attention层和前馈神经网络层组成，共6个组件，每个组件结构相同但权重不共享。\"}",
+          "parsed": {
+            "thought": "根据资料，提取编码器和解码器面试题的核心要点。",
+            "action": "final",
+            "answer": "编码器和解码器面试题的核心要点包括：编码器结构由Self-Attention层和前馈神经网络层组成，共6个组件，每个组件结构相同但权重不共享。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.452,
+          "gold_sim": 0.576,
+          "question_coverage": 0.545,
+          "relevant": true,
+          "cross_material_max": 0.129,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9707,
+          "question": "资料中关于「seq2seq与Attention面试题」有哪些关键结论？请分条列出。",
+          "output": "{\n  \"thought\": \"根据资料，提取关于seq2seq与Attention面试题的关键结论。\",\n  \"action\": \"final\",\n  \"answer\": \"最终回答：1. seq2seq与Attention面试题中，seq2seq模型在处理长序列时存在梯度消失问题，而Attention机制则可以有效解决这一问题。2. 在面试题中，seq2seq模型通常用于机器翻译任务，而Attention机制则可以用于提升模型的翻译质量。\"\n}",
+          "parsed": {
+            "thought": "根据资料，提取关于seq2seq与Attention面试题的关键结论。",
+            "action": "final",
+            "answer": "最终回答：1. seq2seq与Attention面试题中，seq2seq模型在处理长序列时存在梯度消失问题，而Attention机制则可以有效解决这一问题。2. 在面试题中，seq2seq模型通常用于机器翻译任务，而Attention机制则可以用于提升模型的翻译质量。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.195,
+          "gold_sim": 0.12,
+          "question_coverage": 0.472,
+          "relevant": true,
+          "cross_material_max": 0.092,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 7858,
+          "question": "请根据资料说明「专题九--公司落地篇」的核心要点。",
+          "output": "{\"thought\":\"根据资料提取专题九的核心要点，包括技术、场景、资本的闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升级。\",\"action\":\"final\",\"answer\":\"{\\\"要点\\\": \\\"技术、场景、资本的闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升级。\\\"}\"}",
+          "parsed": {
+            "thought": "根据资料提取专题九的核心要点，包括技术、场景、资本的闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升级。",
+            "action": "final",
+            "answer": "{\"要点\": \"技术、场景、资本的闭环，政企学研协同推动国产化算力、行业大模型、智能体平台等基础设施升级。\"}"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.81,
+          "gold_sim": 0.792,
+          "question_coverage": 0.048,
+          "relevant": true,
+          "cross_material_max": 0.024,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9737,
+          "question": "强化学习常见面试题指的是什么？请只依据资料作答。",
+          "output": "{\"thought\":\"根据资料中的定义，强化学习常见面试题指的是关于环境和强化学习相关概念的面试问题。\",\"action\":\"final\",\"answer\":\"强化学习常见面试题指的是关于环境和强化学习相关概念的面试问题。\"}",
+          "parsed": {
+            "thought": "根据资料中的定义，强化学习常见面试题指的是关于环境和强化学习相关概念的面试问题。",
+            "action": "final",
+            "answer": "强化学习常见面试题指的是关于环境和强化学习相关概念的面试问题。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.269,
+          "gold_sim": 0.092,
+          "question_coverage": 0.524,
+          "relevant": true,
+          "cross_material_max": 0.115,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9681,
+          "question": "Embedding模型面试题是什么？依据资料简要回答。",
+          "output": "{\"thought\":\"根据资料中的信息，回答面试题是什么。\",\"action\":\"final\",\"answer\":\"Embedding模型面试题是关于ELMo的诞生，以及ELMo的相关信息。\"}",
+          "parsed": {
+            "thought": "根据资料中的信息，回答面试题是什么。",
+            "action": "final",
+            "answer": "Embedding模型面试题是关于ELMo的诞生，以及ELMo的相关信息。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.567,
+          "gold_sim": 0.203,
+          "question_coverage": 0.583,
+          "relevant": true,
+          "cross_material_max": 0.1,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9460,
+          "question": "资料中关于「大模型负样本样本挖掘面试题」有哪些关键结论？请分条列出。",
+          "output": "{\n  \"thought\": \"分析资料，提取关键结论。\",\n  \"action\": \"final\",\n  \"answer\": \"最终回答\\n1. 对比学习是优化向量化模型的常用训练方法。\\n2. 对比学习的目的是优化向量化模型，使其向量化后的文本，相似的在向量空间距离近，不相似的在向量空间距离远。\"\n}",
+          "parsed": {
+            "thought": "分析资料，提取关键结论。",
+            "action": "final",
+            "answer": "最终回答\n1. 对比学习是优化向量化模型的常用训练方法。\n2. 对比学习的目的是优化向量化模型，使其向量化后的文本，相似的在向量空间距离近，不相似的在向量空间距离远。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.741,
+          "gold_sim": 0.713,
+          "question_coverage": 0.033,
+          "relevant": true,
+          "cross_material_max": 0.019,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9722,
+          "question": "用资料里的内容解释「自然语言处理与LLM面试题」，并在句末标注引用。",
+          "output": "{\n  \"thought\": \"根据资料解释自然语言处理与LLM面试题，并标注引用。\",\n  \"action\": \"final\",\n  \"answer\": \"自然语言处理与LLM面试题：人是可以理解这些语言的，但机器想理解这些就非常困难。 2. 语言的歧义性：自然语言中存在丰富的歧义现象，包括词义歧义、语法歧义、指代歧义等。\"\n}",
+          "parsed": {
+            "thought": "根据资料解释自然语言处理与LLM面试题，并标注引用。",
+            "action": "final",
+            "answer": "自然语言处理与LLM面试题：人是可以理解这些语言的，但机器想理解这些就非常困难。 2. 语言的歧义性：自然语言中存在丰富的歧义现象，包括词义歧义、语法歧义、指代歧义等。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.897,
+          "question_coverage": 0.387,
+          "relevant": true,
+          "cross_material_max": 0.045,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9610,
+          "question": "围绕「GPT模型相关面试题」，资料给出了哪些信息？请归纳。",
+          "output": "{\"thought\":\"根据资料，归纳GPT模型相关面试题的信息。\",\"action\":\"final\",\"answer\":\"GPT模型是一个深度双向Transformer编码器堆叠的模型，目的是进行自然语言理解。\"}",
+          "parsed": {
+            "thought": "根据资料，归纳GPT模型相关面试题的信息。",
+            "action": "final",
+            "answer": "GPT模型是一个深度双向Transformer编码器堆叠的模型，目的是进行自然语言理解。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.5,
+          "gold_sim": 0.446,
+          "question_coverage": 0.16,
+          "relevant": true,
+          "cross_material_max": 0.225,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9469,
+          "question": "大模型进阶面试题指的是什么？请只依据资料作答。",
+          "output": "{\"thought\":\"根据资料中的描述，大模型进阶面试题指的是关于大模型LLMs的进阶面试题目。\",\"action\":\"final\",\"answer\":\"大模型进阶面试题指的是关于大模型LLMs的进阶面试题目。\"}",
+          "parsed": {
+            "thought": "根据资料中的描述，大模型进阶面试题指的是关于大模型LLMs的进阶面试题目。",
+            "action": "final",
+            "answer": "大模型进阶面试题指的是关于大模型LLMs的进阶面试题目。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.476,
+          "gold_sim": 0.289,
+          "question_coverage": 0.5,
+          "relevant": true,
+          "cross_material_max": 0.143,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9510,
+          "question": "根据资料，BERT相关面试题有哪些值得注意的要点？",
+          "output": "{\"thought\":\"根据资料，需要提取关于BERT相关面试题的要点。\",\"action\":\"final\",\"answer\":\"BERT相关面试题中值得注意的要点包括：BERT模型的诞生背景、解决RNN并行难题的方法、位置偏码与自注意力机制的设计、多头注意力机制的应用等。\"}}",
+          "parsed": null,
+          "error": "",
+          "schema_ok": false,
+          "reason": "非合法 JSON"
+        },
+        {
+          "chunk_id": 8643,
+          "question": "大模型强化学习面试题是什么？依据资料简要回答。",
+          "output": "{\"thought\":\"根据资料[1]，回答大模型强化学习面试题是什么。\",\"action\":\"final\",\"answer\":\"大模型强化学习面试题（RRHF）通过排名损失使评分与人类的偏好（或者代理的奖励模型）对齐。\"}",
+          "parsed": {
+            "thought": "根据资料[1]，回答大模型强化学习面试题是什么。",
+            "action": "final",
+            "answer": "大模型强化学习面试题（RRHF）通过排名损失使评分与人类的偏好（或者代理的奖励模型）对齐。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 1.0,
+          "gold_sim": 0.438,
+          "question_coverage": 0.45,
+          "relevant": true,
+          "cross_material_max": 0.079,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9523,
+          "question": "资料里如何描述「Prompting相关面试题」？请做简要概述。",
+          "output": "{\"thought\":\"根据资料中的描述，概述Prompting相关面试题的内容。\",\"action\":\"final\",\"answer\":\"Prompting相关面试题描述了Prompting的三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT。\"}",
+          "parsed": {
+            "thought": "根据资料中的描述，概述Prompting相关面试题的内容。",
+            "action": "final",
+            "answer": "Prompting相关面试题描述了Prompting的三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.864,
+          "gold_sim": 0.754,
+          "question_coverage": 0.5,
+          "relevant": true,
+          "cross_material_max": 0.102,
+          "f2_signature": false
+        },
+        {
+          "chunk_id": 9497,
+          "question": "请依据资料，简要说明「大模型RLHF相关面试题」的适用范围。",
+          "output": "{\n  \"thought\": \"根据资料，解释大模型RLHF相关面试题的适用范围。\",\n  \"action\": \"final\",\n  \"answer\": \"大模型RLHF相关面试题适用于评估应聘者对大模型在现实世界应用中的伦理、公平和安全性（RLHF）的理解和掌握程度。\"\n}",
+          "parsed": {
+            "thought": "根据资料，解释大模型RLHF相关面试题的适用范围。",
+            "action": "final",
+            "answer": "大模型RLHF相关面试题适用于评估应聘者对大模型在现实世界应用中的伦理、公平和安全性（RLHF）的理解和掌握程度。"
+          },
+          "error": "",
+          "schema_ok": true,
+          "reason": "ok",
+          "material_containment": 0.208,
+          "gold_sim": 0.052,
+          "question_coverage": 0.444,
+          "relevant": true,
+          "cross_material_max": 0.083,
+          "f2_signature": false
+        }
+      ],
+      "failures": [],
+      "summary": {
+        "n": 16,
+        "answered": 16,
+        "schema_pass": 15,
+        "schema_rate": 93.8,
+        "relevant_pass": 15,
+        "relevant_rate": 93.8,
+        "f2_signature": 0,
+        "irrelevant": 0
+      }
+    }
+  }
+}

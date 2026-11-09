@@ -1,0 +1,14 @@
+{
+  "health": {
+    "status": 200,
+    "body": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+  },
+  "me": {
+    "status": 404,
+    "body": "{\"code\":404,\"message\":\"接口不存在：GET /api/me\",\"traceId\":\"08c9dc190798942d\"}"
+  },
+  "wrong_method": {
+    "status": 405,
+    "body": "{\"code\":405,\"message\":\"该接口不支持 GET 请求\",\"traceId\":\"9540884df14c8d37\"}"
+  }
+}

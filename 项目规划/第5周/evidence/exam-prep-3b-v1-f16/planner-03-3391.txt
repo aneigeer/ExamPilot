@@ -1,0 +1,1 @@
+{"thought": "需要先调用工具获取站内数据", "action": "tool", "tool": "search_knowledge", "arguments": {"query": "2022年12月，全国规模以上工业企业的①工业机器人完成产量和②服务机器人完成产量：", "topK": 5}}

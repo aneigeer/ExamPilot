@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "testId": "W8-5-20261108",
+    "title": "W8-5 故障注入与降级演练",
+    "startedAt": "2026-11-08 19:01:00",
+    "finishedAt": "2026-11-08 19:11:20",
+    "timezone": "Asia/Shanghai",
+    "environment": {
+      "backend": "http://127.0.0.1:8080/api (Spring Boot, PID 28584, profile=local, started 17:36:50)",
+      "aiService": "http://127.0.0.1:8000 (FastAPI/uvicorn, watchdog v2 托管；演练前 PID 12400，演练后 PID 23196)",
+      "ollama": "http://127.0.0.1:11434 (ollama.exe serve；演练前 PID 17056，演练后 PID 25960)",
+      "mysql": "127.0.0.1:3306 exam_prep (mysqld PID 7508，全程未停)",
+      "redis": "127.0.0.1:6379 DOWN（初始即不可用）",
+      "internalToken": "local-sm...oken (masked)",
+      "studentToken": "eyJhbGci... (masked)",
+      "adminToken": "eyJhbGci... (masked)"
+    },
+    "constraints": [
+      "MySQL 绝对未停（仅执行 SELECT 1）",
+      "未改任何代码/配置，未 commit，未删除业务数据",
+      "除 S1/S2 明确授权停启的 8000/11434 外，未动其它服务",
+      "S4 未停 MySQL（用静态核对 + 既有单测替代）；S5 未改配置/未加防火墙（记为未注入）"
+    ]
+  },
+  "baseline": {
+    "at": "2026-11-08 19:01:00",
+    "ports": [
+      { "port": 8080, "state": "UP", "pid": 28584, "process": "java.exe", "cmdline": "\"D:\\bigplan\\tools\\jdk21\\bin\\java.exe\" -jar d:\\大学生多考试备考知识库与题库系统\\backend\\target\\exam-prep-backend-1.0.0-SNAPSHOT.jar --spring.profiles.active=local --server.port=8080" },
+      { "port": 8000, "state": "UP", "pid": 12400, "process": "python.exe", "cmdline": "\"D:\\bigplan\\tools\\python3.12.10\\python.exe\" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --limit-concurrency 4" },
+      { "port": 11434, "state": "UP", "pid": 17056, "process": "ollama.exe", "cmdline": "C:\\Users\\15241\\AppData\\Local\\Programs\\Ollama\\ollama.exe serve" },
+      { "port": 3306, "state": "UP", "pid": 7508, "process": "mysqld.exe" },
+      { "port": 6379, "state": "DOWN", "pid": null }
+    ],
+    "ollamaSupervisor": { "pid": 20120, "name": "ollama app.exe", "cmdline": "\"C:\\Users\\15241\\AppData\\Local\\Programs\\Ollama\\ollama app.exe\"" },
+    "checks": {
+      "javaHealth": { "status": 200, "body": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}" },
+      "pythonHealth": { "status": 200, "bodyNote": "status=ok; embedding ready(dim=512,bge-small-zh-v1.5); qdrant ready; llm ready(ollama qwen2.5-7b-instruct-baseline)" },
+      "ollamaTags": { "status": 200, "elapsedMs": 136, "models": 7 },
+      "mysqlSelect1": 1,
+      "studentLogin": { "status": 200, "studentNo": "2021001", "userId": 3, "role": "STUDENT" },
+      "adminLogin": { "status": 200, "studentNo": "admin", "userId": 1, "role": "ADMIN" },
+      "ask": { "status": 200, "elapsedMs": 3599, "generator": "ollama", "degraded": false, "retrievalMode": "VECTOR_HYBRID", "sourcesCount": 2 },
+      "internalSearch": { "status": 200, "elapsedMs": 124, "bestScore": 135.24 },
+      "pythonAgentRun": { "status": 200, "elapsedMs": 4959 }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "S1",
+      "name": "Ollama 本地模型不可用",
+      "priority": "P0",
+      "attempt1": {
+        "at": "2026-11-08 19:02:05 ~ 19:02:20",
+        "method": "仅 Stop-Process ollama.exe(17056)",
+        "injectionValid": false,
+        "finding": "11434 于 19:02:07.588 关闭，但托盘监督进程 ollama app.exe(20120) 在 1 秒内自动重新拉起 ollama.exe serve(PID 9380, 19:02:07)，注入窗口失效",
+        "actual": { "status": 200, "elapsedMs": 9338, "generator": "ollama", "degraded": false },
+        "note": "记为缺陷 W8-5-D02（运维/演练口径）"
+      },
+      "attempt2": {
+        "at": "2026-11-08 19:03:10 ~ 19:03:29",
+        "method": "先停 ollama app.exe(20120)，再停 ollama.exe(9380)；等待 11434 关闭并稳定 3s",
+        "stoppedAt": "2026-11-08 19:03:17.335",
+        "portAfterStop": null,
+        "remainingOllamaProcesses": 0,
+        "expected": "不 5xx；generator=extractive；degraded=true；sources 非空或按降级口径",
+        "actual": {
+          "ask": { "status": 200, "elapsedMs": 2494, "generator": "extractive", "degraded": true, "refused": false, "retrievalMode": "VECTOR_HYBRID", "retrievalMillis": 156, "costMillis": 2447, "sourcesCount": 2, "answerPreview": "根据《值传递和地址传递有什么区别？》：…根据《指针与函数》：知识点：指针与函数…" },
+          "capability": { "status": 200, "generator": "extractive", "degraded": true, "degradedReason": "本地模型 Ollama 未响应（确认 `ollama serve` 已启动），当前为本地抽取模式", "extractiveMode": true, "vectorIndexReady": true, "aiServiceStatus": "ok" },
+          "internalSearch": { "status": 200, "elapsedMs": 113, "mode": "VECTOR_HYBRID", "topChunkId": 49, "topScore": 135.24, "pass": true }
+        },
+        "pass": true,
+        "recovery": {
+          "method": "Start-Process \"ollama app.exe\"（恢复原始拓扑：托盘 app 拉起 serve）",
+          "restartPid": 23816,
+          "port11434Restored": true,
+          "portOwner": 10452,
+          "tagsStatus": 200,
+          "restoredAt": "2026-11-08 19:03:23.780",
+          "windowSeconds": 7
+        },
+        "retest": { "status": 200, "elapsedMs": 5084, "generator": "ollama", "degraded": false, "refused": false, "retrievalMode": "VECTOR_HYBRID", "sourcesCount": 3, "pass": true }
+      }
+    },
+    {
+      "id": "S2",
+      "name": "AI 服务（8000）不可用",
+      "priority": "P0",
+      "attempt1": {
+        "at": "2026-11-08 19:04:00 ~ 19:04:12",
+        "method": "创建 ai-service/.watchdog_stop → watchdog 优雅停止 uvicorn",
+        "injectionValid": false,
+        "actual": { "ask": { "status": 200, "elapsedMs": 102, "generator": "extractive", "degraded": true, "retrievalMode": "FULLTEXT_OR" }, "pythonAgentRun": { "status": 0, "error": "Unable to connect to the remote server" }, "javaHealth": 200 },
+        "finding": "由本脚本 Start-Process 拉起的 watchdog 与 ollama 托盘进程在命令会话结束时被进程树回收，19:04:12 起 8000 与 11434 同时掉线，该窗口证据被污染（Ollama 亦不在位），故重做 S2b",
+        "restoreAction": "改用 WMI Win32_Process.Create 脱离进程树恢复（19:04:59~19:05:11，见 restoreAction 字段）"
+      },
+      "attempt2": {
+        "id": "S2b",
+        "at": "2026-11-08 19:07:20 ~ 19:08:36",
+        "precondition": "Ollama 在位（/api/tags 200），仅 8000 不可用",
+        "method": "创建 ai-service/.watchdog_stop，watchdog 检测后 terminate uvicorn 并退出（日志 STOP/EXIT/WATCHDOG_EXIT）",
+        "stoppedAt": "2026-11-08 19:07:23.029",
+        "watchdogLogTail": "[19:07:21.856] STOP stop-file detected, terminating pid=13864 | [19:07:21.944] EXIT pid=13864 uptime_s=135.9 | [19:07:21.961] WATCHDOG_EXIT",
+        "expected": "200 不 5xx；retrievalMode 走 ngram/降级；degraded=true 或明确拒答",
+        "actual": {
+          "ask": { "status": 200, "elapsedMs": 1737, "generator": "ollama", "degraded": false, "refused": false, "retrievalMode": "FULLTEXT_OR", "retrievalMillis": 57, "sourcesCount": 2, "answerPreview": "值传递把实参的值复制给形参…[1][2]" },
+          "capability": { "status": 200, "generator": "ollama", "degraded": true, "degradedReason": "健康检查失败：I/O error on GET request for \"http://127.0.0.1:8000/v1/health\": Connection refused: getsockopt", "vectorIndexReady": false, "vectorChannelAvailable": false, "aiServiceStatus": "UNREACHABLE", "ocrEnabled": false },
+          "pythonAgentRun": { "status": 0, "elapsedMs": 2046, "error": "Unable to connect to the remote server", "expected": true, "note": "Python 服务不在，连接失败属预期，不是 Java 缺陷" },
+          "javaHealth": { "status": 200, "body": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}" }
+        },
+        "verdict": "接口可用性 PASS（200/无 5xx）；但 AskVO.degraded=false 与检索降级不一致 → W8-5-D01",
+        "recovery": {
+          "method": "WMI Win32_Process.Create 启动 powershell -File run_watchdog_v2.ps1（脱离进程树）",
+          "watchdogPid": 23516,
+          "uvicornReadyMs": 1069,
+          "portOwner": 23196,
+          "healthStatus": 200,
+          "restoredAt": "2026-11-08 19:07:33.630",
+          "windowSeconds": 10
+        },
+        "retest": {
+          "attempts": [
+            { "at": "19:07:36", "status": 200, "elapsedMs": 2400, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:07:45", "status": 200, "elapsedMs": 1618, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:07:56", "status": 200, "elapsedMs": 2761, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:08:06", "status": 200, "elapsedMs": 1809, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:08:16", "status": 200, "elapsedMs": 1789, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:08:25", "status": 200, "elapsedMs": 1797, "generator": "ollama", "degraded": false, "retrievalMode": "FULLTEXT_OR" },
+            { "at": "19:08:36", "status": 200, "elapsedMs": 2384, "generator": "ollama", "degraded": false, "retrievalMode": "VECTOR_HYBRID" }
+          ],
+          "breakerCooldownMs": 60000,
+          "note": "恢复后 60s 熔断冷却期内检索仍为 FULLTEXT_OR（符合设计），第 7 次恢复 VECTOR_HYBRID"
+        }
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Redis 不可用（6379 天然 DOWN）",
+      "priority": "P0",
+      "at": "2026-11-08 19:06:29 ~ 19:06:31",
+      "injection": "无（6379 初始即 DOWN；未启动 Redis，未改配置）",
+      "checks": {
+        "redisReachable": false,
+        "submitJob_POST_admin_ai_jobs": { "status": 503, "elapsedMs": 16, "body": "{\"code\":503,\"message\":\"任务队列未启用（app.ai.jobs.enabled=false）\",\"traceId\":\"3081cd87deeb29c0\"}" },
+        "submitEval_POST_admin_ai_eval_retrieval": { "status": 503, "elapsedMs": 5, "body": "{\"code\":503,\"message\":\"任务队列未启用（app.ai.jobs.enabled=false）\",\"traceId\":\"f70e6cb3d10fd512\"}" },
+        "jobList_GET_admin_ai_jobs": { "status": 200, "elapsedMs": 14, "total": 8, "note": "纯 DB 查询，不受 Redis 影响" },
+        "internalJobProgress_POST_internal_jobs_999999_progress": { "status": 200, "elapsedMs": 5, "body": "{\"code\":200,\"message\":\"成功\",\"data\":{\"updated\":false}}" }
+      },
+      "expected": "503/明确错误码，不 500、不挂死",
+      "actual": "503 + code 503 + 明确中文原因，16ms/5ms fail-fast，无 500、无挂死",
+      "reason": "app.ai.jobs.enabled=${AI_JOBS_ENABLED:false} 默认关闭，AsyncJobService.submit 第一行即抛出 BizException(AI_SERVICE_UNAVAILABLE)；Redis 投递路径（AsyncJobService L102-119 → 503「任务队列不可用，请检查 Redis 是否已启动」）在开关开启前不可达，故未覆盖",
+      "pass": true,
+      "coverageGap": "Redis 写入失败降级分支（L110-119）未实测；需 AI_JOBS_ENABLED=true 才能覆盖（本轮禁止改配置）"
+    },
+    {
+      "id": "S4",
+      "name": "数据库短暂不可用（安全替代方案）",
+      "priority": "P0",
+      "injection": "未注入（禁止停 MySQL）",
+      "staticAnalysis": {
+        "globalHandler": "GlobalExceptionHandler 无 DataAccessException / SQLException 专项处理器；DataAccessResourceFailureException(RuntimeException) 落到 @ExceptionHandler(Exception.class) → HTTP 500 / code 500「服务器内部错误」并回填 traceId（可读错误码，不会挂死）",
+        "worstCaseLatency": "spring.datasource.hikari.connection-timeout=30000，冷池场景最多等待 30s 才抛错返回 500",
+        "healthImpact": "Redis 健康检查已关闭（application.yml L32-34 注释），Redis 缺席不影响 /actuator/health；DB 断开时 actuator health 会变为 DOWN（未实测）",
+        "localResilience": [
+          "AiInterviewService：落库 try/catch（L288/318/336）+ persistenceFailures 计数，落库失败不影响面试返回",
+          "AiIndexStartupChecker：启动自检异常只告警不阻断启动",
+          "AsyncJobService.submit：DuplicateKeyException → 429「同类型任务正在执行」"
+        ]
+      },
+      "tests": {
+        "command": "mvn -o -f backend/pom.xml test -Dtest=GlobalExceptionHandlerTest,AiInterviewServiceTest -Dsurefire.failIfNoSpecifiedTests=false",
+        "result": "BUILD SUCCESS; Tests run: 18, Failures: 0, Errors: 0, Skipped: 0",
+        "cases": [
+          { "class": "com.examprep.common.GlobalExceptionHandlerTest", "tests": 7, "failures": 0, "key": "unexpectedExceptionIs500：未预期异常 → HTTP 500 / code 500（负向不误伤）" },
+          { "class": "com.examprep.service.ai.AiInterviewServiceTest", "tests": 11, "failures": 0, "key": "persistenceFailureDoesNotBreakInterview：mock DataAccessResourceFailureException(\"db down\")，断言仍返回题目且 persistenceFailures+1" }
+        ]
+      },
+      "verdict": "静态路径与单测覆盖 PASS；真实 DB 断连端到端行为未注入，记为「未注入」，不标通过"
+    },
+    {
+      "id": "S5",
+      "name": "超时 / 网络断开",
+      "priority": "P0",
+      "injection": "未注入（不改配置、不加防火墙规则，风险高）",
+      "rationale": "本轮已有两个真实网络不可达窗口（S1 Ollama 端口关闭、S2b 8000 端口关闭），可作非破坏性超时观察；人为制造慢响应需改配置或加防火墙，属高风险，不做",
+      "observed": [
+        "S1b：Ollama 端口关闭时 /api/ai/ask 2494ms 完成降级（连接被拒立即失败，未等待 90s ollama-timeout）",
+        "S2b：8000 端口关闭时 /api/ai/ask 1737ms（retrievalMillis=57）；Python 直连 2046ms 报 connection refused",
+        "S2b 恢复后 60s 内 retrieval 仍 FULLTEXT_OR（FastAPI 熔断冷却实测生效），第 7 次调用恢复 VECTOR_HYBRID"
+      ],
+      "configEvidence": {
+        "app.ai.fastapi.search-timeout-millis": 1200,
+        "app.ai.fastapi.health-timeout-millis": 1000,
+        "app.ai.fastapi.circuit-breaker-threshold": 3,
+        "app.ai.fastapi.circuit-breaker-open-millis": 60000,
+        "app.ai.llm.timeout-millis": 8000,
+        "app.ai.llm.ollama-timeout-millis": 90000,
+        "app.ai.llm.circuit-breaker-open-millis": 60000,
+        "app.ai.agent.stream-timeout-millis": 120000,
+        "app.ai.route.timeout-millis": "≤1000（AiConfigConsistencyTest 断言 (0,1000]）"
+      },
+      "testEvidence": [
+        "OllamaLlmClientTest（超时独立配置；断言 Ollama 未启动时 1 秒内降级，不卡 90s）",
+        "AiRouteClientTest（5xx/超时/连不上/脏 JSON → 默认路由 + degraded=true）",
+        "RetrievalServiceTest（熔断：第 1/2 次失败不熔断、第 3 次触发）",
+        "AgentStreamServiceTest（streamTimeoutMillis=5000）"
+      ],
+      "verdict": "未注入；超时路径有配置与单测证据，但未做端到端慢响应验证"
+    }
+  ],
+  "recoveryValidation": {
+    "at": "2026-11-08 19:08:51 ~ 19:09:02",
+    "items": [
+      { "id": "R1", "check": "GET http://127.0.0.1:8080/api/actuator/health", "expected": 200, "actual": 200, "body": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}", "pass": true },
+      { "id": "R2", "check": "GET http://127.0.0.1:8000/v1/health", "expected": 200, "actual": 200, "bodyNote": "status=ok, embedding loaded, qdrant ready, llm ready", "pass": true },
+      { "id": "R3", "check": "GET http://127.0.0.1:11434/api/tags", "expected": 200, "actual": 200, "elapsedMs": 44, "pass": true },
+      { "id": "R4", "check": "POST /api/ai/ask（域内「值传递和地址传递有什么区别」）", "expected": "200 + generator=ollama + degraded=false", "actual": { "status": 200, "elapsedMs": 2705, "generator": "ollama", "degraded": false, "refused": false, "retrievalMode": "VECTOR_HYBRID", "sourcesCount": 3 }, "pass": true },
+      { "id": "R5", "check": "POST http://127.0.0.1:8000/v1/agent/run（X-Internal-Token）", "expected": 200, "actual": { "status": 200, "elapsedMs": 4996, "generator": "extractive", "toolCalls": 1 }, "pass": true },
+      { "id": "R6", "check": "MySQL 全程未停：SELECT 1", "expected": "1（mysqld PID 7508 未变）", "actual": { "select1": 1, "pid": 7508 }, "pass": true }
+    ],
+    "ports": [
+      { "port": 8080, "owner": 28584 },
+      { "port": 8000, "owner": 23196 },
+      { "port": 11434, "owner": 25960 },
+      { "port": 3306, "owner": 7508 },
+      { "port": 6379, "owner": null }
+    ],
+    "allPass": true
+  },
+  "defects": [
+    {
+      "id": "W8-5-D01",
+      "severity": "P2 / 中低",
+      "title": "AskVO.degraded 不反映「向量检索通道降级」",
+      "reproduce": "停 8000（Ollama 正常）→ POST /api/ai/ask → 200，generator=ollama，degraded=false，retrievalMode 由 VECTOR_HYBRID 降为 FULLTEXT_OR",
+      "evidence": "S2b actual.ask 与 actual.capability（capability 同刻 degraded=true / aiServiceStatus=UNREACHABLE / vectorIndexReady=false）",
+      "impact": "App 端按 degraded 提示「AI 已降级」的口径在语义检索降级时失效；用户看到的是已降级的字面检索结果却无任何提示。属可观测性/口径不一致，不影响可用性"
+    },
+    {
+      "id": "W8-5-D02",
+      "severity": "P3 / 低",
+      "title": "停 ollama.exe 无法构成注入窗口（托盘 app 1s 内自愈）",
+      "reproduce": "仅 Stop-Process ollama.exe serve → 11434 关闭后立即被 ollama app.exe 重拉（PID 9380，19:02:07），随后 /api/ai/ask 仍 generator=ollama（9338ms）",
+      "evidence": "S1 attempt1",
+      "impact": "排障/演练脚本若不先停 ollama app.exe，会得到「已停仍正常」的失真结论；属运维口径，不是产品缺陷"
+    }
+  ],
+  "observations": [
+    "watchdog v2 stop-file 停止可靠：STOP→EXIT→WATCHDOG_EXIT 三步日志齐全，8000 在 0.3s 内释放",
+    "由本会话 shell 拉起的 watchdog / ollama 子进程会随命令会话结束被进程树回收；恢复动作改用 WMI Win32_Process.Create 脱离进程树后可长驻（演练后 PID 23516 / 23196 / 25960 稳定）",
+    "FastAPI 熔断 60s 冷却在恢复后真实生效，前 6 次 /ai/ask 仍 FULLTEXT_OR，第 7 次（约 66s）恢复 VECTOR_HYBRID",
+    "mvn -o test 会重编译 target/classes，不影响已运行的 jar 进程（8080 全程 PID 28584 / health 200）"
+  ]
+}

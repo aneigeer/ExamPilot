@@ -1,0 +1,44 @@
+{
+  "source": "D:\\大学生多考试备考知识库与题库系统\\training\\data\\sft_train_behavior.jsonl",
+  "source_rows": 2156,
+  "source_sha256": "1fb1510e0a367c19f0579d014df73deadafc4e5c54852426a82768ea434ce044",
+  "seed": 2026,
+  "n": 200,
+  "kind_counts": {
+    "grounded": 19,
+    "refusal": 56,
+    "injection": 55,
+    "planner": 46,
+    "wiki": 4,
+    "citation": 4,
+    "mcq": 16
+  },
+  "kind_ratio": {
+    "grounded": 0.095,
+    "refusal": 0.28,
+    "injection": 0.275,
+    "planner": 0.23,
+    "wiki": 0.02,
+    "citation": 0.02,
+    "mcq": 0.08
+  },
+  "source_kind_counts": {
+    "injection": 593,
+    "planner": 491,
+    "grounded": 209,
+    "citation": 42,
+    "refusal": 600,
+    "mcq": 178,
+    "wiki": 43
+  },
+  "total_tokens": 94407,
+  "max_tokens": 638,
+  "min_tokens": 210,
+  "p50_tokens": 488,
+  "n_at_640": 0,
+  "n_over_640": 0,
+  "output_sha256": "3f6528efb6aa4610a4b09977f59694814b89b7118f2e6c000f23ed6998a776f9",
+  "tokenizer": "C:/models/models/Qwen--Qwen2.5-7B-Instruct/snapshots/master",
+  "tokenize_method": "apply_chat_template(tokenize=True, add_generation_prompt=False) → len(input_ids)",
+  "command": ".venv-ai/Scripts/python.exe 项目规划/第3周/scripts/make_short_run.py --n 200 --seed 2026"
+}

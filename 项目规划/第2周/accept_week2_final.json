@@ -1,0 +1,393 @@
+{
+  "data_dir": "training\\data",
+  "pins": "training/output/data_pins.txt",
+  "max_tokens": 640,
+  "thresholds": {
+    "min_source_fidelity": 0.8,
+    "near_dup_ratio": 0.9
+  },
+  "passed": true,
+  "failed": [],
+  "checks": [
+    {
+      "检查": "F1 计数对账",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "五文件条数与 pins 一致、已登记 kind 分布匹配、求和自洽",
+      "警告": [
+        "sft_train.jsonl: 未登记期望 kind 分布，仅上报不作判定",
+        "sft_train_behavior.jsonl: 未登记期望 kind 分布，仅上报不作判定",
+        "sft_val.jsonl: 未登记期望 kind 分布，仅上报不作判定"
+      ],
+      "证据": [
+        {
+          "file": "sft_train.jsonl",
+          "total": 4751,
+          "pins_total": 4751,
+          "kinds": {
+            "citation": 42,
+            "grounded": 925,
+            "injection": 709,
+            "mcq": 1483,
+            "planner": 804,
+            "refusal": 745,
+            "wiki": 43
+          },
+          "kinds_checked": false
+        },
+        {
+          "file": "sft_train_behavior.jsonl",
+          "total": 2156,
+          "pins_total": 2156,
+          "kinds": {
+            "citation": 42,
+            "grounded": 209,
+            "injection": 593,
+            "mcq": 178,
+            "planner": 491,
+            "refusal": 600,
+            "wiki": 43
+          },
+          "kinds_checked": false
+        },
+        {
+          "file": "sft_val.jsonl",
+          "total": 427,
+          "pins_total": 427,
+          "kinds": {
+            "citation": 2,
+            "grounded": 82,
+            "injection": 73,
+            "mcq": 158,
+            "planner": 54,
+            "refusal": 54,
+            "wiki": 4
+          },
+          "kinds_checked": false
+        },
+        {
+          "file": "eval_holdout.jsonl",
+          "total": 200,
+          "pins_total": 200,
+          "kinds": {
+            "grounded": 50,
+            "injection": 50,
+            "mcq": 50,
+            "refusal": 50
+          },
+          "kinds_checked": true
+        },
+        {
+          "file": "eval_planner.jsonl",
+          "total": 50,
+          "pins_total": 50,
+          "kinds": {
+            "planner": 50
+          },
+          "kinds_checked": true
+        }
+      ]
+    },
+    {
+      "检查": "F2 相关性",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "final 533 条：省略号兜底 0、越界污染词 0、资料保真度<0.8 0（中位 0.986；>=0.9 533 条、0.8–0.9 0 条、<0.8 0 条）；正文⊆资料 533/533、正文长于资料 0 条（正文中位 93 ≤ 资料中位 114）",
+      "警告": [],
+      "证据": []
+    },
+    {
+      "检查": "F3 三级去重",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "qid / chunk_id / 题干 / 全文 四档均无重叠",
+      "警告": [
+        "planner: 1 条题干相同但资料不同（同模板不同题，不算答案泄漏）",
+        "planner: chunk_id 覆盖 16/50，34 条为 tool 行（靠 qid 判定）"
+      ],
+      "证据": [
+        {
+          "对比": "train vs holdout",
+          "样本": 200,
+          "qid 覆盖": "200/200",
+          "chunk_id 覆盖": "0/200",
+          "qid 重叠": 0,
+          "chunk_id 重叠": 0,
+          "题干同+资料同": 0,
+          "题干同+资料异": 0,
+          "全文近似(>=0.9)": 0
+        },
+        {
+          "对比": "train vs planner",
+          "样本": 50,
+          "qid 覆盖": "34/50",
+          "chunk_id 覆盖": "16/50",
+          "qid 重叠": 0,
+          "chunk_id 重叠": 0,
+          "题干同+资料同": 0,
+          "题干同+资料异": 1,
+          "全文近似(>=0.9)": 0
+        }
+      ]
+    },
+    {
+      "检查": "F4 长度策略",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "token 口径 max_tokens=640，样本 6907 条，超预算 0 条；答案被截 0 条、引用被截 0 条",
+      "警告": [],
+      "证据": []
+    },
+    {
+      "检查": "F5 可复现性",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "五文件 sha256 与 pins 全一致",
+      "警告": [],
+      "证据": [
+        {
+          "file": "sft_train.jsonl",
+          "sha256": "ec2ee9c99c394340",
+          "pins": "ec2ee9c99c394340",
+          "一致": true
+        },
+        {
+          "file": "sft_train_behavior.jsonl",
+          "sha256": "1fb1510e0a367c19",
+          "pins": "1fb1510e0a367c19",
+          "一致": true
+        },
+        {
+          "file": "sft_val.jsonl",
+          "sha256": "6ea0427722e66b5c",
+          "pins": "6ea0427722e66b5c",
+          "一致": true
+        },
+        {
+          "file": "eval_holdout.jsonl",
+          "sha256": "ca9dc9dc6da69cb4",
+          "pins": "ca9dc9dc6da69cb4",
+          "一致": true
+        },
+        {
+          "file": "eval_planner.jsonl",
+          "sha256": "1757738f3f08bbba",
+          "pins": "1757738f3f08bbba",
+          "一致": true
+        }
+      ]
+    },
+    {
+      "检查": "F6 链路可重建",
+      "结果": "PASS",
+      "门禁": true,
+      "说明": "rebuild_all.py 连续 2 轮产物与 pins 逐字节一致",
+      "警告": [],
+      "证据": [
+        {
+          "轮次": 1,
+          "file": "sft_train.jsonl",
+          "重建条数": 4751,
+          "pins 条数": 4751,
+          "重建 sha": "ec2ee9c99c39",
+          "pins sha": "ec2ee9c99c39",
+          "一致": true
+        },
+        {
+          "轮次": 1,
+          "file": "sft_train_behavior.jsonl",
+          "重建条数": 2156,
+          "pins 条数": 2156,
+          "重建 sha": "1fb1510e0a36",
+          "pins sha": "1fb1510e0a36",
+          "一致": true
+        },
+        {
+          "轮次": 1,
+          "file": "sft_val.jsonl",
+          "重建条数": 427,
+          "pins 条数": 427,
+          "重建 sha": "6ea0427722e6",
+          "pins sha": "6ea0427722e6",
+          "一致": true
+        },
+        {
+          "轮次": 1,
+          "file": "eval_holdout.jsonl",
+          "重建条数": 200,
+          "pins 条数": 200,
+          "重建 sha": "ca9dc9dc6da6",
+          "pins sha": "ca9dc9dc6da6",
+          "一致": true
+        },
+        {
+          "轮次": 1,
+          "file": "eval_planner.jsonl",
+          "重建条数": 50,
+          "pins 条数": 50,
+          "重建 sha": "1757738f3f08",
+          "pins sha": "1757738f3f08",
+          "一致": true
+        },
+        {
+          "轮次": 2,
+          "file": "sft_train.jsonl",
+          "重建条数": 4751,
+          "pins 条数": 4751,
+          "重建 sha": "ec2ee9c99c39",
+          "pins sha": "ec2ee9c99c39",
+          "一致": true
+        },
+        {
+          "轮次": 2,
+          "file": "sft_train_behavior.jsonl",
+          "重建条数": 2156,
+          "pins 条数": 2156,
+          "重建 sha": "1fb1510e0a36",
+          "pins sha": "1fb1510e0a36",
+          "一致": true
+        },
+        {
+          "轮次": 2,
+          "file": "sft_val.jsonl",
+          "重建条数": 427,
+          "pins 条数": 427,
+          "重建 sha": "6ea0427722e6",
+          "pins sha": "6ea0427722e6",
+          "一致": true
+        },
+        {
+          "轮次": 2,
+          "file": "eval_holdout.jsonl",
+          "重建条数": 200,
+          "pins 条数": 200,
+          "重建 sha": "ca9dc9dc6da6",
+          "pins sha": "ca9dc9dc6da6",
+          "一致": true
+        },
+        {
+          "轮次": 2,
+          "file": "eval_planner.jsonl",
+          "重建条数": 50,
+          "pins 条数": 50,
+          "重建 sha": "1757738f3f08",
+          "pins sha": "1757738f3f08",
+          "一致": true
+        }
+      ]
+    }
+  ],
+  "reference_checks": [
+    {
+      "检查": "R1 模板多样性",
+      "结果": "PASS",
+      "门禁": false,
+      "说明": "final 533 条，句式骨架 123 种；Top3：[('用资料里的内容解释「X」，并在句末标注引用。', 55), ('请依据资料，简要说明「X」的适用范围。', 53), ('资料里如何描述「X」？请做简要概述。', 53)]",
+      "警告": [],
+      "证据": [
+        {
+          "句式": "用资料里的内容解释「X」，并在句末标注引用。",
+          "条数": 55
+        },
+        {
+          "句式": "请依据资料，简要说明「X」的适用范围。",
+          "条数": 53
+        },
+        {
+          "句式": "资料里如何描述「X」？请做简要概述。",
+          "条数": 53
+        },
+        {
+          "句式": "围绕「X」，资料给出了哪些信息？请归纳。",
+          "条数": 51
+        },
+        {
+          "句式": "请根据资料说明「X」的核心要点。",
+          "条数": 49
+        },
+        {
+          "句式": "资料中关于「X」有哪些关键结论？请分条列出。",
+          "条数": 47
+        },
+        {
+          "句式": "根据资料，LangChain多模态输入与自定义输出有哪些值得注意的要点？",
+          "条数": 2
+        },
+        {
+          "句式": "第4章 进程同步与死锁是什么？依据资料简要回答。",
+          "条数": 2
+        },
+        {
+          "句式": "神经网络训练面试题指的是什么？请只依据资料作答。",
+          "条数": 2
+        },
+        {
+          "句式": "结合资料，概括MCP开发进阶核心技巧与应用实战的主要作用。",
+          "条数": 2
+        }
+      ]
+    },
+    {
+      "检查": "R2 抽取式一致性",
+      "结果": "PASS",
+      "门禁": false,
+      "说明": "抽 10 条，answer 首句为资料子串 10/10",
+      "警告": [],
+      "证据": [
+        {
+          "qid/chunk": "16157",
+          "首句": "当商品信息发生变更时，系统不再删除缓存 Key，而是直接更新该 Key 对应的缓存值",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "14791",
+          "首句": "\" ) # 通过模板参数格式化提示模板 result = prompt_template.forma",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "16109",
+          "首句": "而 Ceph 本身设计就是支持大数据量存储、高并发访问、高可用服务、高可靠存储的[1]",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "16489",
+          "首句": "查看数据库发现oauth_approvals和oauth_code表已经存入数据了[1]",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "10512",
+          "首句": "对AdamW优化器、梯度裁剪等关联技术可作为扩展讨论点",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "9686",
+          "首句": "2.3 上下文相关词向量层（Contextualized Word Embeddings Layer",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "10500",
+          "首句": "参考内容中提到全参数微调可能存在灾难性遗忘，而LoRA和QLoRA在效果上接近全参数微调，但更高效",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "10551",
+          "首句": "2. 训练目标：GPT通过自回归语言模型（AR）预测下一个词，BERT通过掩码语言模型（MLM）预测",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "9693",
+          "首句": "预训练是指在一个大规模的数据集上训练一个神经网络，并将训练好的模型参数作为下游任务的初始参数[1]",
+          "是资料子串": true
+        },
+        {
+          "qid/chunk": "15489",
+          "首句": "2.链表 2.1 链表的概念及结构 链表是一种物理存储结构上非连续存储结构，数据元素的逻辑顺序是通过",
+          "是资料子串": true
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "字符口径附注：assistant 最长 508 字，--max-chars 1400 下超长 0/6907（不参与判定）"
+  ]
+}

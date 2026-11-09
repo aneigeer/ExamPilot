@@ -1,0 +1,198 @@
+{
+  "generated_at": "2026-11-04T14:59:44+08:00",
+  "data_dir": "D:\\大学生多考试备考知识库与题库系统\\training\\data",
+  "pins_file": "D:\\大学生多考试备考知识库与题库系统\\training\\output\\data_pins.txt",
+  "length_unit": "qwen_tokens",
+  "tokenizer_error": "",
+  "files": {
+    "sft_train.jsonl": {
+      "rows": 4751,
+      "valid_rows": 4751,
+      "invalid_rows": 0,
+      "kinds": {
+        "mcq": 1483,
+        "grounded": 925,
+        "planner": 804,
+        "refusal": 745,
+        "injection": 709,
+        "wiki": 43,
+        "citation": 42
+      },
+      "kind_pct": {
+        "injection": 14.92,
+        "planner": 16.92,
+        "mcq": 31.21,
+        "grounded": 19.47,
+        "refusal": 15.68,
+        "citation": 0.88,
+        "wiki": 0.91
+      },
+      "dup_user_full": {
+        "rows": 281,
+        "groups": 269
+      },
+      "dup_stem": {
+        "rows": 2711,
+        "groups": 939,
+        "note": "题干相同但资料/选项不同的题也计入"
+      },
+      "empty_assistant": 0,
+      "missing_system": 0,
+      "missing_meta_qid": 368,
+      "empty_gold": 13,
+      "length": {
+        "unit": "qwen_tokens",
+        "p50": 494,
+        "p90": 617,
+        "p99": 638,
+        "max": 640,
+        "min": 178,
+        "mean": 482.2
+      },
+      "sha256": "70b0ce01fc11e612216dcbeef04d5b4833ff3c7f760ed158e0303f92585f4215",
+      "pinned_sha256": "70b0ce01fc11e612216dcbeef04d5b4833ff3c7f760ed158e0303f92585f4215",
+      "sha_match": true,
+      "pinned_count": 4751,
+      "count_match": true
+    },
+    "sft_train_behavior.jsonl": {
+      "rows": 2156,
+      "valid_rows": 2156,
+      "invalid_rows": 0,
+      "kinds": {
+        "refusal": 600,
+        "injection": 593,
+        "planner": 491,
+        "grounded": 209,
+        "mcq": 178,
+        "wiki": 43,
+        "citation": 42
+      },
+      "kind_pct": {
+        "injection": 27.5,
+        "planner": 22.77,
+        "grounded": 9.69,
+        "citation": 1.95,
+        "refusal": 27.83,
+        "mcq": 8.26,
+        "wiki": 1.99
+      },
+      "dup_user_full": {
+        "rows": 0,
+        "groups": 0
+      },
+      "dup_stem": {
+        "rows": 847,
+        "groups": 541,
+        "note": "题干相同但资料/选项不同的题也计入"
+      },
+      "empty_assistant": 0,
+      "missing_system": 0,
+      "missing_meta_qid": 335,
+      "empty_gold": 4,
+      "length": {
+        "unit": "qwen_tokens",
+        "p50": 490,
+        "p90": 619,
+        "p99": 638,
+        "max": 640,
+        "min": 195,
+        "mean": 480.7
+      },
+      "sha256": "82ddb7d32234ae264e0a31a5e2bdfd439790e422658df663e1dd452cf1c7d182",
+      "pinned_sha256": "82ddb7d32234ae264e0a31a5e2bdfd439790e422658df663e1dd452cf1c7d182",
+      "sha_match": true,
+      "pinned_count": 2156,
+      "count_match": true
+    },
+    "sft_val.jsonl": {
+      "rows": 427,
+      "valid_rows": 427,
+      "invalid_rows": 0,
+      "kinds": {
+        "mcq": 158,
+        "grounded": 82,
+        "injection": 73,
+        "refusal": 54,
+        "planner": 54,
+        "wiki": 4,
+        "citation": 2
+      },
+      "kind_pct": {
+        "grounded": 19.2,
+        "injection": 17.1,
+        "refusal": 12.65,
+        "planner": 12.65,
+        "mcq": 37.0,
+        "wiki": 0.94,
+        "citation": 0.47
+      },
+      "dup_user_full": {
+        "rows": 0,
+        "groups": 0
+      },
+      "dup_stem": {
+        "rows": 57,
+        "groups": 43,
+        "note": "题干相同但资料/选项不同的题也计入"
+      },
+      "empty_assistant": 0,
+      "missing_system": 0,
+      "missing_meta_qid": 23,
+      "empty_gold": 2,
+      "length": {
+        "unit": "qwen_tokens",
+        "p50": 517,
+        "p90": 661,
+        "p99": 746,
+        "max": 787,
+        "min": 177,
+        "mean": 503.0
+      },
+      "sha256": "4871481f61ddc0d6d9f39f72ca11782a3705f36ba9b1daf4dd3729a43da13f47",
+      "pinned_sha256": "4871481f61ddc0d6d9f39f72ca11782a3705f36ba9b1daf4dd3729a43da13f47",
+      "sha_match": true,
+      "pinned_count": 427,
+      "count_match": true
+    }
+  },
+  "system_split": {
+    "total": 2156,
+    "bare_mcq": 178,
+    "strict_answer": 1487,
+    "planner": 491,
+    "unknown": 0,
+    "non_planner_denominator": 1665,
+    "bare_plus_strict": 1665,
+    "checks": {
+      "bare_plus_strict_equals_non_planner": true,
+      "bare_plus_strict_plus_planner_equals_total": true,
+      "mcq_count_equals_bare": true,
+      "strict_kinds_are_5": [
+        "citation",
+        "grounded",
+        "injection",
+        "refusal",
+        "wiki"
+      ],
+      "strict_sum_from_kinds": 1487
+    }
+  },
+  "kinds_total_check": {
+    "sft_train.jsonl": {
+      "sum_kinds": 4751,
+      "rows": 4751,
+      "match": true
+    },
+    "sft_train_behavior.jsonl": {
+      "sum_kinds": 2156,
+      "rows": 2156,
+      "match": true
+    },
+    "sft_val.jsonl": {
+      "sum_kinds": 427,
+      "rows": 427,
+      "match": true
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "log": "项目规划\\第4周\\evidence\\train_final_to135.log",
+  "ckpt_dir": "training\\output\\qwen2.5-3b-exam-lora-v1",
+  "steps_seen": 135,
+  "expect_steps": 135,
+  "training_active": true,
+  "peak_alloc_mb": 3819.52,
+  "items": [
+    {
+      "项": "B1 完成度",
+      "结果": "PASS",
+      "说明": "135/135 步，已跑满",
+      "证据": [
+        "global_step=135，预期 135",
+        "已消耗样本 2160 / 2156 = 100.2%"
+      ]
+    },
+    {
+      "项": "B2 样本覆盖",
+      "结果": "PASS",
+      "说明": "覆盖 100.19%，尾部按 drop_last 丢 12 条",
+      "证据": [
+        "每步消耗 16 条（batch 1 × accum 16）",
+        "累计消耗 2160 条，覆盖 100.19%",
+        "drop_last=True → 尾部丢弃 12 条"
+      ]
+    },
+    {
+      "项": "B3 产物完整",
+      "结果": "PASS",
+      "说明": "adapter 四件 + train_metrics + 日志齐全，体积与时间戳合理",
+      "证据": [
+        "train_metrics={\"train_samples\": 2156, \"val_samples\": 427, \"steps\": 135, \"coverage\": 1.0019, \"loss_first\": 3.7185, \"loss_last\": 1.0566,",
+        "adapter=114.3MB，safetensors 头：504 个张量 / 29,933,568 参数 / 114.2MB 数据（4.00 字节/参数）",
+        "期望体积 = 29,933,568 参数 × 4.0 字节 = 114.2MB（容差 ±10% → [102.8, 125.6]MB）",
+        "同目录无 trainer_state/optimizer/scheduler，跳过 mtime 一致性检查（WARN）"
+      ]
+    },
+    {
+      "项": "B4 指标合理",
+      "结果": "PASS",
+      "说明": "loss 下降 2.4758→1.0211，无 NaN/Inf/尖峰",
+      "证据": [
+        "loss 点数 27，首=3.7185，末=1.0566",
+        "首5均值=2.4758，末5均值=1.0211，变化 -58.8%",
+        "无 eval_loss（未开 eval 或尚未 eval）"
+      ]
+    },
+    {
+      "项": "B5 可加载",
+      "结果": "PASS",
+      "说明": "配置与 LoRA 张量校验通过（完整加载因训练进行中跳过）",
+      "证据": [
+        "PeftConfig 解析成功：r=16 alpha=32 targets=7 个",
+        "safetensors 张量 504 个，其中 lora_A 252 / lora_B 252",
+        "target_modules 命中 7/7",
+        "训练进行中：只做了配置与张量校验，未做完整 PeftModel 加载"
+      ]
+    },
+    {
+      "项": "B6 归档",
+      "结果": "PASS",
+      "说明": "32 个文件 sha 全部一致",
+      "证据": [
+        "清单基准目录：D:\\大学生多考试备考知识库与题库系统\\training\\output\\qwen2.5-3b-exam-lora-v1",
+        "adapter_config.json: 一致",
+        "adapter_model.safetensors: 一致",
+        "chat_template.jinja: 一致",
+        "checkpoint-130/adapter_config.json: 一致",
+        "checkpoint-130/adapter_model.safetensors: 一致",
+        "checkpoint-130/chat_template.jinja: 一致",
+        "checkpoint-130/optimizer.pt: 一致",
+        "checkpoint-130/README.md: 一致",
+        "checkpoint-130/rng_state.pth: 一致"
+      ]
+    }
+  ],
+  "failed": [],
+  "partial": [],
+  "skipped": []
+}

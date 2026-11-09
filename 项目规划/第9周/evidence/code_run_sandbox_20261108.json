@@ -1,0 +1,162 @@
+{
+  "task": "W9-3 代码运行沙箱审查（P0 安全）",
+  "week": 9,
+  "date": "2026-11-08",
+  "timezone": "Asia/Shanghai",
+  "mode": "静态审查为主，未执行任何用户代码",
+  "report": "项目规划/第9周/03_代码运行沙箱_2026-11-08.md",
+  "environment": {
+    "repo": "d:\\大学生多考试备考知识库与题库系统",
+    "backend": {
+      "url": "http://127.0.0.1:8080/api",
+      "health": { "status": 200, "body": { "status": "UP", "groups": ["liveness", "readiness"] } },
+      "listen": { "localAddress": "::", "localPort": 8080, "pid": 3608 },
+      "contextPath": "/api (application.yml:3-4)"
+    },
+    "gcc": { "command": "gcc", "result": "NOT_FOUND", "impact": "C 语言路径在 compile 阶段走 IOException 分支（CodeRunService.java:103-107）" },
+    "javaRuntime": "后端自带 JDK（java.home），Java 单文件源码启动路径可用"
+  },
+  "target": {
+    "controller": "backend/src/main/java/com/examprep/controller/CodeRunController.java",
+    "service": "backend/src/main/java/com/examprep/service/CodeRunService.java",
+    "requestDto": "backend/src/main/java/com/examprep/dto/CodeRunRequest.java",
+    "resultVo": "backend/src/main/java/com/examprep/dto/CodeRunResultVO.java"
+  },
+  "exposure": {
+    "reachable": true,
+    "endpoint": "POST /api/run",
+    "evidence": [
+      "CodeRunController.java:22 @RequestMapping(\"/run\")",
+      "CodeRunController.java:37-42 @PostMapping + SecurityUtils.requireUserId()"
+    ],
+    "authRule": {
+      "matchedRule": "anyRequest().authenticated()",
+      "location": "SecurityConfig.java:213",
+      "roleRequired": false,
+      "note": "仅校验已登录，未校验角色；userId 只用于日志 CodeRunService.java:90",
+      "unauthenticatedProbe": { "method": "POST", "path": "/api/run", "status": 401, "codeExecutedByServer": false }
+    },
+    "publicRegistrationAmplifier": {
+      "endpoint": "POST /api/auth/register",
+      "location": ["SecurityConfig.java:106", "AuthService.java:75-107"],
+      "role": "STUDENT",
+      "status": 1,
+      "returnsToken": true,
+      "impact": "任何访客自助注册即获得可用 JWT → authenticated 不构成安全边界"
+    },
+    "apiDocs": {
+      "endpoint": "GET /api/v3/api-docs",
+      "anonymousAllowed": true,
+      "location": ["SecurityConfig.java:108", "application.yml:80-83"],
+      "status": 200,
+      "pathCount": 189,
+      "operationCount": 210,
+      "externalOperationCount": 196,
+      "runListed": true,
+      "runDescriptionContains": "访问级别：AUTH；⚠️ 该功能直接在本机执行用户代码，仅适合本机单人使用，公网部署必须换独立判题沙箱"
+    },
+    "deployment": {
+      "localWindows": "jar 直跑，监听 ::（全网卡），同网段可直连",
+      "dockerCompose": {
+        "backendPublishesPort": false,
+        "entry": "nginx 80/443 → proxy_pass http://127.0.0.1:8080（nginx-https.conf:73-82）",
+        "note": "Docker 编排下 backend 未发布端口，但 nginx 对 /run 无任何过滤"
+      }
+    },
+    "clients": {
+      "studentApp": "无 /run 调用（ApiService.java 全量 endpoint 清单无此项）",
+      "adminWeb": "无 /run 调用（admin-web/index.html 与 resources/static/admin/index.html 均无）",
+      "conclusion": "零客户端使用，关闭不影响业务"
+    }
+  },
+  "implementation": {
+    "type": "host_process_execution",
+    "framework": "java.lang.ProcessBuilder",
+    "notContainer": true,
+    "notJShell": true,
+    "notRemoteJudge": true,
+    "notAiGradingStub": true,
+    "flow": [
+      "questionMapper.selectById + type=PROGRAMMING 校验（CodeRunService.java:42-49）",
+      "语言白名单 C/JAVA（:51-54）",
+      "stdin/expected 来自题库答案 JSON（:56-71，非用户可控）",
+      "临时目录 Files.createTempDirectory(\"coderun-\")（:76）",
+      "C: ProcessBuilder(gcc, main.c, -o, main.exe)（:101-102）→ 执行 main.exe（:114-118）",
+      "JAVA: java.home/bin/java.exe <Class>.java 单文件源码启动（:132-136）",
+      "waitFor(10s) + destroyTree（:172-179, :215-230）",
+      "finally cleanup 递归删除临时目录（:87-89, :236-249）"
+    ],
+    "attackerControllableInputs": ["code（任意 Java/C 源码）", "language", "questionId"],
+    "serverControlledInputs": ["stdin", "expectedOutput", "工作目录", "命令与参数"]
+  },
+  "limits_checklist": [
+    { "id": "L-CPU", "item": "CPU 限制", "implemented": false, "evidence": "无 cgroup/ulimit/优先级参数（全文件）", "verdict": "不达标" },
+    { "id": "L-MEM", "item": "内存限制", "implemented": false, "evidence": "无 -Xmx、无 RLIMIT_AS；子 JVM 走默认 Ergonomics（约物理内存 1/4）CodeRunService.java:132-136", "verdict": "不达标" },
+    { "id": "L-TIME", "item": "时间限制", "implemented": "partial", "evidence": "运行 10s（:36,:172）；编译阶段 readAllBytes 先于 waitFor（:108-109）→ 编译无有效超时且读全量输出", "verdict": "部分达标" },
+    { "id": "L-OUT", "item": "输出大小限制", "implemented": "partial", "evidence": "1,000,000 字符封顶仅停止读取（:140,:200-202）；编译输出无上限（:108）", "verdict": "部分达标" },
+    { "id": "L-NET", "item": "网络隔离", "implemented": false, "evidence": "无 netns/防火墙/SecurityManager（JDK17+ 已移除 SM）；子进程可访问 MySQL 3306、AI 8000、Ollama 11434 及公网", "verdict": "不达标" },
+    { "id": "L-FS", "item": "文件系统隔离", "implemented": false, "evidence": "directory(dir) 仅设 CWD（:143）；绝对路径可读 application.yml（含 DB 口令）、可写 uploads/", "verdict": "不达标" },
+    { "id": "L-CLEAN", "item": "工作目录与清理", "implemented": "partial", "evidence": "temp 目录 + finally 清理（:76,:87-89,:236-249）；用户代码可写到 temp 之外，清理不覆盖", "verdict": "部分达标" },
+    { "id": "L-TREE", "item": "进程树回收", "implemented": "partial", "evidence": "Windows taskkill /T /F 兜底（:215-230）；非 Windows 仅 destroyForcibly，孙进程可逃逸", "verdict": "部分达标" },
+    { "id": "L-LANG", "item": "语言白名单", "implemented": true, "evidence": "仅 C/JAVA（:51-54）", "verdict": "达标" },
+    { "id": "L-INJECT", "item": "命令注入风险", "implemented": true, "evidence": "文件名/可执行名固定（:95,:114）；类名经正则 [A-Za-z_][A-Za-z0-9_]*（:37,:124-127）；stdin 走管道（:158-165）", "verdict": "达标（低风险）" },
+    { "id": "L-ENV", "item": "环境变量泄漏", "implemented": false, "evidence": "未 environment().clear()，继承父进程 env；Docker 部署含 JWT_SECRET/DB_PASSWORD/MYSQL_ROOT_PASSWORD（docker-compose.yml:52-54）", "verdict": "不达标" },
+    { "id": "L-CONC", "item": "并发上限与队列", "implemented": false, "evidence": "无 Semaphore/RateLimiter/队列；每请求 1 子进程 + 2 排空线程 + 1 Tomcat 线程", "verdict": "不达标" },
+    { "id": "L-API", "item": "恶意 API 过滤", "implemented": false, "evidence": "Runtime/ProcessBuilder/Files/Socket/System.exit 全部可用；无 AST 或关键字黑名单", "verdict": "不达标" },
+    { "id": "L-LEN", "item": "代码长度校验", "implemented": false, "evidence": "CodeRunRequest.java:12-23 仅 @NotNull/@NotBlank，无 @Size、无业务层长度判断", "verdict": "不达标" },
+    { "id": "L-EXE", "item": "编译产物校验", "implemented": "weak", "evidence": "仅 Files.exists(exe)（:115）；Java 无编译产物校验", "verdict": "弱" }
+  ],
+  "probes": [
+    { "id": "P1", "type": "read-only", "action": "GET /api/actuator/health", "status": 200, "result": "status=UP", "harmful": false },
+    { "id": "P2", "type": "read-only", "action": "GET /api/v3/api-docs", "status": 200, "result": "paths=189；/run 在册，operationId=run，描述含访问级别 AUTH 与公网告警", "harmful": false },
+    { "id": "P3", "type": "auth-gate-probe", "action": "POST /api/run 未带令牌（body 为正常 Java 片段）", "status": 401, "result": "Security 层拦截，未进入 Controller，服务端未执行代码", "harmful": false },
+    { "id": "P4", "type": "read-only", "action": "GET /api/questions?page=1&size=1&type=PROGRAMMING", "status": 200, "result": "total=0（库内无编程题）", "harmful": false },
+    { "id": "P5", "type": "read-only", "action": "Get-Command gcc", "status": "NOT_FOUND", "result": "C 路径当前不可执行", "harmful": false }
+  ],
+  "executionTest": {
+    "performed": false,
+    "reason": [
+      "静态已判定无任何沙箱隔离（CPU/内存/网络/文件系统/信号过滤全缺），按任务约束不再实测",
+      "代码运行需存在 type=PROGRAMMING 题目（P4 total=0），构造题目属改数据",
+      "Java 子进程与后端同用户同环境变量，任何真实执行均属在本机运行不可信代码，与禁止资源耗尽/命令执行/网络/写文件的约束冲突"
+    ]
+  },
+  "risk": {
+    "level": "P0",
+    "nature": "对外可达 + 隔离不达标（潜在任意登录用户在本机执行任意 Java）",
+    "currentExploitability": "受限：需库内存在 PROGRAMMING 题目（当前 total=0）；一旦录入即实现远程命令执行",
+    "amplifiers": [
+      "api-docs 匿名可读，公示入口",
+      "自助注册开放，令牌随手可得",
+      "无并发上限/限流，可并行打满进程与内存",
+      "无内存上限，子 JVM 默认堆约物理内存 1/4",
+      "环境变量继承 JWT_SECRET/DB_PASSWORD"
+    ],
+    "convergingFactors": ["无 PROGRAMMING 题目", "本机无 gcc（C 路径不可用）", "零客户端使用"]
+  },
+  "attackChain": [
+    "POST /api/auth/register → STUDENT JWT (AuthService.java:75-107)",
+    "GET /api/questions?type=PROGRAMMING → 枚举题目 ID（匿名可读 SecurityConfig.java:63-88）",
+    "POST /api/run → java.home/bin/java.exe 单文件执行任意 Java（CodeRunService.java:132-136）",
+    "可读 application.yml/uploads、读 env、访问内网 MySQL/AI、exec 系统命令、OOM/System.exit 拖垮宿主"
+  ],
+  "remediation": {
+    "implemented": false,
+    "immediate": [
+      { "item": "Security 规则彻底关闭", "file": "backend/src/main/java/com/examprep/config/SecurityConfig.java", "line": "213 之前", "change": ".requestMatchers(HttpMethod.POST, \"/run\").denyAll()；或 .hasRole(\"ADMIN\")", "note": "必须声明在 anyRequest().authenticated() 之前" },
+      { "item": "nginx 边缘封锁", "file": "nginx-https.conf / nginx.conf / nginx-https.conf.example", "line": "location / 之前", "change": "location = /api/run { return 403; }" },
+      { "item": "从对外文档摘除", "file": "CodeRunController.java", "line": "20（类声明处）", "change": "@io.swagger.v3.oas.annotations.Hidden；同步处理 docs/API.md:113" },
+      { "item": "特性开关默认关闭", "file": "CodeRunController/CodeRunService + application.yml", "line": "-", "change": "app.code-run.enabled=false + @ConditionalOnProperty 默认关闭" }
+    ],
+    "longTerm": "独立判题沙箱：容器/nsjail（--network=none、只读 rootfs、tmpfs、非 root、drop caps、seccomp）、CPU/内存/PID 配额、编译与运行各自超时、输出硬上限、代码长度限制、恶意 API 静态检查、异步队列 + 全局并发上限 + 每用户配额"
+  },
+  "conclusion": {
+    "sandboxQualified": false,
+    "featureExists": true,
+    "externallyReachable": true,
+    "recommendation": "立即关闭公网入口：denyAll/hasRole(ADMIN) + @Hidden，或 nginx location 403；重建前不得录入 PROGRAMMING 题目",
+    "codeOrConfigChanged": false,
+    "serviceRestarted": false,
+    "committed": false
+  }
+}

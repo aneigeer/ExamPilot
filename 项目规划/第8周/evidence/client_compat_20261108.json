@@ -1,0 +1,203 @@
+{
+  "task": "W8-6 客户端兼容性测试",
+  "date": "2026-11-08",
+  "timestamp_local": "2026-11-08T19:23:13+08:00",
+  "level": "P1",
+  "constraints": {
+    "production_code_changed": false,
+    "services_restarted": false,
+    "training_executed": false,
+    "committed": false,
+    "business_data_written": [
+      "practiceId=24 (2 questions, status=ONGOING)"
+    ]
+  },
+  "environment": {
+    "backend_8080": {"state": "UP", "listen": "::", "pid": 28584, "probe": "GET /api/home -> 200"},
+    "ai_service_8000": {"state": "UP (prior week conclusion)", "used": false},
+    "mysql_3306": {"state": "UP (prior week conclusion)", "used": false},
+    "ollama_11434": {"state": "UP (prior week conclusion)", "used": false},
+    "redis_6379": {"state": "DOWN", "note": "consistent with prior week conclusions"},
+    "ports_80_443": {"state": "NOT LISTENING", "evidence": "Get-NetTCPConnection -State Listen -> only 8080"},
+    "local_ipv4": "10.200.14.149"
+  },
+  "device": {
+    "available": false,
+    "adb_path": "D:\\bigplan\\tools\\androidSDK\\platform-tools\\adb.exe",
+    "adb_devices_output": "List of devices attached (empty)",
+    "adb_server_note": "adb server restarts on every invocation; not persistent in this environment",
+    "physical_device": null,
+    "emulator": {
+      "avd_name": "lux_test",
+      "launch_attempted": true,
+      "result": "FAILED",
+      "fatal": "FATAL | Cannot find AVD system path. Please define ANDROID_SDK_ROOT",
+      "missing_image_dir": "D:\\bigplan\\tools\\androidSDK\\system-images\\android-34\\google_apis\\x86_64\\",
+      "process_alive_after_20s": false
+    },
+    "screenshots": [],
+    "device_info": null
+  },
+  "client_under_test": {
+    "version_name": "1.9.1",
+    "version_code": 10,
+    "min_sdk": 26,
+    "target_sdk": 34,
+    "base_url_debug": "http://10.0.2.2:8080/api/ (app/build.gradle:28)",
+    "base_url_release": "https://10.200.83.194/api/ (app/build.gradle:54)",
+    "release_apk": {
+      "path": "release/备考知识库学生端-v1.9.1-真机版.apk",
+      "size_bytes": 2318508,
+      "mtime": "2026-10-30T23:09:18",
+      "sha256": "DACBFC597D9B1E023716CB6B1BAEC7C12846CD9CE097D17D3013A02CB6035CD3",
+      "dex_string_check": {
+        "contains_10.200.83.194": true,
+        "contains_10.200.14.149": false,
+        "contains_10.0.2.2": false,
+        "contains_https_scheme": true
+      }
+    },
+    "network_security_config": {
+      "path": "student-app/app/src/main/res/xml/network_security_config.xml",
+      "cleartext_traffic_permitted": false,
+      "trust_anchors": ["@raw/server_cert", "system"],
+      "domain_config": "10.200.83.194"
+    },
+    "bundled_cert": {
+      "path": "student-app/app/src/main/res/raw/server_cert.pem",
+      "sha256": "B5280E48D973EF51FAFCF0D6D989EE2A1EA89295A6AF684F18A244A0BA0FF335",
+      "same_as_nginx_cert": true,
+      "nginx_cert_path": "nginx/certs/server.crt",
+      "subject": "CN=exam-prep-lan, OU=Dev, O=ExamPrep, L=Changsha, S=Hunan, C=CN",
+      "san": ["DNS:localhost", "IP:127.0.0.1", "IP:10.200.83.194"],
+      "san_contains_current_ip": false
+    },
+    "network_layer": {
+      "file": "student-app/app/src/main/java/com/examprep/app/data/api/ApiClient.java",
+      "connect_timeout_seconds": 10,
+      "read_timeout_seconds": 30,
+      "read_timeout_long_seconds": 90,
+      "write_timeout_seconds": null,
+      "write_timeout_note": "not configured; OkHttp default applies",
+      "custom_retry_interceptor": false,
+      "retry_on_connection_failure": "not disabled (OkHttp default=true)",
+      "auth_interceptor": "ApiClient.java:84-99 (401 -> TokenStore.clear() + LoginActivity with NEW_TASK|CLEAR_TASK)",
+      "auth_interceptor_guard": "only when a local token exists (hasToken)"
+    }
+  },
+  "api_tests": {
+    "base": "http://127.0.0.1:8080/api",
+    "account": "2021001/123456",
+    "token_masked": "eyJhbGciOiJIUzM4NCJ9.<payload-redacted>.<signature-redacted>",
+    "login": {"status": 200, "expires_in_seconds": 604800, "user_id": 3},
+    "auth_401": [
+      {"case": "no_token", "request": "GET /api/me/stats", "status": 401},
+      {"case": "forged_token", "request": "GET /api/me/stats", "status": 401, "body": "{\"code\":401,\"message\":\"未登录或登录已过期\",\"traceId\":\"57acd349d0f3da17\"}"},
+      {"case": "malformed_jwt", "request": "GET /api/me/stats", "status": 401}
+    ],
+    "duplicate_submit_test": {
+      "practice_id": 24,
+      "subject_id": 1,
+      "subject_name": "高等数学A",
+      "total_count": 2,
+      "questions": [
+        {"question_id": 49, "type": "SHORT_ANSWER"},
+        {"question_id": 48, "type": "SHORT_ANSWER"}
+      ],
+      "steps": [
+        {"step": "submit_q49_serial_1", "status": 200, "answered_count": 1, "correct_count": 0, "trace_id": "016810072038d4b5"},
+        {"step": "submit_q49_serial_2", "status": 200, "answered_count": 1, "correct_count": 0, "trace_id": "4a3d61a3672a3ccd", "note": "no double count"},
+        {"step": "submit_q48_concurrent_1", "status": 200, "answered_count": 2, "correct_count": 0, "trace_id": "39b2f10fee08207a"},
+        {"step": "submit_q48_concurrent_2", "status": 200, "answered_count": 2, "correct_count": 0, "trace_id": "11aba4b53193c2dc", "note": "concurrent duplicate, only +1"}
+      ],
+      "answer_card_after": {"status": 200, "answered_count": 2, "total_count": 2, "correct_count": 0, "status_code": "ONGOING", "trace_id": "85ce6cc86854be5d"},
+      "backend_idempotency": {
+        "code": "PracticeService.submitAnswer: same (practiceId, questionId) returns first result without incrementing counters",
+        "line_ref": "backend/src/main/java/com/examprep/service/PracticeService.java:275-279",
+        "self_eval_duplicate": "throws '该题已自评' (PracticeService.java:381-383)",
+        "finish_idempotent": "status check before update (PracticeService.java:449-455)"
+      }
+    },
+    "contract_probe": {
+      "release_host": "10.200.83.194",
+      "icmp_reachable": false,
+      "tcp_80_reachable": false,
+      "tcp_443_reachable": false,
+      "local_8080_reachable": true,
+      "conclusion": "release APK cannot reach backend in current environment"
+    }
+  },
+  "cases": [
+    {"id": 1, "name": "登录过期", "method": "实测+代码核对", "result": "通过", "evidence": ["api_tests.auth_401", "ApiClient.java:84-99"]},
+    {"id": 2, "name": "应用切后台", "method": "代码核对", "result": "不通过", "evidence": ["PracticeActivity.java:35-62", "no onSaveInstanceState/onPause/onStop in student-app ui package"], "limitation": "no device"},
+    {"id": 3, "name": "弱网", "method": "代码核对/未注入", "result": "部分不通过", "evidence": ["ApiClient.java:69-74", "ApiClient.java:43-61"], "limitation": "no safe injection; did not touch firewall"},
+    {"id": 4, "name": "重复点击", "method": "实测", "result": "通过", "evidence": ["api_tests.duplicate_submit_test", "PracticeActivity.java:342", "PracticeActivity.java:536-539"]},
+    {"id": 5, "name": "请求重试", "method": "代码核对+后端幂等实测", "result": "通过（依赖后端幂等）", "evidence": ["ApiClient.java:69-74", "PracticeService.java:275-279"]},
+    {"id": 6, "name": "页面恢复", "method": "代码核对", "result": "部分不通过", "evidence": ["MainActivity.java:73-100", "HomeFragment.java:102-109"], "limitation": "no device"},
+    {"id": 7, "name": "关键机型", "method": "受阻", "result": "无可用设备，未实测", "evidence": ["device.available=false", "device.emulator.result=FAILED"]},
+    {"id": 8, "name": "契约一致性", "method": "实测+代码核对", "result": "不通过", "evidence": ["client_under_test.base_url_release", "api_tests.contract_probe", "client_under_test.bundled_cert.san"]}
+  ],
+  "defects": [
+    {
+      "id": "D1",
+      "severity": "严重/P1",
+      "title": "release 包基址/证书/端口与实际环境不一致",
+      "repro": "安装 v1.9.1 真机包并登录，或访问 https://10.200.83.194/api/",
+      "impact": "真机包全部网络请求失败；证书 SAN 不含当前 IP，仅改 IP 仍会 TLS 失败；W8 真机验收受阻",
+      "evidence": ["build.gradle:54", "APK dex contains 10.200.83.194", "ICMP/80/443 all unreachable", "local ip 10.200.14.149", "cert SAN localhost/127.0.0.1/10.200.83.194"]
+    },
+    {
+      "id": "D2",
+      "severity": "中/P2",
+      "title": "401 跳转在后台可能失效，且无 onResume 兜底",
+      "repro": "App 切后台期间 token 过期，回到前台继续操作",
+      "impact": "Android 10+ 后台启动 Activity 受限，跳登录可能被拦截；用户停留在失效页面；并发 401 可能重复拉起登录页",
+      "evidence": ["ApiClient.java:91-97", "MainActivity.java:73-100"]
+    },
+    {
+      "id": "D3",
+      "severity": "中/P2",
+      "title": "练习页无状态保存，主观题自评入口可能在重建后丢失",
+      "repro": "提交主观题后未自评即旋转屏幕/进程被回收，重新进入练习",
+      "impact": "onCreate 直接 loadNext；后端 next 只返回 user_answer IS NULL 的题，已提交未自评题无法再进入，该题不计分",
+      "evidence": ["PracticeActivity.java:51-62", "PracticeService.java:219-247"]
+    },
+    {
+      "id": "D4",
+      "severity": "低/P3",
+      "title": "主框架忽略 savedInstanceState，Tab 切换重建 Fragment",
+      "repro": "在题库 tab 滚动或筛选后旋转屏幕/切 tab",
+      "impact": "重建后强制回首页 tab；滚动位置与筛选条件丢失",
+      "evidence": ["MainActivity.java:27-53"]
+    },
+    {
+      "id": "D5",
+      "severity": "低/P3",
+      "title": "弱网无缓存/无退避重试，POST 可能被 OkHttp 静默重发",
+      "repro": "弱网下提交答案或自评",
+      "impact": "仅 Toast 提示，无重试或离线草稿；POST 重发依赖后端幂等，新增非幂等接口将重复写入",
+      "evidence": ["ApiClient.java:69-74", "PracticeActivity.java:96-98", "PracticeActivity.java:212-222"]
+    },
+    {
+      "id": "D6",
+      "severity": "低/P3",
+      "title": "401 静默跳登录，无登录过期提示",
+      "repro": "token 过期后执行任意操作",
+      "impact": "操作被打断且无原因提示，易误判为网络故障",
+      "evidence": ["ApiClient.java:91-97"]
+    }
+  ],
+  "conclusion": {
+    "tested": [1, 4, 8],
+    "code_review_only": [2, 3, 5, 6],
+    "blocked": [7],
+    "counts": {"tested": 3, "code_review": 4, "blocked": 1},
+    "headline": "D1（严重）使 release 真机包在当前环境完全不可用，是 W8 客户端验收的唯一硬阻断",
+    "recommendations": [
+      "将服务器地址改为运行时配置（首启输入/扫码/设置页切换）",
+      "使用局域网固定域名 + 内网 DNS，证书 SAN 写域名",
+      "CI 构建期注入 BASE_URL 并自动重签证书（SAN 含目标地址）",
+      "验收暂用 debug 包（10.0.2.2:8080 模拟器）或先部署 nginx-https（443）"
+    ]
+  }
+}

@@ -1,0 +1,272 @@
+{
+    "case_c":  {
+                   "answer":  "未找到相关资料",
+                   "generator":  "ollama",
+                   "degraded":  false,
+                   "refused":  true,
+                   "step_count":  2,
+                   "tool_calls":  1,
+                   "events":  [
+                                  {
+                                      "event":  "meta",
+                                      "data":  {
+                                                   "traceId":  "ecac236111684170",
+                                                   "sessionId":  "",
+                                                   "question":  "函数专题的 Wiki 页面讲了什么",
+                                                   "maxSteps":  4,
+                                                   "maxToolCalls":  4,
+                                                   "userId":  null,
+                                                   "subjectId":  null,
+                                                   "historyTurns":  0,
+                                                   "memoryChars":  0,
+                                                   "promptVersion":  "agent-planner-v3",
+                                                   "contextChars":  62,
+                                                   "contextTokens":  44,
+                                                   "contextBudget":  8000,
+                                                   "subagent":  false
+                                               }
+                                  },
+                                  {
+                                      "event":  "thought",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "text":  "需要查询函数专题的 Wiki 页面内容"
+                                               }
+                                  },
+                                  {
+                                      "event":  "tool_call",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "tool":  "search_wiki",
+                                                   "arguments":  {
+                                                                     "query":  "函数专题",
+                                                                     "topK":  3
+                                                                 }
+                                               }
+                                  },
+                                  {
+                                      "event":  "tool_result",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "tool":  "search_wiki",
+                                                   "ok":  true,
+                                                   "summary":  "Wiki 专题「函数专题」命中 0 页，最高分 0",
+                                                   "elapsedMs":  208,
+                                                   "data":  [
+
+                                                            ]
+                                               }
+                                  },
+                                  {
+                                      "event":  "thought",
+                                      "data":  {
+                                                   "step":  2,
+                                                   "text":  "根据 search_wiki 的结果，没有找到关于函数专题的 Wiki 页面。"
+                                               }
+                                  },
+                                  {
+                                      "event":  "final",
+                                      "data":  {
+                                                   "answer":  "未找到相关资料",
+                                                   "generator":  "ollama",
+                                                   "degraded":  false,
+                                                   "refused":  true,
+                                                   "step_count":  2,
+                                                   "tool_calls":  1,
+                                                   "sources":  [
+                                                                   {
+                                                                       "chunkId":  24,
+                                                                       "title":  "函数定义与调用",
+                                                                       "snippet":  "知识点：函数定义与调用 相关题目：C 语言中，用于向标准输出打印格式化内容的库函数是 ______。 相关题目：简述 C 语言中「值传递」与「地址传递」的区别。",
+                                                                       "refType":  "KNOWLEDGE",
+                                                                       "refId":  6,
+                                                                       "refPath":  "/knowledge/6",
+                                                                       "offset":  -1
+                                                                   },
+                                                                   {
+                                                                       "chunkId":  18787,
+                                                                       "title":  "用大白话理解提示工程、RAG、微调",
+                                                                       "snippet":  "《用大白话理解提示工程、RAG、微调》第10页·第二部分：RAG（Retrieval-Augmented 第二部分：RAG（Retrieval-Augmented Generation)；把它看作是给模型一场“开卷考试”；模型本身可能不知道你公司最新的API文档，但；你可以把文档作为“参考资料”递给它，让它根据；这份资…",
+                                                                       "refType":  "COURSEWARE",
+                                                                       "refId":  590,
+                                                                       "refPath":  "/courseware/590",
+                                                                       "offset":  -1
+                                                                   },
+                                                                   {
+                                                                       "chunkId":  9544,
+                                                                       "title":  "Prompting相关面试题",
+                                                                       "snippet":  "《Prompting相关面试题》 另一个函数——。 （2）会计算出[Z]中的内容的概率分布。Answer的就是往Z里面填充的正确的东西。在上面的例子中，语言模型的目的就是输出正确的Answer。 提示工程 Prompt Engineering：指设计提示函数，从而在下游任务中取得好的性能的过程。可以这么理解：Promp…",
+                                                                       "refType":  "COURSEWARE",
+                                                                       "refId":  38,
+                                                                       "refPath":  "/courseware/38",
+                                                                       "offset":  -1
+                                                                   }
+                                                               ]
+                                               }
+                                  },
+                                  {
+                                      "event":  "done",
+                                      "data":  {
+                                                   "totalMs":  3693
+                                               }
+                                  }
+                              ]
+               },
+    "case_a":  {
+                   "answer":  "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                   "generator":  "extractive",
+                   "degraded":  true,
+                   "refused":  false,
+                   "step_count":  2,
+                   "tool_calls":  1,
+                   "events":  [
+                                  {
+                                      "event":  "meta",
+                                      "data":  {
+                                                   "traceId":  "cb6fac97af554354",
+                                                   "sessionId":  "",
+                                                   "question":  "值传递和地址传递有什么区别",
+                                                   "maxSteps":  4,
+                                                   "maxToolCalls":  4,
+                                                   "userId":  null,
+                                                   "subjectId":  5,
+                                                   "historyTurns":  0,
+                                                   "memoryChars":  0,
+                                                   "promptVersion":  "agent-planner-v3",
+                                                   "contextChars":  58,
+                                                   "contextTokens":  45,
+                                                   "contextBudget":  8000,
+                                                   "subagent":  false
+                                               }
+                                  },
+                                  {
+                                      "event":  "thought",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "text":  "需要先确认值传递和地址传递的具体区别"
+                                               }
+                                  },
+                                  {
+                                      "event":  "tool_call",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "tool":  "search_knowledge",
+                                                   "arguments":  {
+                                                                     "query":  "值传递和地址传递的区别",
+                                                                     "topK":  5
+                                                                 }
+                                               }
+                                  },
+                                  {
+                                      "event":  "tool_result",
+                                      "data":  {
+                                                   "step":  1,
+                                                   "tool":  "search_knowledge",
+                                                   "ok":  true,
+                                                   "summary":  "检索「值传递和地址传递的区别」命中 4 条，最高分 108.46845044617031，模式 VECTOR_HYBRID",
+                                                   "elapsedMs":  303,
+                                                   "data":  [
+                                                                {
+                                                                    "chunkId":  49,
+                                                                    "title":  "值传递和地址传递有什么区别？",
+                                                                    "snippet":  "题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参",
+                                                                    "refType":  "QUESTION",
+                                                                    "refId":  46,
+                                                                    "score":  108.46845044617031
+                                                                },
+                                                                {
+                                                                    "chunkId":  5,
+                                                                    "title":  "简述 C 语言中「值传递」与「地址传递」的区别。",
+                                                                    "snippet":  "题干：简述 C 语言中「值传递」与「地址传递」的区别。\n解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。\n标签：重点必考,函数\n参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关键词：值传递、地址传递、副本、指针",
+                                                                    "refType":  "QUESTION",
+                                                                    "refId":  5,
+                                                                    "score":  81.49108310932372
+                                                                },
+                                                                {
+                                                                    "chunkId":  28,
+                                                                    "title":  "指针与函数",
+                                                                    "snippet":  "知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                                                                    "refType":  "KNOWLEDGE",
+                                                                    "refId":  10,
+                                                                    "score":  22.1675619999961
+                                                                }
+                                                            ]
+                                               }
+                                  },
+                                  {
+                                      "event":  "thought",
+                                      "data":  {
+                                                   "step":  2,
+                                                   "text":  "已有资料足够解释值传递和地址传递的区别"
+                                               }
+                                  },
+                                  {
+                                      "event":  "final",
+                                      "data":  {
+                                                   "answer":  "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                                                   "generator":  "extractive",
+                                                   "degraded":  true,
+                                                   "refused":  false,
+                                                   "step_count":  2,
+                                                   "tool_calls":  1,
+                                                   "sources":  [
+                                                                   {
+                                                                       "chunkId":  49,
+                                                                       "title":  "值传递和地址传递有什么区别？",
+                                                                       "snippet":  "题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…",
+                                                                       "refType":  "QUESTION",
+                                                                       "refId":  46,
+                                                                       "refPath":  "/questions/46"
+                                                                   },
+                                                                   {
+                                                                       "chunkId":  28,
+                                                                       "title":  "指针与函数",
+                                                                       "snippet":  "知识点：指针与函数 相关题目：值传递和地址传递有什么区别？",
+                                                                       "refType":  "KNOWLEDGE",
+                                                                       "refId":  10,
+                                                                       "refPath":  "/knowledge/10"
+                                                                   }
+                                                               ]
+                                               }
+                                  },
+                                  {
+                                      "event":  "done",
+                                      "data":  {
+                                                   "totalMs":  4826
+                                               }
+                                  }
+                              ]
+               },
+    "wiki_search":  {
+                        "code":  200,
+                        "message":  "成功",
+                        "data":  {
+                                     "engine":  "WIKI",
+                                     "hits":  [
+
+                                              ]
+                                 },
+                        "traceId":  "5730d7faf39cafaa"
+                    },
+    "heat_wiki_legit":  {
+                            "code":  200,
+                            "message":  "成功",
+                            "data":  {
+                                         "answer":  "## 进程的基本特征\n进程具有动态性、并发性、独立性和异步性等基本特征。在一段时间内，多个进程可以同时运行，每个进程都是一个能独立获得资源和调度的基本单位。\n\n## PCB链接组织方式\nPCB（进程控制块）是操作系统管理进程的重要数据结构。它包含了执行指针、就绪队列指针、阻塞队列指针、空闲队列指针等信息，用于实现进程的管理和调度。\n\n## 进程通信类型\n本章介绍了几种常见的进程通信方式，包括共享存储器系统、管道通信等。其中，管道通信是一种高效的方式，用于连接读进程和写进程以实现它们之间的通信。\n\n## 线程状态和控制块\n线程是进程中的一个执行单元，具有不同的状态，如执行态、就绪态、阻塞态等。线程控制块（TCB）包含了线程标识符、一组寄存器、优先级等信息，用于管理线程的运行状态。",
+                                         "generator":  "wiki",
+                                         "degraded":  false,
+                                         "refused":  false,
+                                         "sources":  [
+                                                         {
+                                                             "title":  "进程的描述与控制",
+                                                             "snippet":  "本章主要介绍了进程的基本特征、PCB链接组织方式、进程通信类型以及线程状态和控制块等内容，是操作系统中的重要组成部分。",
+                                                             "refType":  "WIKI",
+                                                             "refId":  20,
+                                                             "refPath":  "/wiki/20",
+                                                             "offset":  -1
+                                                         }
+                                                     ]
+                                     },
+                            "traceId":  "3564e24beb613df4"
+                        }
+}

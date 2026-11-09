@@ -1,0 +1,632 @@
+{
+  "generated_at": "2026-11-06T23:50:29+08:00",
+  "total_seconds": 41.0,
+  "env": {
+    "python": "3.12.10",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.22.1",
+    "peft": "0.21.2",
+    "trl": "1.17.1",
+    "gguf": "0.19.0",
+    "datasets": "5.1.0",
+    "bitsandbytes": "0.50.2",
+    "safetensors": "0.8.0",
+    "ollama": "0.40.15"
+  },
+  "artifacts": [
+    {
+      "name": "adapter_model.safetensors",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1/adapter_model.safetensors",
+      "bytes": 119801528,
+      "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef",
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha_seconds": 0.1,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取",
+      "kind": "adapter",
+      "note": "最终 adapter",
+      "provenance": {
+        "run": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1",
+        "global_step": 135,
+        "status": "COMPLETE",
+        "base_model": "C:\\models\\models\\Qwen--Qwen2.5-3B-Instruct\\snapshots\\master",
+        "lora": {
+          "r": 16,
+          "alpha": 32,
+          "dropout": 0.05,
+          "target_modules": [
+            "q_proj",
+            "k_proj",
+            "o_proj",
+            "gate_proj",
+            "v_proj",
+            "down_proj",
+            "up_proj"
+          ]
+        },
+        "data_sha_expected": "1fb1510e0a36"
+      },
+      "structure": {
+        "tensors": 504,
+        "params": 29933568,
+        "dtypes": {
+          "F32": 504
+        }
+      }
+    },
+    {
+      "name": "adapter_model.safetensors",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1/checkpoint-130/adapter_model.safetensors",
+      "bytes": 119801528,
+      "sha256": "9b67fc2eecf1457948fc82a72159049c45796ba7ede653c888bf3a7096135a6d",
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha_seconds": 0.1,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取",
+      "kind": "adapter",
+      "note": "checkpoint-130",
+      "provenance": {
+        "run": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1",
+        "global_step": 135,
+        "status": "COMPLETE",
+        "base_model": "C:\\models\\models\\Qwen--Qwen2.5-3B-Instruct\\snapshots\\master",
+        "lora": {
+          "r": 16,
+          "alpha": 32,
+          "dropout": 0.05,
+          "target_modules": [
+            "q_proj",
+            "k_proj",
+            "o_proj",
+            "gate_proj",
+            "v_proj",
+            "down_proj",
+            "up_proj"
+          ]
+        },
+        "data_sha_expected": "1fb1510e0a36"
+      },
+      "structure": {
+        "tensors": 504,
+        "params": 29933568,
+        "dtypes": {
+          "F32": 504
+        }
+      }
+    },
+    {
+      "name": "adapter_model.safetensors",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1/checkpoint-135/adapter_model.safetensors",
+      "bytes": 119801528,
+      "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef",
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha_seconds": 0.1,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取",
+      "kind": "adapter",
+      "note": "checkpoint-135",
+      "provenance": {
+        "run": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1",
+        "global_step": 135,
+        "status": "COMPLETE",
+        "base_model": "C:\\models\\models\\Qwen--Qwen2.5-3B-Instruct\\snapshots\\master",
+        "lora": {
+          "r": 16,
+          "alpha": 32,
+          "dropout": 0.05,
+          "target_modules": [
+            "q_proj",
+            "k_proj",
+            "o_proj",
+            "gate_proj",
+            "v_proj",
+            "down_proj",
+            "up_proj"
+          ]
+        },
+        "data_sha_expected": "1fb1510e0a36"
+      },
+      "structure": {
+        "tensors": 504,
+        "params": 29933568,
+        "dtypes": {
+          "F32": 504
+        }
+      }
+    },
+    {
+      "kind": "merged",
+      "path": "C:/models/exam-3b-v1-merged",
+      "bytes": 6171926968,
+      "sha256": null,
+      "sha_note": "按分片分别记录（见 files），合并目录本身不产生单一 sha",
+      "mtime": "2026-11-06T12:37:20+08:00",
+      "files": [
+        {
+          "name": "model-00001-of-00002.safetensors",
+          "path": "C:/models/exam-3b-v1-merged/model-00001-of-00002.safetensors",
+          "bytes": 3995916856,
+          "sha256": "7e16c8ed440468976812ea5e788bfabc9fa617f3fbf137c9100ebd3b49b2d01b",
+          "mtime": "2026-11-06T12:37:18+08:00",
+          "sha_seconds": 3.0,
+          "sha_cached": true,
+          "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）"
+        },
+        {
+          "name": "model-00002-of-00002.safetensors",
+          "path": "C:/models/exam-3b-v1-merged/model-00002-of-00002.safetensors",
+          "bytes": 2176010112,
+          "sha256": "6f2af9122b35cb568c12a6c3389d2031502cd1c9d0a8bf386a8046b4a044bf9d",
+          "mtime": "2026-11-06T12:37:20+08:00",
+          "sha_seconds": 1.71,
+          "sha_cached": true,
+          "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）"
+        },
+        {
+          "name": "model.safetensors.index.json",
+          "path": "C:/models/exam-3b-v1-merged/model.safetensors.index.json",
+          "bytes": 36059,
+          "sha256": "d0977c46b2cf868502aa6318c5d441cdafd8a1b0c8008455ab36f4d1cba1bb83",
+          "mtime": "2026-11-06T12:37:20+08:00",
+          "sha_seconds": 0.0,
+          "sha_cached": true,
+          "sha_note": "缓存命中；分块 8 MB 流式读取"
+        }
+      ],
+      "provenance": {
+        "base_model": "C:/models/models/Qwen--Qwen2.5-3B-Instruct/snapshots/master",
+        "adapter": "D:/大学生多考试备考知识库与题库系统/training/output/qwen2.5-3b-exam-lora-v1/adapter_model.safetensors",
+        "tool": "training/merge_lora.py",
+        "merge_dtype": "bfloat16 (CPU)",
+        "shards": 2
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "dtypes": {
+          "BF16": 434
+        }
+      }
+    },
+    {
+      "name": "exam-3b-v1-f16.gguf",
+      "path": "C:/models/exam-3b-v1-f16.gguf",
+      "bytes": 6178316704,
+      "sha256": "c08390efdb7359299205cbc69d593ac40da2f191ed332b39d1a9b7cebe214538",
+      "mtime": "2026-11-06T12:37:59+08:00",
+      "sha_seconds": 5.23,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_f16",
+      "provenance": {
+        "source_merged": "C:/models/exam-3b-v1-merged",
+        "tool": "tools/llama/conv_b6000.py",
+        "outtype": "f16",
+        "tool_sha256": "2e73750c607b61ff"
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "F16": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "exam-3b-v1-q4_0.gguf",
+      "path": "C:/models/exam-3b-v1-q4_0.gguf",
+      "bytes": 1742627232,
+      "sha256": "da55d937600c0cc3a827aa2b3875b5eca7553269d25f1da67441f1ab3bcde1fa",
+      "mtime": "2026-11-06T12:39:03+08:00",
+      "sha_seconds": 1.64,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_q4_0",
+      "provenance": {
+        "source_gguf": "C:/models/exam-3b-v1-f16.gguf",
+        "tool": "tools/quantize_gguf.py",
+        "qtype": "q4_0",
+        "tool_sha256": "c8aa513c989c7ebc",
+        "ratio_vs_source": 3.55,
+        "source_bytes": 6178316704
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "Q4_0": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "qwen2.5-3b-instruct-f16.gguf",
+      "path": "C:/models/qwen2.5-3b-instruct-f16.gguf",
+      "bytes": 6178317184,
+      "sha256": "7d1ef0e92695a817a414c0675a7eb6f26618f548cc3eee7739b359f2a10959a2",
+      "mtime": "2026-11-06T12:46:49+08:00",
+      "sha_seconds": 5.26,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_baseline_f16",
+      "provenance": {
+        "source_model": "C:/models/models/Qwen--Qwen2.5-3B-Instruct/snapshots/master",
+        "tool": "tools/llama/conv_b6000.py",
+        "outtype": "f16",
+        "tool_sha256": "2e73750c607b61ff"
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "F16": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "qwen2.5-3b-instruct-q4_0.gguf",
+      "path": "C:/models/qwen2.5-3b-instruct-q4_0.gguf",
+      "bytes": 1742627712,
+      "sha256": "354a0c1fe9f96395f40c2371e0f1b3fee38cf71c92b718e0e478b72e796e8521",
+      "mtime": "2026-11-06T12:47:31+08:00",
+      "sha_seconds": 1.43,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_baseline",
+      "provenance": {
+        "source_gguf": "C:/models/qwen2.5-3b-instruct-f16.gguf",
+        "tool": "tools/quantize_gguf.py",
+        "qtype": "q4_0",
+        "tool_sha256": "c8aa513c989c7ebc",
+        "ratio_vs_source": 3.55,
+        "source_bytes": 6178317184
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "Q4_0": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "exam-3b-v1-q8_0.gguf",
+      "path": "C:/models/exam-3b-v1-q8_0.gguf",
+      "bytes": 3285475744,
+      "sha256": "9b4998d14d7e8711241fa7dfa257b86a383cb3ff3d8150fb3675c8e67fd6708c",
+      "mtime": "2026-11-06T21:43:03+08:00",
+      "sha_seconds": 2.96,
+      "sha_cached": false,
+      "sha_note": "本次计算；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_q8_0",
+      "provenance": {
+        "source_gguf": "C:/models/exam-3b-v1-f16.gguf",
+        "tool": "tools/quantize_gguf.py",
+        "qtype": "q8_0",
+        "tool_sha256": "c8aa513c989c7ebc",
+        "ratio_vs_source": 1.88,
+        "source_bytes": 6178316704
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "Q8_0": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "qwen2.5-3b-instruct-q8_0.gguf",
+      "path": "C:/models/qwen2.5-3b-instruct-q8_0.gguf",
+      "bytes": 3285476224,
+      "sha256": "eefea94d6b6c154419f335bf1aeac6b479c1e08580bb43b3329eb9c111359ec0",
+      "mtime": "2026-11-06T22:53:11+08:00",
+      "sha_seconds": 2.75,
+      "sha_cached": false,
+      "sha_note": "本次计算；分块 8 MB 流式读取（>1GB，耗时见 sha_seconds）",
+      "kind": "gguf_baseline_q8_0",
+      "provenance": {
+        "source_gguf": "C:/models/qwen2.5-3b-instruct-f16.gguf",
+        "tool": "tools/quantize_gguf.py",
+        "qtype": "q8_0",
+        "tool_sha256": "c8aa513c989c7ebc",
+        "ratio_vs_source": 1.88,
+        "source_bytes": 6178317184
+      },
+      "structure": {
+        "tensors": 434,
+        "params": 3085938688,
+        "quant_types": {
+          "Q8_0": 253,
+          "F32": 181
+        },
+        "has_output_norm": true,
+        "arch": "qwen2",
+        "first_tensor": "token_embd.weight",
+        "last_tensor": "output_norm.weight"
+      }
+    },
+    {
+      "name": "Modelfile.exam-prep-3b-v1",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1",
+      "bytes": 985,
+      "sha256": "43e3d209d95c9c28e4146ab451b50be7339d9f7765da070a4a89185d7906b644",
+      "mtime": "2026-11-05T22:41:43+08:00",
+      "sha_seconds": 0.0,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取",
+      "kind": "modelfile",
+      "provenance": {
+        "from": "C:/models/exam-3b-v1-q4_0.gguf",
+        "ollama_model": "exam-prep-3b-v1",
+        "template": "由 GGUF 自带 chat_template 提供（未写 TEMPLATE）"
+      }
+    },
+    {
+      "name": "Modelfile.baseline-3b-q4_0",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.baseline-3b-q4_0",
+      "bytes": 308,
+      "sha256": "382b3961b3be5c8ffb3763e3c87f9177531a430d7fc1083665406a250b4cdeb2",
+      "mtime": "2026-11-06T12:47:42+08:00",
+      "sha_seconds": 0.0,
+      "sha_cached": true,
+      "sha_note": "缓存命中；分块 8 MB 流式读取",
+      "kind": "modelfile",
+      "provenance": {
+        "from": "C:/models/qwen2.5-3b-instruct-q4_0.gguf",
+        "ollama_model": "qwen2.5-3b-instruct-q4_0-baseline",
+        "template": "由 GGUF 自带 chat_template 提供（未写 TEMPLATE）"
+      }
+    },
+    {
+      "name": "Modelfile.exam-prep-3b-v1-f16",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1-f16",
+      "bytes": 198,
+      "sha256": "087dd0b757e2ebd5196329722b7b581168a8462ee91b01ed2f7079ebb85b5e22",
+      "mtime": "2026-11-06T21:36:36+08:00",
+      "sha_seconds": 0.0,
+      "sha_cached": false,
+      "sha_note": "本次计算；分块 8 MB 流式读取",
+      "kind": "modelfile",
+      "provenance": {
+        "from": "C:/models/exam-3b-v1-f16.gguf",
+        "ollama_model": "exam-prep-3b-v1-f16",
+        "template": "由 GGUF 自带 chat_template 提供（未写 TEMPLATE）"
+      }
+    },
+    {
+      "name": "Modelfile.exam-prep-3b-v1-q8",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1-q8",
+      "bytes": 101,
+      "sha256": "b777a28a9f837767b2d3c1ad12b5bfa74f04eaccaed97fa526bee45c64307496",
+      "mtime": "2026-11-06T21:43:03+08:00",
+      "sha_seconds": 0.0,
+      "sha_cached": false,
+      "sha_note": "本次计算；分块 8 MB 流式读取",
+      "kind": "modelfile",
+      "provenance": {
+        "from": "C:/models/exam-3b-v1-q8_0.gguf",
+        "ollama_model": "exam-prep-3b-v1-q8",
+        "template": "由 GGUF 自带 chat_template 提供（未写 TEMPLATE）"
+      }
+    },
+    {
+      "name": "Modelfile.baseline-3b-q8_0",
+      "path": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.baseline-3b-q8_0",
+      "bytes": 181,
+      "sha256": "46d09fd302718a4b80b02178227af44699b4a49575f6b991f6708050cc7a8e9c",
+      "mtime": "2026-11-06T22:53:12+08:00",
+      "sha_seconds": 0.0,
+      "sha_cached": false,
+      "sha_note": "本次计算；分块 8 MB 流式读取",
+      "kind": "modelfile",
+      "provenance": {
+        "from": "C:/models/qwen2.5-3b-instruct-q8_0.gguf",
+        "ollama_model": "qwen2.5-3b-instruct-q8_0-baseline",
+        "template": "由 GGUF 自带 chat_template 提供（未写 TEMPLATE）"
+      }
+    },
+    {
+      "kind": "ollama_model",
+      "path": "exam-prep-3b-v1:latest",
+      "ollama_digest": "0f4332efaa64",
+      "blob": "sha256-da55d937600c0cc3a827aa2b3875b5eca7553269d25f1da67441f1ab3bcde1fa",
+      "bytes": 1742627232,
+      "sha256": "da55d937600c0cc3a827aa2b3875b5eca7553269d25f1da67441f1ab3bcde1fa",
+      "sha_note": "ollama blob sha256（`ollama show --modelfile` 的 FROM 指向的 blob）",
+      "size_reported": "1.7 GB",
+      "mtime": "11 hours ago",
+      "provenance": {
+        "role": "tuned-q4_0",
+        "from_gguf": "C:/models/exam-3b-v1-q4_0.gguf",
+        "modelfile": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1",
+        "created_by": "ollama create -f <Modelfile>"
+      }
+    },
+    {
+      "kind": "ollama_model",
+      "path": "qwen2.5-3b-instruct-q4_0-baseline:latest",
+      "ollama_digest": "7d112f278a98",
+      "blob": "sha256-354a0c1fe9f96395f40c2371e0f1b3fee38cf71c92b718e0e478b72e796e8521",
+      "bytes": 1742627712,
+      "sha256": "354a0c1fe9f96395f40c2371e0f1b3fee38cf71c92b718e0e478b72e796e8521",
+      "sha_note": "ollama blob sha256（`ollama show --modelfile` 的 FROM 指向的 blob）",
+      "size_reported": "1.7 GB",
+      "mtime": "11 hours ago",
+      "provenance": {
+        "role": "baseline-q4_0",
+        "from_gguf": "C:/models/qwen2.5-3b-instruct-q4_0.gguf",
+        "modelfile": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.baseline-3b-q4_0",
+        "created_by": "ollama create -f <Modelfile>"
+      }
+    },
+    {
+      "kind": "ollama_model",
+      "path": "exam-prep-3b-v1-f16:latest",
+      "ollama_digest": "f266d68e6fc8",
+      "blob": "sha256-c08390efdb7359299205cbc69d593ac40da2f191ed332b39d1a9b7cebe214538",
+      "bytes": 6178316704,
+      "sha256": "c08390efdb7359299205cbc69d593ac40da2f191ed332b39d1a9b7cebe214538",
+      "sha_note": "ollama blob sha256（`ollama show --modelfile` 的 FROM 指向的 blob）",
+      "size_reported": "6.2 GB",
+      "mtime": "2 hours ago",
+      "provenance": {
+        "role": "tuned-f16",
+        "from_gguf": "C:/models/exam-3b-v1-f16.gguf",
+        "modelfile": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1-f16",
+        "created_by": "ollama create -f <Modelfile>"
+      }
+    },
+    {
+      "kind": "ollama_model",
+      "path": "exam-prep-3b-v1-q8:latest",
+      "ollama_digest": "b6f411ad1042",
+      "blob": "sha256-9b4998d14d7e8711241fa7dfa257b86a383cb3ff3d8150fb3675c8e67fd6708c",
+      "bytes": 3285475744,
+      "sha256": "9b4998d14d7e8711241fa7dfa257b86a383cb3ff3d8150fb3675c8e67fd6708c",
+      "sha_note": "ollama blob sha256（`ollama show --modelfile` 的 FROM 指向的 blob）",
+      "size_reported": "3.3 GB",
+      "mtime": "2 hours ago",
+      "provenance": {
+        "role": "tuned-q8_0",
+        "from_gguf": "C:/models/exam-3b-v1-q8_0.gguf",
+        "modelfile": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.exam-prep-3b-v1-q8",
+        "created_by": "ollama create -f <Modelfile>"
+      }
+    },
+    {
+      "kind": "ollama_model",
+      "path": "qwen2.5-3b-instruct-q8_0-baseline:latest",
+      "ollama_digest": "a4097d731b90",
+      "blob": "sha256-eefea94d6b6c154419f335bf1aeac6b479c1e08580bb43b3329eb9c111359ec0",
+      "bytes": 3285476224,
+      "sha256": "eefea94d6b6c154419f335bf1aeac6b479c1e08580bb43b3329eb9c111359ec0",
+      "sha_note": "ollama blob sha256（`ollama show --modelfile` 的 FROM 指向的 blob）",
+      "size_reported": "3.3 GB",
+      "mtime": "57 minutes ago",
+      "provenance": {
+        "role": "baseline-q8_0",
+        "from_gguf": "C:/models/qwen2.5-3b-instruct-q8_0.gguf",
+        "modelfile": "D:/大学生多考试备考知识库与题库系统/training/Modelfile.baseline-3b-q8_0",
+        "created_by": "ollama create -f <Modelfile>"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "check": "merged.params == gguf_f16.params",
+      "ok": true,
+      "detail": "merged 3,085,938,688 vs f16 3,085,938,688"
+    },
+    {
+      "check": "gguf_f16 含 output_norm.weight",
+      "ok": true,
+      "detail": "tensors=434"
+    },
+    {
+      "check": "gguf_f16.tensors == gguf_q4_0.tensors",
+      "ok": true,
+      "detail": "434 vs 434；量化后 params 应相等：True"
+    },
+    {
+      "check": "gguf_q4_0 含 output_norm.weight",
+      "ok": true,
+      "detail": "quant_types={'Q4_0': 253, 'F32': 181}"
+    },
+    {
+      "check": "merged.tensors == gguf_f16.tensors",
+      "ok": true,
+      "detail": "434 vs 434（3B 为 tie_word_embeddings=True：36 层×12 + token_embd + output_norm = 434，无独立 output.weight；7B 未绑定故为 339 = 28×12+3）"
+    },
+    {
+      "check": "tuned/baseline 张量数一致",
+      "ok": true,
+      "detail": "tuned 434 vs baseline 434"
+    },
+    {
+      "check": "gguf_q8_0.tensors == gguf_f16.tensors",
+      "ok": true,
+      "detail": "434 vs 434"
+    },
+    {
+      "check": "gguf_q8_0.params == gguf_f16.params",
+      "ok": true,
+      "detail": "3,085,938,688 vs 3,085,938,688"
+    },
+    {
+      "check": "gguf_q8_0 含 output_norm.weight",
+      "ok": true,
+      "detail": "quant_types={'Q8_0': 253, 'F32': 181}"
+    },
+    {
+      "check": "q8_0 tuned/baseline 张量数一致",
+      "ok": true,
+      "detail": "tuned 434 vs baseline 434"
+    },
+    {
+      "check": "ollama[tuned-q4_0].blob 与 exam-3b-v1-q4_0.gguf 同 sha（仅记录）",
+      "ok": null,
+      "detail": "相同：ollama 直接复用原 GGUF blob"
+    },
+    {
+      "check": "ollama[baseline-q4_0].blob 与 qwen2.5-3b-instruct-q4_0.gguf 同 sha（仅记录）",
+      "ok": null,
+      "detail": "相同：ollama 直接复用原 GGUF blob"
+    },
+    {
+      "check": "ollama[tuned-f16].blob 与 exam-3b-v1-f16.gguf 同 sha（仅记录）",
+      "ok": null,
+      "detail": "相同：ollama 直接复用原 GGUF blob"
+    },
+    {
+      "check": "ollama[tuned-q8_0].blob 与 exam-3b-v1-q8_0.gguf 同 sha（仅记录）",
+      "ok": null,
+      "detail": "相同：ollama 直接复用原 GGUF blob"
+    },
+    {
+      "check": "ollama[baseline-q8_0].blob 与 qwen2.5-3b-instruct-q8_0.gguf 同 sha（仅记录）",
+      "ok": null,
+      "detail": "相同：ollama 直接复用原 GGUF blob"
+    }
+  ],
+  "totals": {
+    "count": 20,
+    "bytes": 45178697741,
+    "by_kind": {
+      "adapter": 3,
+      "merged": 1,
+      "gguf_f16": 1,
+      "gguf_q4_0": 1,
+      "gguf_baseline_f16": 1,
+      "gguf_baseline": 1,
+      "gguf_q8_0": 1,
+      "gguf_baseline_q8_0": 1,
+      "modelfile": 5,
+      "ollama_model": 5
+    }
+  }
+}

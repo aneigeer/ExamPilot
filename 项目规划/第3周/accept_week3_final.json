@@ -1,0 +1,67 @@
+{
+  "log": "项目规划\\第3周\\evidence\\shortrun_b.log",
+  "ckpt_dir": "training\\output\\shortrun_b\\checkpoint-4",
+  "samples": 64,
+  "steps_seen": 4,
+  "expect_steps": 4,
+  "step_seconds": 173.72,
+  "results": [
+    {
+      "项": "A1 短跑完成",
+      "结果": "PASS",
+      "说明": "4/4 步，正常结束",
+      "证据": [
+        "日志中最大 step=4",
+        "完成标记=True",
+        "退出码=0"
+      ]
+    },
+    {
+      "项": "A2 步数对账",
+      "结果": "PASS",
+      "说明": "4 步 = 64/(1×16)，误差 0",
+      "证据": [
+        "样本 64 ÷ (batch 1 × accum 16) = 4",
+        "实际 global_step=4"
+      ]
+    },
+    {
+      "项": "A3 检查点完整",
+      "结果": "PASS",
+      "说明": "1 个检查点四件齐全且 optimizer.pt 达标",
+      "证据": [
+        "checkpoint-4: adapter=77MB optimizer=80536KB state=有 sched=有"
+      ]
+    },
+    {
+      "项": "A4 恢复正确",
+      "结果": "PASS",
+      "说明": "global_step 未回退且继续推进，loss 在恢复点连续",
+      "证据": [
+        "最终 trainer_state.global_step=4，存档时=2",
+        "恢复后新增 loss 点 2 个（step 3…4）",
+        "恢复点前 loss=3.3508，恢复后 loss=3.1160，相对跳变=7.0%"
+      ]
+    },
+    {
+      "项": "A5 显存与步速",
+      "结果": "WARN",
+      "说明": "步速 173.7s > 基线 52.0s × 2.0",
+      "证据": [
+        "Shared Usage=未记录 MB",
+        "峰值显存(max_memory_allocated)=未记录",
+        "步均耗时=173.7s"
+      ]
+    },
+    {
+      "项": "A6 可复现",
+      "结果": "SKIP",
+      "说明": "未提供 --run2-log，本轮未做两次对比",
+      "证据": []
+    }
+  ],
+  "failed": [],
+  "skipped": [
+    "A6 可复现"
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "source": "backup\\2026-11-04\\sft_train_behavior.jsonl",
+  "tag": "baseline",
+  "planner_total": 419,
+  "final_total": 158,
+  "categories": {
+    "无法自动判定": 4,
+    "明显无关": 154
+  },
+  "signals": {
+    "body_ends_ellipsis": 158,
+    "raw_ends_ellipsis": 0,
+    "has_citation": 158,
+    "answer_len_unique": [
+      124
+    ],
+    "keyword_hit_dist": {
+      "0": 158
+    }
+  },
+  "qid_recovery": {
+    "ambiguous(2)": 35,
+    "unique": 121,
+    "ambiguous(15)": 1,
+    "ambiguous(4)": 1
+  },
+  "undetermined": [
+    {
+      "row_index": 19,
+      "qid_recovered": null,
+      "stem": "观众：电视：新闻",
+      "answer": "《MoA是什么？它与MoE的区别是什么？》第8页·一言以蔽之：MoE优化模型“内部”，MoA编排模型“之间” 一言以蔽之：MoE优化模型“内部”，MoA编排模型“之间” 专家；专家；智能体；专家；专家；模型；专家；专家；智能体；智能体；专…[1]。",
+      "reason": "题干过短/关键词少于5个，无法可靠判定相关性"
+    },
+    {
+      "row_index": 39,
+      "qid_recovered": 2165,
+      "stem": "路由器：连接：网络",
+      "answer": "《一口气讲完OAuth2四种授权模式》 项目中，当请求发过来时，oauth2会帮我们自行校验。 认证服务 配置文件对服务端口、应用名称、数据库、mybatis和日志进行了配置。 Security 配置 ①将继承了UserDetailsSe…[1]。",
+      "reason": "题干过短/关键词少于5个，无法可靠判定相关性"
+    },
+    {
+      "row_index": 277,
+      "qid_recovered": null,
+      "stem": "教：学：教学",
+      "answer": "《多模态算法ALBEF模型解析》第1页·多模态算法ALBEF模型解析 多模态算法ALBEF模型解析 Align before Fuse(先对齐，再融合）；cgolm；文字和检验的数据；映象的数据；cont I；code；Tiss；10c；…[1]。",
+      "reason": "题干过短/关键词少于5个，无法可靠判定相关性"
+    },
+    {
+      "row_index": 967,
+      "qid_recovered": 2904,
+      "stem": "铜镜：化妆镜",
+      "answer": "《17种RAG优化策略》第12页·策略14：Hierarchical Indexing（层次化索引） 策略14：Hierarchical Indexing（层次化索引） GPT-4评分：0.84；摘要导航，细节定位；Search Quer…[1]。",
+      "reason": "题干过短/关键词少于5个，无法可靠判定相关性"
+    }
+  ],
+  "examples": {
+    "明显无关": [
+      {
+        "row_index": 22,
+        "qid_recovered": 1113,
+        "stem": "2014 年，以下哪个现代服务业新登记注册企业的户数同比增速最快？",
+        "answer": "《企业级MCP集成方案与应用实践》 sync def get_admin_user(current_user: User = Depends(get_current_user)) -> User: \"\"\"获取管理员用户\"\"\" if not…[1]。"
+      },
+      {
+        "row_index": 29,
+        "qid_recovered": 2858,
+        "stem": "培育强大的创新实力，中小企业要有“十年磨一剑”的和志气。要克服融资难、原料贵、订单少等重重困难，持续投入，迎难而上，才能在中迈上发展新台阶。当前，一家家优质中小企业在自主创新的道路上，勇毅前行，成长为能打硬仗的科技尖兵、稳链强链的有生力量。",
+        "answer": "《Prometheus全面监控MySQL服务》 'evaluation_interval'. rule_files: # - \"first_rules.yml\" # - \"second_rules.yml\" # A scrape conf…[1]。"
+      },
+      {
+        "row_index": 37,
+        "qid_recovered": 1298,
+        "stem": "某人出生于 20 世纪 70 年代，某年他发现从当年起连续 10 年自己的年龄均与当年年份数字之和相等（出生当年算 0 岁）。问他在以下哪一年时，年龄为 9 的整数倍？",
+        "answer": "《Claude Code 实战从入门到精通》 ing 没人管，文档比不写还误导 症状：Claude 参考了过时文档，写出的代码基于错误的假设。 解法： • 在 CI 中加文档新鲜度检查（见 CI 管线一节） • 每两周跑一次 doc-ga…[1]。"
+      }
+    ],
+    "疑似相关但被截断": [],
+    "无法自动判定": [
+      {
+        "row_index": 19,
+        "qid_recovered": null,
+        "stem": "观众：电视：新闻",
+        "answer": "《MoA是什么？它与MoE的区别是什么？》第8页·一言以蔽之：MoE优化模型“内部”，MoA编排模型“之间” 一言以蔽之：MoE优化模型“内部”，MoA编排模型“之间” 专家；专家；智能体；专家；专家；模型；专家；专家；智能体；智能体；专…[1]。"
+      },
+      {
+        "row_index": 39,
+        "qid_recovered": 2165,
+        "stem": "路由器：连接：网络",
+        "answer": "《一口气讲完OAuth2四种授权模式》 项目中，当请求发过来时，oauth2会帮我们自行校验。 认证服务 配置文件对服务端口、应用名称、数据库、mybatis和日志进行了配置。 Security 配置 ①将继承了UserDetailsSe…[1]。"
+      },
+      {
+        "row_index": 277,
+        "qid_recovered": null,
+        "stem": "教：学：教学",
+        "answer": "《多模态算法ALBEF模型解析》第1页·多模态算法ALBEF模型解析 多模态算法ALBEF模型解析 Align before Fuse(先对齐，再融合）；cgolm；文字和检验的数据；映象的数据；cont I；code；Tiss；10c；…[1]。"
+      }
+    ],
+    "可能相关": []
+  },
+  "manual_review_20": [
+    {
+      "row_index": 22,
+      "qid_recovered": 1113,
+      "stem": "2014 年，以下哪个现代服务业新登记注册企业的户数同比增速最快？",
+      "answer": "《企业级MCP集成方案与应用实践》 sync def get_admin_user(current_user: User = Depends(get_current_user)) -> User: \"\"\"获取管理员用户\"\"\" if not…[1]。",
+      "chunk_title": "企业级MCP集成方案与应用实践"
+    },
+    {
+      "row_index": 127,
+      "qid_recovered": 1898,
+      "stem": "“脱贫”不仅是政策语汇，也是文化社会学的范畴。近年来，农村调研、乡村报道不断反映出一个规律——物质的贫困与文化的落后是一体两面，精神的安放与脱贫的实现需要同步达成。因此在评价扶贫工作成绩时，除了要用人均纯收入、可支配收入等数字标准，要看住房安全、基本医疗这些生存保障，还应该多拿“人文的尺子”量一量，其结果才更为精准。…",
+      "answer": "《模型微调数据集创建工具Easy dataset》第10页·实战演练4/4：审核与优化-确保数据质量的最后一公里 实战演练4/4：审核与优化-确保数据质量的最后一公里 **核心理念*：自动化生成+人工审核=高质量数据集。；领域树；问题管理…[1]。",
+      "chunk_title": "模型微调数据集创建工具Easy dataset"
+    },
+    {
+      "row_index": 179,
+      "qid_recovered": 2647,
+      "stem": "下列纸盒的外表面展开图中，哪项折叠成的纸盒和其他三个不一样？",
+      "answer": "《阿里全链路压测方案最佳实践》 则配置起到限流的作用。 通过这套架构，我们现在可以做到目前比按照整体环境大约节省成本是 40% 左右，基本上对整个生产业务没有任何切入。 全链路压测风险防控能力 下面来具体谈一谈如何做一个影子数据库，包括整…[1]。",
+      "chunk_title": "阿里全链路压测方案最佳实践"
+    },
+    {
+      "row_index": 311,
+      "qid_recovered": 2078,
+      "stem": "关于 2018 年前三季度 S 省物流情况，能够从上述资料中推出的是：",
+      "answer": "《Claude Code 实战从入门到精通》 ient==1.1.0 streamlit==1.41.1 langgraph==0.2.59 tiktoken==0.8.0 chromadb==0.5.23 langchain==0.3.…[1]。",
+      "chunk_title": "Claude Code 实战从入门到精通"
+    },
+    {
+      "row_index": 388,
+      "qid_recovered": 3306,
+      "stem": "北极地区常年漂浮着体积巨大、厚薄不一的海冰。面对这些海冰，绝大部分战舰只能 ，唯有破冰船和冰面下的潜艇敢于一试身手。当前，世界上力量最强的破冰船，排水量可达3.3万吨，能够 地破开近3米厚的坚冰，堪称北极航线上的开路先锋。依次填入画横线部分最恰当的一项是：",
+      "answer": "《Transformers执行分类推理任务》 k, v in SUPPORTED_TASKS.items(): print(k, v) 输出但其概念 PipeLine 支持的任务类型以及可以调用的举例输出： audio-classific…[1]。",
+      "chunk_title": "Transformers执行分类推理任务"
+    },
+    {
+      "row_index": 481,
+      "qid_recovered": 1091,
+      "stem": "历练对于 （ ） 相当于磨砺对于 （ ）",
+      "answer": "《专题九--公司落地篇》 件的自动识别和检测 系统 系统 零部件错漏装检测系统应用场景 零部件错漏装检测系统应用场景 2025 年“人工智能+”行业标杆案例荟萃 垂类场景 270 271 2025 年“人工智能+”行业标杆案例荟萃 垂类场…[1]。",
+      "chunk_title": "专题九--公司落地篇"
+    },
+    {
+      "row_index": 564,
+      "qid_recovered": null,
+      "stem": "从所给的四个选项中，选择最合适的一个填入问号处，使之呈现一定的规律性：",
+      "answer": "《Day2_ MCP企业级项目开发实践》 具体提供的接口详情介绍： (1) 地理编码 name=‘maps_regeocode’ description=‘将一个高德经纬度坐标转换为行政区划地址信息’ inputSchema={‘type…[1]。",
+      "chunk_title": "Day2_ MCP企业级项目开发实践"
+    },
+    {
+      "row_index": 648,
+      "qid_recovered": 3541,
+      "stem": "关于盆地地形，下列说法错误的是：",
+      "answer": "《LangGraph持久化管理》 nformation from previous interactions. How can I assist you today, Bob? 如何管理对话历史 持久性的最常见用例之一是使用它来跟踪对话历…[1]。",
+      "chunk_title": "LangGraph持久化管理"
+    },
+    {
+      "row_index": 721,
+      "qid_recovered": 3539,
+      "stem": "下列人物所说的话与经济有关，其中说法正确的是：",
+      "answer": "《Claude Code 实战从入门到精通》 \" // 搜索内容 ], \"deny\": [ \"Bash(rm )\", // 删除文件：直接阻止 \"Bash(git push )\", // 推送代码：直接阻止 \"Bash(mkdir / )…[1]。",
+      "chunk_title": "Claude Code 实战从入门到精通"
+    },
+    {
+      "row_index": 816,
+      "qid_recovered": 2559,
+      "stem": "如种植收益=产值－生产成本，则 2020 年 H 省秋粮稻谷平均每亩的种植收益约是玉米的多少倍？",
+      "answer": "《借助大模型API自动处理任务》第12页·施展魔法(三)：发送请求，获取智慧 施展魔法(三)：发送请求，获取智慧 # (Previous code is visible but ..)；response = client.chat.com…[1]。",
+      "chunk_title": "借助大模型API自动处理任务"
+    },
+    {
+      "row_index": 930,
+      "qid_recovered": null,
+      "stem": "关于表中城市公园数量及面积，能够从上述资料中推出的是：",
+      "answer": "《Codex 实战从入门到精通》 “总结今天未读的 Gmail 线程” 或“从 Google Drive 拉取最新发布说明”。如果你希望 Codex 自己选择合适的已安装工具，这种方式更合适。 • 指定某个插件： 输入 @，显式调用某个插…[1]。",
+      "chunk_title": "Codex 实战从入门到精通"
+    },
+    {
+      "row_index": 968,
+      "qid_recovered": null,
+      "stem": "知领域，鼓励大胆探索、 ，寻求有效解决新矛盾新问题的思路和办法，努力创造可复制、可推广的新鲜经验。依次填入画横线部分最恰当的一项是：",
+      "answer": "《Prompting相关面试题》 我们让x轴是模型的参数量，y轴是某种能力的效果，那么涌现能力在图中会有一个清晰的Pattern：在某个阈值之前的效果接近随机（把模型做大，性能也只能在一个水准上 我们让x轴是模型的参数量，y轴是某种能力的…[1]。",
+      "chunk_title": "Prompting相关面试题"
+    },
+    {
+      "row_index": 1035,
+      "qid_recovered": 3777,
+      "stem": "关于医学治疗手段及其原理，下列说法正确的是：",
+      "answer": "《解释LLaMA的RMSNorm和SwiGLU激活函数改进》 齐 解决方案： 1. RMSNorm分层应用： • 在Embedding层后添加RMSNorm层 • 在Cross-Attention模块使用LayerNorm • 通过超参数…[1]。",
+      "chunk_title": "解释LLaMA的RMSNorm和SwiGLU激活函数改进"
+    },
+    {
+      "row_index": 1127,
+      "qid_recovered": 3042,
+      "stem": "如用求各市算术平均值的方式计算全省数值，则 2021 年四季度 Z 省中心城市道路汽车前排驾乘人员安全带使用率比上季度：",
+      "answer": "《基于TensorFlow训练和评估模型》 map 将分词器应用到整个数据集，之后将数据集和分词器传给 prepare_tf_dataset()。如果你需要的话，也可以在这里改变批次大小和是否打乱数据集： >>> dataset = da…[1]。",
+      "chunk_title": "基于TensorFlow训练和评估模型"
+    },
+    {
+      "row_index": 1252,
+      "qid_recovered": 3274,
+      "stem": "（三）222016~2020年，我国马铃薯总产量在以下哪个范围内？",
+      "answer": "《LLaMA Factory基于FSDP训练模型》 和对显存消耗进行估算，以帮助更好地理解完全分片数据并行算法 FSDP。 精度格式 在深度学习中，常用的精度格式包括 FP32、FP16、BF16 和 TF32。 • FP16：同样是 I…[1]。",
+      "chunk_title": "LLaMA Factory基于FSDP训练模型"
+    },
+    {
+      "row_index": 1334,
+      "qid_recovered": 3162,
+      "stem": "2022年新增投运的电化学储能电站中，平均每个大型电站的能量约是中型电站的多少倍？",
+      "answer": "《基于FastMCP框架开发智能问答应用》 pr, \"symbolic_result\": str(symbolic_expr), \"numerical_result\": numerical_result, \"formatted_resul…[1]。",
+      "chunk_title": "基于FastMCP框架开发智能问答应用"
+    },
+    {
+      "row_index": 1423,
+      "qid_recovered": 2138,
+      "stem": "不论是以巴尔扎克为代表的 19 世纪欧洲文学，还是以鲁迅为先导的中国现代文学，多半高擎现实主义大旗开垦生活，塑造典型。新时期以来的文学创作，基本也都坚守现实主义立场，比较善于揭露、针砭生活中的负面客观真实，这是完全必要且非常宝贵的。然而，部分小说缺乏对生活中积极因素和正面形象的塑造，缺少对正面价值和情感的呼吁。其实，…",
+      "answer": "《第6章 虚拟存储器》第15页·页面调入策略(1) 页面调入策略(1) 如系统拥有足够的对换区空间，全部从对换区调入所需页面；如系统缺少足够的对换区空间，凡是不会被修改的文件，都直接从文件区调入；当换出这些页面时，由于未被修改而不必再将它…[1]。",
+      "chunk_title": "第6章 虚拟存储器"
+    },
+    {
+      "row_index": 1555,
+      "qid_recovered": 1054,
+      "stem": "纵观世界，新的垃圾处理时代正在到来。前不久，俄罗斯科学家已经可以利用等离子技术来处理垃圾焚烧过程中产生的有害气体，并对城市生活制造的“污泥浊水”进行无害化处理，使其转为腐殖酸肥料。德国科学家造出“风拣技术”，令世界看到了垃圾处理的广阔未来。该技术终结了垃圾的人工分拣，让风代替人去对垃圾中的塑料、玻璃、纸张等进行分拣，…",
+      "answer": "《arraylist和linklist原理，区别》 /得到修改前该节点的地址 Node x = node(index); //得到修改前该节点的元素值 E oldVal = x.item; //修改该节点的元素值 x.item = ele…[1]。",
+      "chunk_title": "arraylist和linklist原理，区别"
+    },
+    {
+      "row_index": 1689,
+      "qid_recovered": 2565,
+      "stem": "已知 2020 年中国 IC 封装市场规模同比增长 x 亿元，IC 封装市场中 IC 先进封装市场规模占比同比增长 y 个百分点，而 2020 年往后中国 IC 封装市场规模及 IC 先进封装市场规模占比每年都分别同比增长 x 亿元和 y 个百分点，则到“十四五”最后一年（2025 年），中国 IC 先进封装市场规模…",
+      "answer": "《Rerank模型深度讲解》第7页·Embedding的局限性（2）：维度限制 Embedding的局限性（2）：维度限制 Compression/Embedding；个；A4；Fixed Vector Size (e.g., 512/1…[1]。",
+      "chunk_title": "Rerank模型深度讲解"
+    },
+    {
+      "row_index": 1793,
+      "qid_recovered": 2379,
+      "stem": "甲和乙两个乡村图书室共有 5000 本藏书，其中甲图书室的藏书比乙图书室多 3x 本，现从甲图书室中取出 150 本书放入乙图书室后，甲图书室的藏书仍比乙图书室多 2x 本，问甲图书室原有图书多少本？",
+      "answer": "《基于LM Studio私有化部署Llama3和API调用》 dio 中的 nomic-edmbed-text-v1.5，如下图所示： 1. 向量数据库：在这里我选择了一个轻量级的 LanceDB，如下图所示： 配置知识库 返回主界面之后…[1]。",
+      "chunk_title": "基于LM Studio私有化部署Llama3和API调用"
+    }
+  ]
+}

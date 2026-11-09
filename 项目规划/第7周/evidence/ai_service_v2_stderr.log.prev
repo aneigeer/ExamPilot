@@ -1,0 +1,21 @@
+2026-11-08 22:29:48,912 [INFO] [-] [ai_service] [启动] AI 微服务已初始化 {'app': 'examprep-ai-service v1.0.0', 'listen': '127.0.0.1:8000', 'embedding': {'model_id': 'bge-small-zh-v1.5', 'dim': 512, 'model_dir': 'D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\bge-small-zh-v1.5', 'auto_download': False}, 'qdrant': {'url': 'local:./data/qdrant', 'collection': 'exam_chunks', 'api_key_set': False}, 'llm': {'model': 'qwen2.5-7b-instruct-baseline', 'base_url': 'http://127.0.0.1:11434/v1', 'api_key_set': True}, 'ocr': {'enabled': True, 'lang': 'ch', 'model_dir': 'D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\paddle'}, 'agent': {'enabled': True, 'java_base_url': 'http://127.0.0.1:8080/api', 'internal_token_set': True, 'allow_anonymous': False, 'max_steps': 6, 'max_tool_calls': 4, 'max_prompt_chars': 8000, 'subagent_enabled': False, 'subagent_max_questions': 3}, 'jobs': {'worker_enabled': False, 'eval_worker_enabled': False, 'wiki_worker_enabled': False, 'redis_url': 'redis://127.0.0.1:6379/0', 'stream': 'exam:jobs', 'eval_stream': 'exam:eval', 'wiki_stream': 'exam:wiki', 'group': 'expert-workers'}, 'wiki': {'enabled': True, 'collection': 'wiki_pages', 'distill_max_pages': 20}}
+2026-11-08 22:29:48,913 [INFO] [-] [ai_service] [启动] 提示：embedding / OCR 均为懒加载，模型在首次调用对应接口时才加载
+INFO:     Started server process [30748]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+2026-11-08 22:43:58,858 [WARNING] [e09b3b448d0d4c12] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:43:59,099 [WARNING] [20224542e34c4cc8] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:02,146 [WARNING] [86ad6fcd4d354bec] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:02,151 [WARNING] [20a842317a88413e] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:11,681 [WARNING] [6b3856de06b1423e] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:11,691 [WARNING] [3efc25851004439e] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:22,860 [WARNING] [94498c404f604c07] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:22,868 [WARNING] [4d9c5973de124b74] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:57,846 [WARNING] [f54c07934872428f] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:44:57,863 [WARNING] [3788e9fb82fa4ea1] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:45:33,013 [WARNING] [2371d746bab8479e] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:45:33,016 [WARNING] [c296676100d24b51] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:47:54,325 [WARNING] [4dd670c4b6554e59] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:48:51,923 [WARNING] [8d5cc20ef1594165] [ai_service] [HTTP 异常] path=/mcp status=404
+2026-11-08 22:48:51,929 [WARNING] [03c4dd1a93ec42b9] [ai_service] [HTTP 异常] path=/mcp status=404

@@ -1,0 +1,448 @@
+{
+  "student_login": {
+    "status": 200,
+    "ms": 221.7,
+    "body": {
+      "code": 200,
+      "message": "登录成功",
+      "data": {
+        "token": "eyJhbGciOiJIUzM4NCJ9.eyJ1aWQiOjMsInJvbGUiOiJTVFVERU5UIiwic3R1IjoiMjAyMTAwMSIsInN1YiI6IjMiLCJpYXQiOjE3OTQwNTY4OTQsImV4cCI6MTc5NDY2MTY5NH0.g5VlO4CW-6xtmP4pjhsiQLNJeEeukXSirXwl3xSDzkUEq9GntG9A7dFNjiqs7Qd0",
+        "expiresIn": 604800,
+        "user": {
+          "id": 3,
+          "nickname": "李同学",
+          "maskedStudentNo": "2021****01",
+          "role": "STUDENT",
+          "collegeId": 1,
+          "grade": "2021"
+        }
+      },
+      "traceId": "6d195ad548ed0db2"
+    }
+  },
+  "admin_login": {
+    "status": 200,
+    "ms": 68.6,
+    "body": {
+      "code": 200,
+      "message": "登录成功",
+      "data": {
+        "token": "eyJhbGciOiJIUzM4NCJ9.eyJ1aWQiOjEsInJvbGUiOiJBRE1JTiIsInN0dSI6ImFkbWluIiwic3ViIjoiMSIsImlhdCI6MTc5NDA1Njg5NSwiZXhwIjoxNzk0NjYxNjk1fQ.7AnW3GQrUS-Ml-l0B4f6qWzVlhpQIZ0rKzKnYlVBbGM4u2n9IF6Wcro2HdIxd-R_",
+        "expiresIn": 604800,
+        "user": {
+          "id": 1,
+          "nickname": "系统管理员",
+          "maskedStudentNo": "******",
+          "role": "ADMIN",
+          "collegeId": 1,
+          "grade": "2021"
+        }
+      },
+      "traceId": "4a2ef40144da0ee4"
+    }
+  },
+  "tokens": {
+    "student": true,
+    "admin": true
+  },
+  "me": {
+    "status": 500,
+    "ms": 69.7,
+    "body": "{\"code\":500,\"message\":\"服务器内部错误\",\"traceId\":\"19fd613c20e729f4\"}"
+  },
+  "question_types": {
+    "status": 200,
+    "ms": 25.6,
+    "body": {
+      "code": 200,
+      "message": "成功",
+      "data": [
+        {
+          "value": "CALCULATION",
+          "label": "计算题"
+        },
+        {
+          "value": "LISTENING",
+          "label": "听力选择题"
+        },
+        {
+          "value": "COMPOSITE",
+          "label": "组合题"
+        },
+        {
+          "value": "TRANSLATION",
+          "label": "翻译题"
+        },
+        {
+          "value": "MATCHING",
+          "label": "匹配题"
+        },
+        {
+          "value": "WRITING",
+          "label": "作文题"
+        },
+        {
+          "value": "MULTI_CHOICE",
+          "label": "多选题"
+        },
+        {
+          "value": "APPLICATION",
+          "label": "应用题"
+        },
+        {
+          "value": "PROGRAMMING",
+          "label": "编程题"
+        },
+        {
+          "value": "SINGLE_CHOICE",
+          "label": "单选题"
+        },
+        {
+          "value": "SHORT_ANSWER",
+          "label": "简答题"
+        },
+        {
+          "value": "FILL_BLANK",
+          "label": "填空题"
+        },
+        {
+          "value": "CLOZE",
+          "label": "完形填空"
+        },
+        {
+          "value": "TRUE_FALSE",
+          "label": "判断题"
+        },
+        {
+          "value": "TERM_EXPLAIN",
+          "label": "名词解释"
+        },
+        {
+          "value": "READING",
+          "label": "阅读理解"
+        },
+        {
+          "value": "ORDERING",
+          "label": "排序题"
+        }
+      ],
+      "traceId": "8274e0b6fff03d49"
+    }
+  },
+  "question_list": {
+    "status": 200,
+    "ms": 87.0,
+    "body": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "page": 1,
+        "size": 5,
+        "total": 2500,
+        "list": [
+          {
+            "id": 4022,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "若宋和韩组队乒乓球双打，则以下哪项是可能的？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED",
+            "options": [
+              {
+                "key": "A",
+                "content": "吴和韩组队网球双打"
+              },
+              {
+                "key": "B",
+                "content": "吴和宋组队网球双打"
+              },
+              {
+                "key": "C",
+                "content": "宋和韩组队羽毛球双打"
+              },
+              {
+                "key": "D",
+                "content": "吴和宋组队羽毛球双打六. 资料分析：(一)"
+              }
+            ]
+          },
+          {
+            "id": 4021,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "以下哪项中的两人可能同时组队网球和羽毛球双打？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED",
+            "options": [
+              {
+                "key": "A",
+                "content": "王和吴"
+              },
+              {
+                "key": "B",
+                "content": "王和宋"
+              },
+              {
+                "key": "C",
+                "content": "吴和宋"
+              },
+              {
+                "key": "D",
+                "content": "韩和宋"
+              }
+            ]
+          },
+          {
+            "id": 4020,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "若吴参加 3 个项目，则以下哪项是可能的？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED",
+            "options": [
+              {
+                "key": "A",
+                "content": "宋参加网球项目"
+              },
+              {
+                "key": "B",
+                "content": "王参加网球项目"
+              },
+              {
+                "key": "C",
+                "content": "宋参加乒乓球项目"
+              },
+              {
+                "key": "D",
+                "content": "王参加羽毛球项目"
+              }
+            ]
+          },
+          {
+            "id": 4019,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "若宋和韩组队网球双打，则以下哪项一定正确？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED",
+            "options": [
+              {
+                "key": "A",
+                "content": "吴参加乒乓球项目"
+              },
+              {
+                "key": "B",
+                "content": "王参加羽毛球项目"
+              },
+              {
+                "key": "C",
+                "content": "宋参加乒乓球项目"
+              },
+              {
+                "key": "D",
+                "content": "吴参加羽毛球项目"
+              }
+            ]
+          },
+          {
+            "id": 4018,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "对于 3 支双打队伍的组成情况，以下哪项是可能的？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED",
+            "options": [
+              {
+                "key": "A",
+                "content": "网球——王、宋；乒乓球——吴、宋；羽毛球——王、韩"
+              },
+              {
+                "key": "B",
+                "content": "网球——吴、韩；乒乓球——吴、王；羽毛球——韩、宋"
+              },
+              {
+                "key": "C",
+                "content": "网球——韩、宋；乒乓球——吴、王；羽毛球——王、宋"
+              },
+              {
+                "key": "D",
+                "content": "网球——王、宋；乒乓球——吴、韩；羽毛球——王、吴"
+              }
+            ]
+          }
+        ]
+      },
+      "traceId": "3842fcf7684aff51"
+    }
+  },
+  "question_detail": {
+    "status": 200,
+    "ms": 22.8,
+    "body": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "id": 4022,
+        "subjectId": 190,
+        "type": "SINGLE_CHOICE",
+        "typeName": "单选题",
+        "stem": "若宋和韩组队乒乓球双打，则以下哪项是可能的？",
+        "difficulty": 3,
+        "source": "2026年国考行测（行政执法）",
+        "tags": "国考,行测,2026,行政执法,判断推理",
+        "score": 1,
+        "objective": true,
+        "auditStatus": "APPROVED",
+        "options": [
+          {
+            "key": "A",
+            "content": "吴和韩组队网球双打",
+            "isAnswer": false
+          },
+          {
+            "key": "B",
+            "content": "吴和宋组队网球双打",
+            "isAnswer": false
+          },
+          {
+            "key": "C",
+            "content": "宋和韩组队羽毛球双打",
+            "isAnswer": false
+          },
+          {
+            "key": "D",
+            "content": "吴和宋组队羽毛球双打六. 资料分析：(一)",
+            "isAnswer": true
+          }
+        ],
+        "analysis": "第一步：分析题干条件。（1）王、韩没有参加同一个项目；（2）韩羽毛球宋网球；（3）王乒乓球吴网球，王乒乓球吴网球；（4）每支队伍由其中 2 人组成，4 人均至少参加了其中的一支队伍；（5）宋和韩组队乒乓球双打。第二步：根据题干条件进行推理。根据条件（4）与（5），可知乒乓球队人已满，则王与吴均不能参加乒乓球项目，结合条件（3），肯前必肯后，可得吴不参加网球项目，排除 A. B 两项；根据吴不参加乒乓球项目，也不参加网球项目，结合条件（4），4 人均至少参加了其中的一支队伍，可得吴必须参加羽毛球项目，那么宋和韩不可能同时参加羽毛球项目，排除 C 项。"
+      },
+      "traceId": "95c6ada967119f36"
+    }
+  },
+  "grade": {
+    "status": 200,
+    "ms": 30.3,
+    "body": {
+      "code": 200,
+      "message": "判分完成",
+      "data": {
+        "available": true,
+        "level": "INVALID",
+        "scoreRate": 0.0,
+        "hitPoints": [],
+        "missedPoints": [],
+        "comment": "作答过短，无法判分。请写出你的思路或关键结论",
+        "generator": "rule",
+        "reason": ""
+      },
+      "traceId": "2164d3c77b7929c2"
+    }
+  },
+  "admin_questions": {
+    "status": 200,
+    "ms": 48.7,
+    "body": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "page": 1,
+        "size": 5,
+        "total": 3080,
+        "list": [
+          {
+            "id": 4026,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "以下柱状图反映了哪一时间段内，我国科幻产业营收额同比增量的变化情况（横轴位置表示增量为 0）？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,资料分析",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "PENDING"
+          },
+          {
+            "id": 4025,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "在①2023 年未来产业领域企业发明专利产业化平均收益、②2024 年小微企业发明专利产业化总体平均收益、③2023 年金属制品业大型企业发明专利产业化率 3 项指标中，能够从上述资料中推出的有几项？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,资料分析",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "PENDING"
+          },
+          {
+            "id": 4024,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "资料所列 13 个行业中，2024 年企业发明专利产业化率同比增量超过 3 个百分点的有几个？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,资料分析",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "PENDING"
+          },
+          {
+            "id": 4023,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "将我国企业的发明专利、 实用新型专利、 外观设计专利按产业化率从高到低排序， 则2020~2023 年中次序与 2024 年次序一致的年份有几个？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,资料分析",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "PENDING"
+          },
+          {
+            "id": 4022,
+            "subjectId": 190,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "若宋和韩组队乒乓球双打，则以下哪项是可能的？",
+            "difficulty": 3,
+            "source": "2026年国考行测（行政执法）",
+            "tags": "国考,行测,2026,行政执法,判断推理",
+            "score": 1,
+            "objective": true,
+            "auditStatus": "APPROVED"
+          }
+        ]
+      },
+      "traceId": "3a2919925f27ea5e"
+    }
+  }
+}

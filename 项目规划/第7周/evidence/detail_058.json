@@ -1,0 +1,1932 @@
+{
+  "metrics": {
+    "用例数": 214,
+    "Recall@1": "52.2%",
+    "Recall@3": "92.1%",
+    "Recall@5": "94.1%",
+    "Recall@10": "95.6%",
+    "MRR": "0.713",
+    "拒答准确率": "81.8%",
+    "误拒率": "9.4%",
+    "平均延迟": "286 ms"
+  },
+  "passed": 203,
+  "report": "D:\\大学生多考试备考知识库与题库系统\\ai-service\\eval\\reports\\retrieval_eval_20261108_162414.html",
+  "detail": [
+    {
+      "id": "s01",
+      "question": "C语言的 int 类型一般占多少字节？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s02",
+      "question": "32 位系统里一个整型变量占多大内存？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s03",
+      "question": "为什么同样写 int 在不同平台占用的空间不一样？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s04",
+      "question": "C语言里哪些单词是保留关键字？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s05",
+      "question": "写代码时变量名不能用哪些词？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "s06",
+      "question": "C语言关键字和普通标识符怎么区分？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s07",
+      "question": "C语言数组下标是从 1 开始数吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s08",
+      "question": "数组第一个元素的下标是多少？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s09",
+      "question": "为什么访问数组时要从 0 开始计数？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s10",
+      "question": "C语言里把变量打印到屏幕上用哪个函数？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s11",
+      "question": "格式化输出应该调用什么库函数？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s12",
+      "question": "向控制台输出格式化文本用哪个函数？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s13",
+      "question": "函数传参时值传递和地址传递有什么不同？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s14",
+      "question": "为什么通过指针能修改函数外部的变量？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s15",
+      "question": "C语言调用函数时参数是怎么传进去的？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s16",
+      "question": "C语言动态申请内存用哪个函数？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s17",
+      "question": "堆上的内存怎么分配和释放？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s18",
+      "question": "malloc 和 free 分别起什么作用？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s19",
+      "question": "顺序存储和链式存储各有什么优缺点？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s20",
+      "question": "数组实现的线性表和链表在插入删除时差别在哪？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s21",
+      "question": "什么时候该用顺序表什么时候该用链表？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s22",
+      "question": "栈和队列的进出规则有什么不同？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s23",
+      "question": "先进先出和后进先出分别对应哪种数据结构？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "s24",
+      "question": "栈和队列分别适合什么场景？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s25",
+      "question": "二叉树有哪几种遍历顺序？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s26",
+      "question": "前序中序后序遍历分别怎么走？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s27",
+      "question": "层序遍历和深度优先遍历有什么区别？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "s28",
+      "question": "满二叉树和完全二叉树怎么区分？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s29",
+      "question": "完全二叉树允许最后一层不满吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s30",
+      "question": "什么样的二叉树叫满二叉树？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s31",
+      "question": "什么是野指针？怎么避免？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s32",
+      "question": "指针没有初始化会带来什么问题？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s33",
+      "question": "free 之后还需要把指针置空吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s34",
+      "question": "写递归函数必须满足哪些条件？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s35",
+      "question": "递归为什么一定要有终止条件？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s36",
+      "question": "递归调用缺少边界会怎样？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "s37",
+      "question": "C语言函数参数按值传递意味着什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s38",
+      "question": "地址传递为什么能改变实参的值？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s39",
+      "question": "两种传参方式在内存上有什么区别？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s40",
+      "question": "指针和数组是什么关系？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s41",
+      "question": "数组名可以当成指针用吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s42",
+      "question": "指针和数组在内存访问上有什么联系？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s43",
+      "question": "函数在某一点连续的定义是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s44",
+      "question": "怎么用极限描述函数连续？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s45",
+      "question": "函数连续需要满足哪几个条件？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s46",
+      "question": "导数的几何意义是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s47",
+      "question": "切线斜率与导数有什么关系？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s48",
+      "question": "为什么导数能表示函数的变化率？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s49",
+      "question": "复合函数怎么求导？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s50",
+      "question": "链式法则的公式是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "s51",
+      "question": "多层复合函数求导要注意什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s52",
+      "question": "n 阶方阵可逆的充要条件有哪些？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s53",
+      "question": "行列式不为零和矩阵可逆是什么关系？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s54",
+      "question": "怎么判断一个矩阵有没有逆矩阵？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s55",
+      "question": "行列式有哪些常用性质？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s56",
+      "question": "行列式交换两行会怎样变化？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s57",
+      "question": "行列式按行展开的规则是什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s58",
+      "question": "数列极限的 ε-N 定义怎么叙述？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s59",
+      "question": "用 ε-N 语言怎么证明数列收敛？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s60",
+      "question": "极限定义里 N 和 ε 的关系是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s61",
+      "question": "C++ 中引用和指针有什么区别？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s62",
+      "question": "引用为什么必须初始化？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s63",
+      "question": "指针和引用在底层实现上一样吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s64",
+      "question": "动量守恒定律的内容和成立条件是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s65",
+      "question": "什么时候系统的总动量保持不变？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s66",
+      "question": "动量守恒需要满足哪些前提？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s67",
+      "question": "冯·诺依曼体系结构的核心思想是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s68",
+      "question": "存储程序计算机的基本组成有哪些？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "s69",
+      "question": "冯·诺依曼结构为什么把程序和数据放在一起？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g01",
+      "question": "矛盾的普遍性和客观性是什么意思？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g02",
+      "question": "为什么说矛盾无处不在无时不有？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g03",
+      "question": "马克思主义政治经济学主要研究什么？",
+      "rank": 10,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g04",
+      "question": "剩余价值理论属于哪一套经济学体系？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g05",
+      "question": "中国共产党人的理想信念建立在什么基础上？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g06",
+      "question": "为什么说马克思主义揭示了人类社会发展规律？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g07",
+      "question": "高质量发展为什么是首要任务？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g08",
+      "question": "金融怎么服务经济社会发展？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g09",
+      "question": "保障粮食安全有哪些举措？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g10",
+      "question": "为什么说粮食安全是国之大者？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g11",
+      "question": "高质量充分就业的含义是什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g12",
+      "question": "新发展理念下就业优先怎么落实？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g13",
+      "question": "全面从严治党为什么要跳出历史周期率？",
+      "rank": 4,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g14",
+      "question": "党的自我革命第二个答案指什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g15",
+      "question": "深化科技体制改革有哪些举措？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g16",
+      "question": "科技基础能力建设包括什么？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g17",
+      "question": "初次分配再分配和第三次分配怎么协调？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g18",
+      "question": "完善收入分配制度要做什么？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g19",
+      "question": "自主创新为什么是牛鼻子？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g20",
+      "question": "提升自主创新能力有哪些做法？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g21",
+      "question": "制度型开放包括哪些内容？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g22",
+      "question": "稳步扩大制度型开放要怎么做？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g23",
+      "question": "宣传思想文化工作的首要政治任务是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g24",
+      "question": "为什么说宣传思想文化工作极端重要？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g25",
+      "question": "新时代统一战线工作怎么完善？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g26",
+      "question": "大统战工作格局包含哪些方面？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g27",
+      "question": "健全绿色低碳发展机制有哪些政策？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g28",
+      "question": "绿色低碳产业怎么发展？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g29",
+      "question": "深化医药卫生体制改革有哪些举措？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g30",
+      "question": "医改的重点任务是什么？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g31",
+      "question": "完善市场经济基础制度包括哪些内容？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g32",
+      "question": "高标准市场体系需要哪些基础制度？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g33",
+      "question": "党风廉政建设怎么一体推进三不腐？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g34",
+      "question": "中央八项规定精神是什么？",
+      "rank": 5,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g35",
+      "question": "正确政绩观要求干部怎么做？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g36",
+      "question": "为什么不能只追求表面政绩？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g37",
+      "question": "西部大开发新格局包括哪些方面？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g38",
+      "question": "西部地区发展为什么要大保护大开放？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g39",
+      "question": "四个全面战略布局包括哪些内容？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g40",
+      "question": "全面从严治党是什么时候加入四个全面的？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g41",
+      "question": "我国农业国情有哪些特点？",
+      "rank": 10,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g42",
+      "question": "关于我国耕地和农业的说法哪些正确？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": true
+    },
+    {
+      "id": "g43",
+      "question": "历史人物和他们的擅长领域怎么对应？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g44",
+      "question": "古代历史人物与其艺术成就怎么对应？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g45",
+      "question": "行政机关为什么不能法外设定权力？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g46",
+      "question": "没有法律依据能设定公民义务吗？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g47",
+      "question": "哪些俗语对应经济学概念？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g48",
+      "question": "常见俗语和经济学名词怎么匹配？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g49",
+      "question": "对联的平仄和对仗有什么要求？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g50",
+      "question": "关于对联的说法哪些正确？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g51",
+      "question": "哪些文学作品以第二次世界大战为背景？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g52",
+      "question": "二战题材的代表作品有哪些？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g53",
+      "question": "什么是非战争军事行动？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g54",
+      "question": "抢险救灾属于非战争军事行动吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g55",
+      "question": "历史人物和他们的名言怎么对应？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g56",
+      "question": "下列言论分别出自哪位历史人物？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g57",
+      "question": "乐以天下忧以天下属于哪个学派？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g58",
+      "question": "儒家和道家观点怎么区分？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g59",
+      "question": "下列哪种自然现象可能发生？",
+      "rank": 4,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g60",
+      "question": "地理常识中哪些现象符合实际？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g61",
+      "question": "关于恐龙的说法哪些正确？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g62",
+      "question": "恐龙是爬行动物吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g63",
+      "question": "企业执行力为什么重要？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g64",
+      "question": "战略规划怎么才能真正落地？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g65",
+      "question": "博物馆收藏化石对化石资源保护有什么影响？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g66",
+      "question": "私人收藏化石有哪些争议？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g67",
+      "question": "中国教育面临哪些批评？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g68",
+      "question": "教育改革要解决什么问题？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": true
+    },
+    {
+      "id": "g69",
+      "question": "雾霾形成的原因有哪些？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g70",
+      "question": "京津冀大气污染怎么治理？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g71",
+      "question": "筹算对中国古代数学有什么贡献？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g72",
+      "question": "筹算的缺点是什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g73",
+      "question": "量子理论中的负能量是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g74",
+      "question": "真空能量为什么不能简单定为零？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g75",
+      "question": "改进作风要克服哪些问题？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g76",
+      "question": "形式主义官僚主义怎么整治？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g77",
+      "question": "狄德罗百科全书的意义是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g78",
+      "question": "中西文化交流在十八世纪有哪些表现？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g79",
+      "question": "高枕无忧这个说法科学吗？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g80",
+      "question": "枕头高度对健康有什么影响？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g81",
+      "question": "资源开发为什么要提高生态补偿基金？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g82",
+      "question": "资源开发收益怎么分配更合理？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g83",
+      "question": "心理弹性来自哪些因素？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g84",
+      "question": "心理弹性对情绪调节有什么作用？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g85",
+      "question": "物品的预设用途怎么影响使用？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g86",
+      "question": "设计中的可供性是什么意思？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g87",
+      "question": "羽毛球组是乒乓球组两倍足球组是篮球组三倍怎么求人数？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g88",
+      "question": "四个兴趣小组人数比例问题怎么解？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g89",
+      "question": "二十人买机票共两万七千元全价票和折扣票怎么算？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g90",
+      "question": "机票打折问题怎么列方程？",
+      "rank": 3,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g91",
+      "question": "晴天浇水量是阴雨天二点五倍水箱能用几天？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g92",
+      "question": "根据天气调节浇水量的应用题怎么算？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g93",
+      "question": "甲部门每隔两天乙部门每隔三天发布消息多久同时发布？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g94",
+      "question": "两个周期事件同时发生的时间怎么求？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g95",
+      "question": "小周从 A 到 B 下坡骑车速度和时间怎么算？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g96",
+      "question": "行程问题中上下坡速度不同怎么处理？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g97",
+      "question": "三个部门分别派三四名选手比赛安排有多少种？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g98",
+      "question": "排列组合中部门选手出场顺序怎么算？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g99",
+      "question": "八点三十分之后时针和分针什么时候成一百二十度？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g100",
+      "question": "钟表指针夹角问题怎么解？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g101",
+      "question": "百岁老人出生于二十世纪年龄数字之和怎么推？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g102",
+      "question": "年龄数字和问题是哪一年的？",
+      "rank": 5,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g103",
+      "question": "A 公司销售任务是 B 公司一点二倍前三季度完成情况怎么算？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g104",
+      "question": "全年销售任务完成率怎么求？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g105",
+      "question": "十名编辑中英法日方向各有多少人？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g106",
+      "question": "集合容斥问题怎么解？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g107",
+      "question": "女职员调出两人后比重下降三个百分点原来多少人？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g108",
+      "question": "比例变化问题怎么列方程？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "g109",
+      "question": "八乘八乘一的长方体涂色后切成六十四块有多少块有颜色？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g110",
+      "question": "涂色正方体切割问题怎么算？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g111",
+      "question": "土壤是怎么形成的？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g112",
+      "question": "风化壳和土壤有什么关系？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g113",
+      "question": "党政机关公文中的命令适用于什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g114",
+      "question": "命令这种公文怎么用？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g115",
+      "question": "什么是合成字？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g116",
+      "question": "合成字和普通合体字有什么区别？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g117",
+      "question": "理性真理和事实真理怎么区分？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g118",
+      "question": "真理的定义是什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g119",
+      "question": "直观教学是什么意思？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g120",
+      "question": "直观教学有什么作用？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g121",
+      "question": "负启动效应是什么心理现象？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g122",
+      "question": "先前的刺激为什么会干扰后续加工？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": true,
+      "_fail": false
+    },
+    {
+      "id": "g123",
+      "question": "数字鸿沟指什么？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g124",
+      "question": "信息化为什么会造成信息获取差距？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g125",
+      "question": "叶龄指数怎么定义？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g126",
+      "question": "叶龄指数能反映作物什么状态？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g127",
+      "question": "图灵测试怎么判断机器是否具有智能？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g128",
+      "question": "图灵测试的提问方式是什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g129",
+      "question": "产品责任指什么？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g130",
+      "question": "产品有缺陷造成损害由谁负责？",
+      "rank": 1,
+      "recall": "HIT",
+      "mode": "VECTOR_ONLY",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g131",
+      "question": "佩刀和刀鞘是什么关系？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g132",
+      "question": "类比推理中配套关系怎么判断？",
+      "rank": 6,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g133",
+      "question": "琴棋书画和经史子集是什么关系？",
+      "rank": 2,
+      "recall": "HIT",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": false,
+      "_fail": false
+    },
+    {
+      "id": "g134",
+      "question": "并列关系在类比推理中怎么用？",
+      "rank": "MISS",
+      "recall": "MISS",
+      "mode": "VECTOR_HYBRID",
+      "gate_refused": true,
+      "_fail": true
+    },
+    {
+      "id": "r01",
+      "question": "量子纠缠实验怎么做？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    },
+    {
+      "id": "r02",
+      "question": "如何用 Python 训练一个图像分类模型？",
+      "rank": "-",
+      "recall": "未拒答",
+      "mode": "VECTOR_HYBRID",
+      "_fail": true
+    },
+    {
+      "id": "r03",
+      "question": "今天北京天气怎么样？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "FULLTEXT_OR",
+      "_fail": false
+    },
+    {
+      "id": "r04",
+      "question": "红烧肉怎么做？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    },
+    {
+      "id": "r05",
+      "question": "股票明天会涨吗？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "VECTOR_ONLY",
+      "_fail": false
+    },
+    {
+      "id": "r06",
+      "question": "如何申请出国留学签证？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    },
+    {
+      "id": "r07",
+      "question": "iPhone 15 的电池容量是多少？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    },
+    {
+      "id": "r08",
+      "question": "2026 年世界杯冠军是谁？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    },
+    {
+      "id": "r09",
+      "question": "怎么修理汽车发动机？",
+      "rank": "-",
+      "recall": "未拒答",
+      "mode": "FULLTEXT_OR",
+      "_fail": true
+    },
+    {
+      "id": "r10",
+      "question": "推荐几部好看的科幻电影",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "VECTOR_ONLY",
+      "_fail": false
+    },
+    {
+      "id": "r11",
+      "question": "如何学习吉他弹唱？",
+      "rank": "-",
+      "recall": "拒答",
+      "mode": "NONE",
+      "_fail": false
+    }
+  ]
+}

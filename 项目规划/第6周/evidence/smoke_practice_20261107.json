@@ -1,0 +1,101 @@
+{
+  "start": [
+    200,
+    {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "practiceId": 17,
+        "answeredCount": 0,
+        "totalCount": 3,
+        "finished": false,
+        "question": {
+          "id": 1449,
+          "subjectId": 190,
+          "type": "SINGLE_CHOICE",
+          "typeName": "单选题",
+          "stem": "故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+          "difficulty": 3,
+          "source": "2017年国考行测（地市级）",
+          "tags": "国考,行测,2017,地市级,判断推理",
+          "score": 1,
+          "objective": true,
+          "auditStatus": "APPROVED",
+          "options": [
+            {
+              "key": "A",
+              "content": "出游；越王勾践破吴归"
+            },
+            {
+              "key": "B",
+              "content": "场所；千古兴亡多少事"
+            },
+            {
+              "key": "C",
+              "content": "送别；折戟沉沙铁未销"
+            },
+            {
+              "key": "D",
+              "content": "离别；西出阳关无故人"
+            }
+          ]
+        }
+      },
+      "traceId": "83e9d7f7b86733eb"
+    }
+  ],
+  "practiceId": 17,
+  "answer": [
+    200,
+    {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "questionId": 1449,
+        "type": "SINGLE_CHOICE",
+        "judged": true,
+        "correct": false,
+        "correctAnswer": "C",
+        "analysis": "将选项逐一代入，判断各选项前后部分的逻辑关系。A 项：“故人西辞黄鹤楼”出自李白的《黄鹤楼送孟浩然之广陵》，表达的是送别之情，与出游无关，“越王勾践破吴归”出自李白的《越中览古》，是一篇怀古之作，前后逻辑关系不一致，排除；B 项：“故人西辞黄鹤楼”表达的是送别之情，不是黄鹤楼这个场所，“千古兴亡多少事”出自辛弃疾的怀古之作《南乡子·登京口北固亭有怀》，前后逻辑关系不一致，排除；C 项：“故人西辞黄鹤楼”表达的是送别之情，“折戟沉沙铁未销”出自唐代诗人杜牧的《赤壁》，表达的是怀古之情，前后逻辑关系一致，当选；D 项：“西出阳关无故人”出自王维的《送元二使安西》，表达的是离别之情，与怀古无关，前后逻辑关系不一致，排除。",
+        "needSelfEval": false,
+        "answeredCount": 1,
+        "totalCount": 3,
+        "correctCount": 0
+      },
+      "traceId": "021dd1ebc23f4bad"
+    }
+  ],
+  "finish": [
+    200,
+    {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "practiceId": 17,
+        "subjectName": "行政职业能力测验",
+        "mode": "RANDOM",
+        "totalCount": 3,
+        "answeredCount": 1,
+        "correctCount": 0,
+        "accuracy": 0.0,
+        "status": "FINISHED",
+        "startedAt": "2026-11-07T21:08:59",
+        "finishedAt": "2026-11-07T21:08:59",
+        "details": [
+          {
+            "questionId": 1449,
+            "type": "SINGLE_CHOICE",
+            "typeName": "单选题",
+            "stem": "故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+            "userAnswer": "A",
+            "correct": false,
+            "scoreGot": 0.0,
+            "correctAnswer": "C",
+            "analysis": "将选项逐一代入，判断各选项前后部分的逻辑关系。A 项：“故人西辞黄鹤楼”出自李白的《黄鹤楼送孟浩然之广陵》，表达的是送别之情，与出游无关，“越王勾践破吴归”出自李白的《越中览古》，是一篇怀古之作，前后逻辑关系不一致，排除；B 项：“故人西辞黄鹤楼”表达的是送别之情，不是黄鹤楼这个场所，“千古兴亡多少事”出自辛弃疾的怀古之作《南乡子·登京口北固亭有怀》，前后逻辑关系不一致，排除；C 项：“故人西辞黄鹤楼”表达的是送别之情，“折戟沉沙铁未销”出自唐代诗人杜牧的《赤壁》，表达的是怀古之情，前后逻辑关系一致，当选；D 项：“西出阳关无故人”出自王维的《送元二使安西》，表达的是离别之情，与怀古无关，前后逻辑关系不一致，排除。"
+          }
+        ]
+      },
+      "traceId": "8df3de286caf961a"
+    }
+  ]
+}

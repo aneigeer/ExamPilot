@@ -1,0 +1,847 @@
+{
+    "meta":  {
+                 "testId":  "W8-3-20261108",
+                 "startedAt":  "2026-11-08 18:44:31",
+                 "sprint":  "W8-3 AI Q\u0026A e2e + Agent/Interview flows",
+                 "environment":  {
+                                     "backend":  "http://127.0.0.1:8080/api (Spring Boot, PID 28584, profile=local)",
+                                     "aiService":  "http://127.0.0.1:8000 (FastAPI, PID 12400)",
+                                     "mysql":  "127.0.0.1:3306 exam_prep",
+                                     "redis":  "127.0.0.1:6379 (DOWN, known)",
+                                     "internalToken":  "local-sm...oken (masked)"
+                                 },
+                 "accounts":  {
+                                  "student":  {
+                                                  "studentNo":  "2021001",
+                                                  "userId":  3,
+                                                  "tokenMasked":  "eyJhbGci... (masked)"
+                                              }
+                              },
+                 "finishedAt":  "2026-11-08 18:44:54",
+                 "runIdentifiers":  {
+                                        "traceIdJava":  "a1b2c3d4e5f60718",
+                                        "interviewSessionId":  null,
+                                        "subjectId":  5
+                                    }
+             },
+    "summary":  {
+                    "totalCases":  29,
+                    "passed":  24,
+                    "failed":  5,
+                    "dbChecks":  9,
+                    "dbPassed":  6,
+                    "dbFailed":  3,
+                    "verdict":  "P0 ask chain PASS (2 defects); P1 agent via python PASS; Java agent gate OFF (503); interview BLOCKED by Qdrant down (503/5203)"
+                },
+    "cases":  [
+                  {
+                      "id":  "A1-login",
+                      "name":  "student login",
+                      "expected":  "200 + data.token",
+                      "request":  {
+                                      "api":  "POST /auth/login"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  109,
+                      "pass":  true,
+                      "detail":  "token len=201, userId=3",
+                      "responsePreview":  "{\"code\":200,\"message\":\"登录成功\",\"data\":{\"token\":\"eyJhbGciOiJIUzM4NCJ9.eyJ1aWQiOjMsInJvbGUiOiJTVFVERU5UIiwic3R1IjoiMjAyMTAwMSIsInN1YiI6IjMiLCJpYXQiOjE3OTQxMzQ2NzEsImV4cCI6MTc5NDczOTQ3MX0.EWR1bxQm0IonKrOlnKc4Fsbktz9mcPX3El1_mHeCtgi82TOCPt-4Fqc32UnFkAqR\",\"expiresIn\":604800,\"user\":{\"id\":3,\"nickname\":\"李同学\",\"maskedStudentNo\":\"2021****01\",\"role\":\"STUDENT\",\"collegeId\":1,\"grade\":\"2021\"}},\"traceId\":\"60b1ae8b19c6a13e\"}"
+                  },
+                  {
+                      "id":  "A2-ask-domain",
+                      "name":  "POST /ai/ask in-domain (subjectId=5)",
+                      "expected":  "200, generator, refused=false, sources non-empty, answer contains [n]",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别",
+                                      "subjectId":  5
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  1922,
+                      "pass":  true,
+                      "detail":  "generator=ollama engine=RAG refused=False sources=2 citations=1,2 citMax\u003c=sources:True",
+                      "generator":  "ollama",
+                      "engine":  "RAG",
+                      "degraded":  false,
+                      "refused":  false,
+                      "costMillis":  1916,
+                      "retrievalMode":  "VECTOR_HYBRID",
+                      "sources":  [
+                                      {
+                                          "refType":  "QUESTION",
+                                          "refId":  46,
+                                          "refPath":  "/questions/46",
+                                          "title":  "值传递和地址传递有什么区别？"
+                                      },
+                                      {
+                                          "refType":  "QUESTION",
+                                          "refId":  5,
+                                          "refPath":  "/questions/5",
+                                          "title":  "简述 C 语言中「值传递」与「地址传递」的区别。"
+                                      }
+                                  ],
+                      "citationNumbers":  [
+                                              1,
+                                              2
+                                          ],
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"question\":\"值传递和地址传递有什么区别\",\"answer\":\"值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。[1][2]\",\"generator\":\"ollama\",\"engine\":\"RAG\",\"fallbackFromWiki\":true,\"degraded\":false,\"refused\":false,\"costMillis\":1916,\"retrievalMillis\":147,\"retrievalMode\":\"VECTOR_HYBRID\",\"recallCount\":8,\"sources\":[{\"chunkId\":49,\"title\":\"值传递和地址传递有什么区别？\",\"snippet\":\"题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…\",\"refType\":\"QUESTION\",\"refId\":46,\"refPath\":\"/questions/46\",\"offset\":-1},{\"chunkId\":5,\"title\":\"简述 C 语言中「值传递」与「地址传递」的区别。\",\"snippet\":\"题干：简述 C 语言中「值传递」与「地址传递」的区别。 解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。 标签：重点必考,函数 参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关…\",\"refType\":\"QUESTION\",\"refId\":5,\"refPath\":\"/questions/5\",\"offset\":-1}],\"contexts\":[\"值传递和地址传递有什么区别？\",\"简述 C 语言中「值传递」与「地址传递」的区别。\",\"指针与函数\",\"函数定义与调用\"]},\"traceId\":\"f6006ec50ec1f1fa\"}"
+                  },
+                  {
+                      "id":  "A3-source-open",
+                      "name":  "GET /questions/46 (from refPath /questions/46)",
+                      "expected":  "200 and content contains source title",
+                      "request":  {
+                                      "title":  "值传递和地址传递有什么区别？",
+                                      "refId":  46,
+                                      "refPath":  "/questions/46",
+                                      "refType":  "QUESTION"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  5,
+                      "pass":  true,
+                      "detail":  "status=200 titleInBody=True",
+                      "resolvedPath":  "/questions/46",
+                      "refPathFormatNote":  "wiki refPath is /wiki/{id}; actual route is /wiki/pages/{id}",
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"id\":46,\"subjectId\":5,\"type\":\"SHORT_ANSWER\",\"typeName\":\"简答题\",\"stem\":\"值传递和地址传递有什么区别？\",\"difficulty\":3,\"source\":\"AI语料扩充-2026\",\"tags\":\"C语言,函数,参数传递\",\"score\":5,\"objective\":false,\"auditStatus\":\"APPROVED\",\"options\":[],\"analysis\":\"值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\",\"answerContent\":{\"keywords\":[\"值传递\",\"地址传递\",\"指针\",\"形参\",\"实参\"],\"reference\":\"值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。\"}},\"traceId\":\"dc596b9cbfcf5d4a\"}"
+                  },
+                  {
+                      "id":  "A4-out-of-domain-outOfDomainWeather",
+                      "name":  "out-of-domain: 明天上海天气怎么样",
+                      "expected":  "200, refused=true, answer=REFUSAL_TEXT, sources=[]",
+                      "request":  {
+                                      "question":  "明天上海天气怎么样"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  161,
+                      "pass":  true,
+                      "detail":  "refused=True answer=未找到相关资料 sources=0 generator=none",
+                      "generator":  "none",
+                      "engine":  "RAG",
+                      "note":  "",
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"question\":\"明天上海天气怎么样\",\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"engine\":\"RAG\",\"fallbackFromWiki\":true,\"degraded\":false,\"refused\":true,\"costMillis\":159,\"retrievalMillis\":159,\"retrievalMode\":\"VECTOR_ONLY\",\"recallCount\":15,\"sources\":[],\"contexts\":[]},\"traceId\":\"3efda49e5c9ab33e\"}"
+                  },
+                  {
+                      "id":  "A4-out-of-domain-outOfDomainRecipe",
+                      "name":  "out-of-domain: 红烧肉做法",
+                      "expected":  "200, refused=true, answer=REFUSAL_TEXT, sources=[]",
+                      "request":  {
+                                      "question":  "红烧肉做法"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  1304,
+                      "pass":  false,
+                      "detail":  "refused=False answer=与其直接下命令，不如先给AI看几个高质量的范例，让它模仿你的风格。例如，你可以这样描述红烧肉的做法：你看着学，火候；做个红烧肉！；要够，糖色要亮。[1] sources=1 generator=ollama",
+                      "generator":  "ollama",
+                      "engine":  "RAG",
+                      "note":  "out-of-domain question was NOT refused (retrieval false positive)",
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"question\":\"红烧肉做法\",\"answer\":\"与其直接下命令，不如先给AI看几个高质量的范例，让它模仿你的风格。例如，你可以这样描述红烧肉的做法：你看着学，火候；做个红烧肉！；要够，糖色要亮。[1]\",\"generator\":\"ollama\",\"engine\":\"RAG\",\"fallbackFromWiki\":true,\"degraded\":false,\"refused\":false,\"costMillis\":1301,\"retrievalMillis\":127,\"retrievalMode\":\"FULLTEXT_OR\",\"recallCount\":1,\"sources\":[{\"chunkId\":17685,\"title\":\"提示词工程Prompt Engineering\",\"snippet\":\"《提示词工程Prompt Engineering》第7页·工具二：小样本提示-教AI“照猫画虎” 工具二：小样本提示-教AI“照猫画虎” 与其直接下命令，不如先给AI看几个高质量的范例，让它模仿你的风格。；你看着学，火候；做个红烧肉！；要够，糖色要亮。；NotebookLM\",\"refType\":\"COURSEWARE\",\"refId\":521,\"refPath\":\"/courseware/521\",\"offset\":-1}],\"contexts\":[\"提示词工程Prompt Engineering\"]},\"traceId\":\"e9fde851863aa843\"}"
+                  },
+                  {
+                      "id":  "A5-wiki-hot",
+                      "name":  "wiki question: 进程和线程的区别",
+                      "expected":  "200, generator=wiki, engine=WIKI, sources contain WIKI",
+                      "request":  {
+                                      "question":  "进程和线程的区别"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  29,
+                      "pass":  true,
+                      "detail":  "generator=wiki engine=WIKI wikiPageId=20 sources=1 fallbackFromWiki=False",
+                      "generator":  "wiki",
+                      "engine":  "WIKI",
+                      "wikiPageId":  20,
+                      "wikiTitle":  "进程的描述与控制",
+                      "retrievalMode":  "WIKI_NGRAM",
+                      "costMillis":  25,
+                      "sources":  [
+                                      {
+                                          "refType":  "WIKI",
+                                          "refId":  20,
+                                          "refPath":  "/wiki/20"
+                                      }
+                                  ],
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"question\":\"进程和线程的区别\",\"answer\":\"## 进程的基本特征\\n进程具有动态性、并发性、独立性和异步性等基本特征。在一段时间内，多个进程可以同时运行，每个进程都是一个能独立获得资源和调度的基本单位。\\n\\n## PCB链接组织方式\\nPCB（进程控制块）是操作系统管理进程的重要数据结构。它包含了执行指针、就绪队列指针、阻塞队列指针、空闲队列指针等信息，用于实现进程的管理和调度。\\n\\n## 进程通信类型\\n本章介绍了几种常见的进程通信方式，包括共享存储器系统、管道通信等。其中，管道通信是一种高效的方式，用于连接读进程和写进程以实现它们之间的通信。\\n\\n## 线程状态和控制块\\n线程是进程中的一个执行单元，具有不同的状态，如执行态、就绪态、阻塞态等。线程控制块（TCB）包含了线程标识符、一组寄存器、优先级等信息，用于管理线程的运行状态。\",\"generator\":\"wiki\",\"engine\":\"WIKI\",\"fallbackFromWiki\":false,\"wikiPageId\":20,\"wikiPageSlug\":\"doc-506\",\"wikiTitle\":\"进程的描述与控制\",\"degraded\":false,\"refused\":false,\"costMillis\":25,\"retrievalMillis\":25,\"retrievalMode\":\"WIKI_NGRAM\",\"recallCount\":1,\"sources\":[{\"title\":\"进程的描述与控制\",\"snippet\":\"本章主要介绍了进程的基本特征、PCB链接组织方式、进程通信类型以及线程状态和控制块等内容，是操作系统中的重要组成部分。\",\"refType\":\"WIKI\",\"refId\":20,\"refPath\":\"/wiki/20\",\"offset\":-1}],\"contexts\":[\"进程的描述与控制\"]},\"traceId\":\"fbaf1722e8f6c8ee\"}"
+                  },
+                  {
+                      "id":  "A7-ask-no-token",
+                      "name":  "POST /ai/ask without JWT",
+                      "expected":  "401 or 403",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别"
+                                  },
+                      "httpStatus":  401,
+                      "elapsedMs":  12,
+                      "pass":  true,
+                      "detail":  "status=401",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "A8-ask-empty",
+                      "name":  "ask with empty question",
+                      "expected":  "4xx (or documented refusal)",
+                      "request":  {
+                                      "question":  ""
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  8,
+                      "pass":  true,
+                      "detail":  "status=400 code=400 message=请输入你的问题 refused=",
+                      "responsePreview":  "{\"code\":400,\"message\":\"请输入你的问题\",\"traceId\":\"b19af86fa978da82\"}"
+                  },
+                  {
+                      "id":  "A8-ask-too-long",
+                      "name":  "ask with 402-char question (max 200)",
+                      "expected":  "400",
+                      "request":  {
+                                      "questionLength":  402
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  4,
+                      "pass":  true,
+                      "detail":  "status=400 code=400 message=问题长度不能超过 200 字",
+                      "responsePreview":  "{\"code\":400,\"message\":\"问题长度不能超过 200 字\",\"traceId\":\"83cd6b65bdc30376\"}"
+                  },
+                  {
+                      "id":  "A8-ask-missing-question",
+                      "name":  "ask without question field",
+                      "expected":  "400",
+                      "request":  {
+                                      "subjectId":  5
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 code=400 message=请输入你的问题",
+                      "responsePreview":  "{\"code\":400,\"message\":\"请输入你的问题\",\"traceId\":\"cb9d78ec73313a3c\"}"
+                  },
+                  {
+                      "id":  "A8-ask-bad-subject",
+                      "name":  "ask with subjectId=999999",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "subjectId":  999999
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  168,
+                      "pass":  false,
+                      "detail":  "status=200 code=200 message=成功 refused=True sources=0",
+                      "note":  "no parameter validation on subjectId; falls back to refusal (200)",
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"question\":\"值传递和地址传递有什么区别\",\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"engine\":\"RAG\",\"fallbackFromWiki\":true,\"degraded\":false,\"refused\":true,\"costMillis\":165,\"retrievalMillis\":165,\"retrievalMode\":\"NONE\",\"recallCount\":0,\"sources\":[],\"contexts\":[]},\"traceId\":\"b97cfd234803282d\"}"
+                  },
+                  {
+                      "id":  "B1-agent-tool-success",
+                      "name":  "agent run: wrong-book tool",
+                      "expected":  "200, final, tool_calls\u003e=1",
+                      "request":  {
+                                      "question":  "帮我查一下我最近的错题本里有哪些题",
+                                      "userId":  3,
+                                      "maxSteps":  4
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  2498,
+                      "pass":  true,
+                      "detail":  "status=200 generator=agent-rule refused=False step_count=2 tool_calls=1 events=meta\u003ethought\u003etool_call\u003etool_result\u003ethought\u003efinal\u003edone tools=get_wrong_book",
+                      "generator":  "agent-rule",
+                      "degraded":  true,
+                      "refused":  false,
+                      "step_count":  2,
+                      "tool_calls":  1,
+                      "eventTypes":  [
+                                         "meta",
+                                         "thought",
+                                         "tool_call",
+                                         "tool_result",
+                                         "thought",
+                                         "final",
+                                         "done"
+                                     ],
+                      "toolNames":  [
+                                        "get_wrong_book"
+                                    ],
+                      "finalEvent":  {
+                                         "event":  "final",
+                                         "data":  {
+                                                      "answer":  "错题：错题 5 道：30、1000、2、3663、1449。把左列概念与右列解释配对；“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：；以下哪些是 C 语言的合法关键字？（多选）",
+                                                      "generator":  "agent-rule",
+                                                      "degraded":  true,
+                                                      "refused":  false,
+                                                      "step_count":  2,
+                                                      "tool_calls":  1,
+                                                      "sources":  [
+
+                                                                  ]
+                                                  }
+                                     },
+                      "answerPreview":  "错题：错题 5 道：30、1000、2、3663、1449。把左列概念与右列解释配对；“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：；以下哪些是 C 语言的合法关键字？（多选）",
+                      "responsePreview":  "{\"answer\":\"错题：错题 5 道：30、1000、2、3663、1449。把左列概念与右列解释配对；“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：；以下哪些是 C 语言的合法关键字？（多选）\",\"generator\":\"agent-rule\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"events\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"c701949630a3421b\",\"sessionId\":\"\",\"question\":\"帮我查一下我最近的错题本里有哪些题\",\"maxSteps\":4,\"maxToolCalls\":4,\"userId\":3,\"subjectId\":null,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":62,\"contextTokens\":49,\"contextBudget\":8000,\"subagent\":false}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"需要获取学生最近未掌握的错题信息\"}},{\"event\":\"tool_call\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"arguments\":{\"limit\":5}}},{\"event\":\"tool_result\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"ok\":true,\"summary\":\"错题 5 道：30、1000、2、3663、1449\",\"elapsedMs\":137,\"data\":[{\"questionId\":30,\"stem\":\"把左列概念与右列解释配对\",\"wrongCount\":3},{\"questionId\":1000,\"stem\":\"“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：\",\"wrongCount\":2},{\"questionId\":2,\"stem\":\"以下哪些是 C 语言的合法关键字？（多选）\",\"wrongCount\":2},{\"questionId\":3663,\"stem\":\"《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿…[truncated]\",\"wrongCount\":1},{\"questionId\":1449,\"stem\":\"故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古\",\"wrongCount\":1}]}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"已有错题列表，直接给出答案即可\"}},{\"event\":\"final\",\"data\":{\"answer\":\"错题：错题 5 道：30、1000、2、3663、1449。把左列概念与右列解释配对；“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：；以下哪些是 C 语言的合法关键字？（多选）\",\"generator\":\"agent-rule\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"sources\":[]}},{\"event\":\"done\",\"data\":{\"totalMs\":2496}}]}"
+                  },
+                  {
+                      "id":  "B2-agent-knowledge",
+                      "name":  "agent run: knowledge retrieval",
+                      "expected":  "200, final, tool_calls\u003e=1",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别",
+                                      "subjectId":  5
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  4869,
+                      "pass":  true,
+                      "detail":  "status=200 generator=extractive refused=False step_count=2 tool_calls=1 events=meta\u003ethought\u003etool_call\u003etool_result\u003ethought\u003efinal\u003edone tools=search_knowledge",
+                      "generator":  "extractive",
+                      "degraded":  true,
+                      "refused":  false,
+                      "step_count":  2,
+                      "tool_calls":  1,
+                      "eventTypes":  [
+                                         "meta",
+                                         "thought",
+                                         "tool_call",
+                                         "tool_result",
+                                         "thought",
+                                         "final",
+                                         "done"
+                                     ],
+                      "toolNames":  [
+                                        "search_knowledge"
+                                    ],
+                      "finalEvent":  {
+                                         "event":  "final",
+                                         "data":  {
+                                                      "answer":  "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                                                      "generator":  "extractive",
+                                                      "degraded":  true,
+                                                      "refused":  false,
+                                                      "step_count":  2,
+                                                      "tool_calls":  1,
+                                                      "sources":  [
+                                                                      {
+                                                                          "chunkId":  49,
+                                                                          "title":  "值传递和地址传递有什么区别？",
+                                                                          "snippet":  "题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…",
+                                                                          "refType":  "QUESTION",
+                                                                          "refId":  46,
+                                                                          "refPath":  "/questions/46"
+                                                                      },
+                                                                      {
+                                                                          "chunkId":  28,
+                                                                          "title":  "指针与函数",
+                                                                          "snippet":  "知识点：指针与函数 相关题目：值传递和地址传递有什么区别？",
+                                                                          "refType":  "KNOWLEDGE",
+                                                                          "refId":  10,
+                                                                          "refPath":  "/knowledge/10"
+                                                                      }
+                                                                  ]
+                                                  }
+                                     },
+                      "answerPreview":  "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                      "responsePreview":  "{\"answer\":\"根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\\n根据《指针与函数》：知识点：指针与函数\\n相关题目：值传递和地址传递有什么区别？\",\"generator\":\"extractive\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"events\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"97256fced5f04ee4\",\"sessionId\":\"\",\"question\":\"值传递和地址传递有什么区别\",\"maxSteps\":6,\"maxToolCalls\":4,\"userId\":null,\"subjectId\":5,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":58,\"contextTokens\":45,\"contextBudget\":8000,\"subagent\":false}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"需要先确认值传递和地址传递的具体区别\"}},{\"event\":\"tool_call\",\"data\":{\"step\":1,\"tool\":\"search_knowledge\",\"arguments\":{\"query\":\"值传递和地址传递的区别\",\"topK\":5}}},{\"event\":\"tool_result\",\"data\":{\"step\":1,\"tool\":\"search_knowledge\",\"ok\":true,\"summary\":\"检索「值传递和地址传递的区别」命中 4 条，最高分 108.46845044617031，模式 VECTOR_HYBRID\",\"elapsedMs\":323,\"data\":[{\"chunkId\":49,\"title\":\"值传递和地址传递有什么区别？\",\"snippet\":\"题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\",\"refType\":\"QUESTION\",\"refId\":46,\"score\":108.46845044617031},{\"chunkId\":5,\"title\":\"简述 C 语言中「值传递」与「地址传递」的区别。\",\"snippet\":\"题干：简述 C 语言中「值传递」与「地址传递」的区别。\\n解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。\\n标签：重点必考,函数\\n参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关键词：值传递、地址传递、副本、指针\",\"refType\":\"QUESTION\",\"refId\":5,\"score\":81.49108310932372},{\"chunkId\":28,\"title\":\"指针与函数\",\"snippet\":\"知识点：指针与函数\\n相关题目：值传递和地址传递有什么区别？\",\"refType\":\"KNOWLEDGE\",\"refId\":10,\"score\":22.1675619999961}]}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"已有资料足够解释值传递和地址传递的区别\"}},{\"event\":\"final\",\"data\":{\"answer\":\"根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\\n根据《指针与函数》：知识点：指针与函数\\n相关题目：值传递和地址传递有什么区别？\",\"generator\":\"ex...[truncated]"
+                  },
+                  {
+                      "id":  "B3-agent-missing-question",
+                      "name":  "agent run: missing question",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "userId":  3
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 generator= refused= step_count= tool_calls= events= tools=",
+                      "generator":  null,
+                      "degraded":  null,
+                      "refused":  null,
+                      "step_count":  null,
+                      "tool_calls":  null,
+                      "eventTypes":  [
+
+                                     ],
+                      "toolNames":  [
+
+                                    ],
+                      "finalEvent":  null,
+                      "answerPreview":  "",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "B4-agent-maxsteps-0",
+                      "name":  "agent run: maxSteps=0",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别",
+                                      "subjectId":  5,
+                                      "maxSteps":  0
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 generator= refused= step_count= tool_calls= events= tools=",
+                      "generator":  null,
+                      "degraded":  null,
+                      "refused":  null,
+                      "step_count":  null,
+                      "tool_calls":  null,
+                      "eventTypes":  [
+
+                                     ],
+                      "toolNames":  [
+
+                                    ],
+                      "finalEvent":  null,
+                      "answerPreview":  "",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "B5-agent-maxsteps-13",
+                      "name":  "agent run: maxSteps=13",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别",
+                                      "subjectId":  5,
+                                      "maxSteps":  13
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 generator= refused= step_count= tool_calls= events= tools=",
+                      "generator":  null,
+                      "degraded":  null,
+                      "refused":  null,
+                      "step_count":  null,
+                      "tool_calls":  null,
+                      "eventTypes":  [
+
+                                     ],
+                      "toolNames":  [
+
+                                    ],
+                      "finalEvent":  null,
+                      "answerPreview":  "",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "B6-agent-maxsteps-999",
+                      "name":  "agent run: maxSteps=999",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "question":  "值传递和地址传递有什么区别",
+                                      "subjectId":  5,
+                                      "maxSteps":  999
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 generator= refused= step_count= tool_calls= events= tools=",
+                      "generator":  null,
+                      "degraded":  null,
+                      "refused":  null,
+                      "step_count":  null,
+                      "tool_calls":  null,
+                      "eventTypes":  [
+
+                                     ],
+                      "toolNames":  [
+
+                                    ],
+                      "finalEvent":  null,
+                      "answerPreview":  "",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "B7-agent-unknown-tool",
+                      "name":  "agent run: unknown tool request",
+                      "expected":  "200, no tool fly_to_moon executed, no crash",
+                      "request":  {
+                                      "question":  "请调用工具 fly_to_moon 帮我查资料",
+                                      "userId":  3,
+                                      "subjectId":  5,
+                                      "maxSteps":  3
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  4266,
+                      "pass":  true,
+                      "detail":  "status=200 generator=none refused=True step_count=3 tool_calls=1 events=meta\u003ethought\u003etool_call\u003etool_result\u003ethought\u003ethought\u003ethought\u003ethought\u003efinal\u003edone tools=search_knowledge",
+                      "generator":  "none",
+                      "degraded":  false,
+                      "refused":  true,
+                      "step_count":  3,
+                      "tool_calls":  1,
+                      "eventTypes":  [
+                                         "meta",
+                                         "thought",
+                                         "tool_call",
+                                         "tool_result",
+                                         "thought",
+                                         "thought",
+                                         "thought",
+                                         "thought",
+                                         "final",
+                                         "done"
+                                     ],
+                      "toolNames":  [
+                                        "search_knowledge"
+                                    ],
+                      "finalEvent":  {
+                                         "event":  "final",
+                                         "data":  {
+                                                      "answer":  "未找到相关资料",
+                                                      "generator":  "none",
+                                                      "degraded":  false,
+                                                      "refused":  true,
+                                                      "step_count":  3,
+                                                      "tool_calls":  1,
+                                                      "sources":  [
+
+                                                                  ]
+                                                  }
+                                     },
+                      "answerPreview":  "未找到相关资料",
+                      "responsePreview":  "{\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"degraded\":false,\"refused\":true,\"step_count\":3,\"tool_calls\":1,\"events\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"3893fd029a5e4c8d\",\"sessionId\":\"\",\"question\":\"请调用工具 fly_to_moon 帮我查资料\",\"maxSteps\":3,\"maxToolCalls\":4,\"userId\":3,\"subjectId\":5,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":68,\"contextTokens\":45,\"contextBudget\":8000,\"subagent\":false}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"学生可能需要查找关于登月的相关资料，但没有名为 fly_to_moon 的工具。尝试使用 search_knowledge 替代。\"}},{\"event\":\"tool_call\",\"data\":{\"step\":1,\"tool\":\"search_knowledge\",\"arguments\":{\"query\":\"登月历史\",\"topK\":5}}},{\"event\":\"tool_result\",\"data\":{\"step\":1,\"tool\":\"search_knowledge\",\"ok\":true,\"summary\":\"检索「登月历史」命中 0 条，最高分 0.0，模式 NONE\",\"elapsedMs\":346,\"data\":[]}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"学生询问的内容与提供的工具不符，尝试理解为查询登月历史\"}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"重复调用已跳过：相同工具与参数不再执行、不重复扣预算\"}},{\"event\":\"thought\",\"data\":{\"step\":3,\"text\":\"学生询问的内容与提供的工具不符，尝试理解为查询登月历史\"}},{\"event\":\"thought\",\"data\":{\"step\":3,\"text\":\"重复调用已跳过：相同工具与参数不再执行、不重复扣预算\"}},{\"event\":\"final\",\"data\":{\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"degraded\":false,\"refused\":true,\"step_count\":3,\"tool_calls\":1,\"sources\":[]}},{\"event\":\"done\",\"data\":{\"totalMs\":4261}}]}"
+                  },
+                  {
+                      "id":  "B8-agent-tool-fail",
+                      "name":  "agent run: tool with nonexistent userId",
+                      "expected":  "200, no crash (tool failure tolerated)",
+                      "request":  {
+                                      "question":  "帮我查一下我最近的错题本里有哪些题",
+                                      "userId":  999999,
+                                      "maxSteps":  4
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  1877,
+                      "pass":  true,
+                      "detail":  "status=200 generator=agent-rule refused=False step_count=2 tool_calls=1 events=meta\u003ethought\u003etool_call\u003etool_result\u003ethought\u003efinal\u003edone tools=get_wrong_book",
+                      "generator":  "agent-rule",
+                      "degraded":  true,
+                      "refused":  false,
+                      "step_count":  2,
+                      "tool_calls":  1,
+                      "eventTypes":  [
+                                         "meta",
+                                         "thought",
+                                         "tool_call",
+                                         "tool_result",
+                                         "thought",
+                                         "final",
+                                         "done"
+                                     ],
+                      "toolNames":  [
+                                        "get_wrong_book"
+                                    ],
+                      "finalEvent":  {
+                                         "event":  "final",
+                                         "data":  {
+                                                      "answer":  "错题：错题 0 道：",
+                                                      "generator":  "agent-rule",
+                                                      "degraded":  true,
+                                                      "refused":  false,
+                                                      "step_count":  2,
+                                                      "tool_calls":  1,
+                                                      "sources":  [
+
+                                                                  ]
+                                                  }
+                                     },
+                      "answerPreview":  "错题：错题 0 道：",
+                      "responsePreview":  "{\"answer\":\"错题：错题 0 道：\",\"generator\":\"agent-rule\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"events\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"79126d9666a04764\",\"sessionId\":\"\",\"question\":\"帮我查一下我最近的错题本里有哪些题\",\"maxSteps\":4,\"maxToolCalls\":4,\"userId\":999999,\"subjectId\":null,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":62,\"contextTokens\":49,\"contextBudget\":8000,\"subagent\":false}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"需要获取学生最近未掌握的错题信息\"}},{\"event\":\"tool_call\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"arguments\":{\"limit\":5}}},{\"event\":\"tool_result\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"ok\":true,\"summary\":\"错题 0 道：\",\"elapsedMs\":162,\"data\":[]}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"学生最近没有未掌握的错题\"}},{\"event\":\"final\",\"data\":{\"answer\":\"错题：错题 0 道：\",\"generator\":\"agent-rule\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"sources\":[]}},{\"event\":\"done\",\"data\":{\"totalMs\":1874}}]}"
+                  },
+                  {
+                      "id":  "B9-agent-sse-python",
+                      "name":  "SSE POST /v1/agent/stream",
+                      "expected":  "200, parseable events meta...done",
+                      "request":  {
+                                      "question":  "{\"question\":\"值传递和地址传递有什么区别\",\"subjectId\":5}"
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  4759,
+                      "pass":  true,
+                      "detail":  "events=meta\u003ethought\u003etool_call\u003etool_result\u003ethought\u003efinal\u003edone done=True badJson=0",
+                      "eventTypes":  [
+                                         "meta",
+                                         "thought",
+                                         "tool_call",
+                                         "tool_result",
+                                         "thought",
+                                         "final",
+                                         "done"
+                                     ],
+                      "contentType":  null,
+                      "responsePreview":  "event: meta\ndata: {\"traceId\":\"c312c15567014f2b\",\"sessionId\":\"\",\"question\":\"值传递和地址传递有什么区别\",\"maxSteps\":6,\"maxToolCalls\":4,\"userId\":null,\"subjectId\":5,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":58,\"contextTokens\":45,\"contextBudget\":8000,\"subagent\":false}\n\nevent: thought\ndata: {\"step\":1,\"text\":\"需要先确认值传递和地址传递的具体区别\"}\n\nevent: tool_call\ndata: {\"step\":1,\"tool\":\"search_knowledge\",\"arguments\":{\"query\":\"值传递和地址传递的区别\",\"topK\":5}}\n\nevent: tool_result\ndata: {\"step\":1,\"tool\":\"search_knowledge\",\"ok\":true,\"summary\":\"检索「值传递和地址传递的区别」命中 4 条，最高分 108.46845044617031，模式 VECTOR_HYBRID\",\"elapsedMs\":251,\"data\":[{\"chunkId\":49,\"title\":\"值传递和地址传递有什么区别？\",\"snippet\":\"题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\",\"refType\":\"QUESTION\",\"refId\":46,\"score\":108.46845044617031},{\"chunkId\":5,\"title\":\"简述 C 语言中「值传递」与「地址传递」的区别。\",\"snippet\":\"题干：简述 C 语言中「值传递」与「地址传递」的区别。\\n解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。\\n标签：重点必考,函数\\n参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关键词：值传递、地址传递、副本、指针\",\"refType\":\"QUESTION\",\"refId\":5,\"score\":81.49108310932372},{\"chunkId\":28,\"title\":\"指针与函数\",\"snippet\":\"知识点：指针与函数\\n相关题目：值传递和地址传递有什么区别？\",\"refType\":\"KNOWLEDGE\",\"refId\":10,\"score\":22.1675619999961}]}\n\nevent: thought\ndata: {\"step\":2,\"text\":\"已有资料足够解释值传递和地址传递的区别\"}\n\nevent: final\ndata: {\"answer\":\"根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\\n根据《指针与函数》：知识点：指针与函数\\n相关题目：值传递和地址传递有什么区别？\",\"generator\":\"extractive\",\"degraded\":true,\"refused\":false,\"step_count\":2,\"tool_calls\":1,\"sources\":[{\"chunkId\":49,\"title\":\"值传递和地址传递有什么区别？\",\"snippet\":\"题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…\",\"refType\":\"QUESTION\",\"refId\":46,\"refPath\":\"/questions/46\"},{\"chunkId\":28,\"title\":\"指针与函数\",\"snippet\":\"知识点：指针与函数 相关题目：值传递和地址传递...[truncated]"
+                  },
+                  {
+                      "id":  "B10-agent-sse-java",
+                      "name":  "SSE POST /ai/agent/stream (Java, traceId set)",
+                      "expected":  "200, parseable, final fields complete, terminal done, traceId echoed",
+                      "request":  {
+                                      "question":  "{\"question\":\"帮我查一下我最近的错题本里有哪些题\",\"subjectId\":5}",
+                                      "traceId":  "a1b2c3d4e5f60718"
+                                  },
+                      "httpStatus":  503,
+                      "elapsedMs":  9,
+                      "pass":  false,
+                      "detail":  "events= finalFields=False done=False traceHeader=a1b2c3d4e5f60718 traceInMeta=False orderOk=False blockedByConfig=True",
+                      "eventTypes":  [
+
+                                     ],
+                      "traceId":  "a1b2c3d4e5f60718",
+                      "finalEvent":  null,
+                      "blocked":  true,
+                      "blockReason":  "app.ai.agent.enabled=false (AI_AGENT_ENABLED default false); /ai/agent/** returns 503",
+                      "responsePreview":  "{\"code\":503,\"message\":\"Agent 能力未启用（app.ai.agent.enabled=false）\",\"traceId\":\"a1b2c3d4e5f60718\"}"
+                  },
+                  {
+                      "id":  "B11-agent-runs-java",
+                      "name":  "GET /ai/agent/runs (Java)",
+                      "expected":  "200 list (or 503 when agent disabled)",
+                      "request":  {
+
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  6,
+                      "pass":  true,
+                      "detail":  "status=200 code=200 message=成功 blockedByConfig=False",
+                      "blocked":  false,
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"page\":1,\"size\":5,\"total\":10,\"list\":[{\"id\":122,\"userId\":3,\"sessionId\":\"s-qa-abort-50546\",\"traceId\":\"3d49eaf3d6e04613\",\"question\":\"简述操作系统的进程调度算法\",\"status\":\"FAILED\",\"stepCount\":0,\"toolCalls\":0,\"totalMs\":2176,\"degraded\":false,\"error\":\"upstream_error\",\"createdAt\":\"2026-10-31T20:42:26\",\"finishedAt\":\"2026-10-31T20:42:28\",\"steps\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"3d49eaf3d6e04613\",\"sessionId\":\"s-qa-abort-50546\",\"question\":\"简述操作系统的进程调度算法\",\"maxSteps\":6,\"maxToolCalls\":4,\"userId\":3,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":58,\"contextTokens\":45,\"contextBudget\":8000}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"大模型规划不可用，已切换规则规划器\"}}]},{\"id\":121,\"userId\":3,\"sessionId\":\"s-qa-owner-50507\",\"traceId\":\"0643746d752f4f39\",\"question\":\"我的错题有哪些\",\"status\":\"REFUSED\",\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"stepCount\":2,\"toolCalls\":1,\"totalMs\":6606,\"degraded\":true,\"createdAt\":\"2026-10-31T20:41:48\",\"finishedAt\":\"2026-10-31T20:41:54\",\"steps\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"0643746d752f4f39\",\"sessionId\":\"s-qa-owner-50507\",\"question\":\"我的错题有哪些\",\"maxSteps\":6,\"maxToolCalls\":4,\"userId\":3,\"historyTurns\":0,\"memoryChars\":0,\"promptVersion\":\"agent-planner-v3\",\"contextChars\":52,\"contextTokens\":39,\"contextBudget\":8000}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"大模型规划不可用，已切换规则规划器\"}},{\"event\":\"thought\",\"data\":{\"step\":1,\"text\":\"规则匹配到意图「get_wrong_book」\"}},{\"event\":\"tool_call\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"arguments\":{}}},{\"event\":\"tool_result\",\"data\":{\"step\":1,\"tool\":\"get_wrong_book\",\"ok\":false,\"summary\":\"工具不可用：调用 Java 内部接口失败：ConnectError\",\"elapsedMs\":2174}},{\"event\":\"thought\",\"data\":{\"step\":2,\"text\":\"信息已足够，直接回答\"}},{\"event\":\"final\",\"data\":{\"answer\":\"未找到相关资料\",\"generator\":\"none\",\"degraded\":true,\"refused\":true,\"step_count\":2,\"tool_calls\":1,\"sources\":[]}},{\"event\":\"done\",\"data\":{\"totalMs\":6557}}]},{\"id\":100,\"userId\":3,\"sessionId\":\"s-qa-abort-49759\",\"traceId\":\"c19cfc1c26a24d3f\",\"question\":\"简述操作系统的进程调度算法\",\"status\":\"FAILED\",\"stepCount\":0,\"toolCalls\":0,\"totalMs\":2160,\"degraded\":false,\"error\":\"upstream_error\",\"createdAt\":\"2026-10-31T20:29:20\",\"finishedAt\":\"2026-10-31T20:29:22\",\"steps\":[{\"event\":\"meta\",\"data\":{\"traceId\":\"c19...[truncated]"
+                  },
+                  {
+                      "id":  "C1-interview-start",
+                      "name":  "POST /ai/interview/start (topic=RAG, total=2)",
+                      "expected":  "200, session_id + question_no=1 + question + source",
+                      "request":  {
+                                      "subject_id":  5,
+                                      "total":  2,
+                                      "topic":  "RAG"
+                                  },
+                      "httpStatus":  503,
+                      "elapsedMs":  261,
+                      "pass":  false,
+                      "detail":  "session_id= topic= total= question= blocked=True",
+                      "sessionId":  null,
+                      "topic":  null,
+                      "questionNo":  null,
+                      "total":  null,
+                      "question":  null,
+                      "source":  null,
+                      "degraded":  null,
+                      "blocked":  true,
+                      "blockReason":  "Java proxies python /v1/interview/start -\u003e 503/5203 interview corpus unavailable (Qdrant :6333 down)",
+                      "responsePreview":  "{\"code\":503,\"message\":\"面试服务暂不可用，请稍后再试\",\"traceId\":\"97d4ded82dfae656\"}"
+                  },
+                  {
+                      "id":  "C3-interview-history",
+                      "name":  "GET /ai/interview/history",
+                      "expected":  "200, paginated list (0 for student 3; existing row belongs to user 13)",
+                      "request":  {
+
+                                  },
+                      "httpStatus":  200,
+                      "elapsedMs":  6,
+                      "pass":  true,
+                      "detail":  "total=0 topicMatch=False first=",
+                      "total":  0,
+                      "records":  [
+
+                                  ],
+                      "responsePreview":  "{\"code\":200,\"message\":\"成功\",\"data\":{\"page\":1,\"size\":10,\"total\":0,\"list\":[]},\"traceId\":\"fbcefdca7c2f035e\"}"
+                  },
+                  {
+                      "id":  "C5-interview-answer-404",
+                      "name":  "POST /ai/interview/answer with unknown session",
+                      "expected":  "404 (or 503 when interview service down)",
+                      "request":  {
+                                      "session_id":  "nonexistent-session-xyz"
+                                  },
+                      "httpStatus":  404,
+                      "elapsedMs":  8,
+                      "pass":  true,
+                      "detail":  "status=404 code=404 message=面试会话已过期，请重新开始",
+                      "responsePreview":  "{\"code\":404,\"message\":\"面试会话已过期，请重新开始\",\"traceId\":\"9aac2a7f9222eccb\"}"
+                  },
+                  {
+                      "id":  "C6-interview-start-total0",
+                      "name":  "POST /ai/interview/start total=0",
+                      "expected":  "400",
+                      "request":  {
+                                      "total":  0
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 code=400 message=题数不能少于 1",
+                      "responsePreview":  "{\"code\":400,\"message\":\"题数不能少于 1\",\"traceId\":\"fc94c690bec6f22f\"}"
+                  },
+                  {
+                      "id":  "C7-interview-python-total6",
+                      "name":  "POST /v1/interview/start total=6 (python max=5)",
+                      "expected":  "4xx",
+                      "request":  {
+                                      "total":  6
+                                  },
+                      "httpStatus":  400,
+                      "elapsedMs":  3,
+                      "pass":  true,
+                      "detail":  "status=400 code=5200 (pydantic-style validation mapped to 400, not 422)",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "C9-interview-python-valid",
+                      "name":  "POST /v1/interview/start valid params (python direct)",
+                      "expected":  "200 session (currently 503/5203 because Qdrant is down)",
+                      "request":  {
+                                      "subject_id":  5,
+                                      "total":  2,
+                                      "topic":  "RAG"
+                                  },
+                      "httpStatus":  503,
+                      "elapsedMs":  253,
+                      "pass":  false,
+                      "detail":  "status=503 bodyLen=0 body=",
+                      "note":  "root cause: 503 code=5203 (interview corpus vector search miss, Qdrant down), NOT llm key",
+                      "responsePreview":  ""
+                  },
+                  {
+                      "id":  "C8-interview-python-answer-404",
+                      "name":  "POST /v1/interview/answer unknown session",
+                      "expected":  "404",
+                      "request":  {
+                                      "session_id":  "nonexistent-xyz"
+                                  },
+                      "httpStatus":  404,
+                      "elapsedMs":  1,
+                      "pass":  true,
+                      "detail":  "status=404 body=",
+                      "responsePreview":  ""
+                  }
+              ],
+    "dbVerification":  [
+                           {
+                               "id":  "DB1-qa-record-table",
+                               "sql":  "information_schema ai_qa_record",
+                               "expected":  "table exists (answer records persisted)",
+                               "result":  "0",
+                               "pass":  false,
+                               "note":  "no ai_qa_record table: /ai/ask does not persist Q\u0026A history"
+                           },
+                           {
+                               "id":  "DB2-agent-run-count",
+                               "sql":  "SELECT COUNT(*) FROM ai_agent_run",
+                               "expected":  "unchanged baseline (10) - Java agent disabled",
+                               "result":  "10",
+                               "pass":  true,
+                               "note":  "no new run rows because app.ai.agent.enabled=false"
+                           },
+                           {
+                               "id":  "DB3-agent-run-trace",
+                               "sql":  "SELECT COUNT(*) ... WHERE trace_id=\u0027a1b2c3d4e5f60718\u0027",
+                               "expected":  "1 row for traceId carried by Java SSE",
+                               "result":  "0",
+                               "pass":  false,
+                               "note":  "Java SSE returned 503 before persisting; traceId only echoed in response header"
+                           },
+                           {
+                               "id":  "DB4-agent-run-latest",
+                               "sql":  "latest ai_agent_run rows",
+                               "expected":  "informational",
+                               "result":  "122\t3\tFAILED\t0\t0\t2176\t0\t2026-10-31 20:42:26 | 121\t3\tREFUSED\t2\t1\t6606\t1\t2026-10-31 20:41:48 | 100\t3\tFAILED\t0\t0\t2160\t0\t2026-10-31 20:29:20",
+                               "pass":  true,
+                               "note":  "latest rows are from 2026-10-31 (previous week runs)"
+                           },
+                           {
+                               "id":  "DB5-agent-session-count",
+                               "sql":  "SELECT COUNT(*) FROM ai_agent_session",
+                               "expected":  "unchanged (15 auto_increment, 10 rows)",
+                               "result":  "18",
+                               "pass":  true,
+                               "note":  "10 baseline rows + 3 new rows (id 16/17/18, user 3) created today by /ai/agent/stream 503 calls: session row is written before the enabled=false gate"
+                           },
+                           {
+                               "id":  "DB6-interview-session-count",
+                               "sql":  "SELECT COUNT(*) FROM ai_interview_session",
+                               "expected":  "new session row when start succeeds",
+                               "result":  "1",
+                               "pass":  true,
+                               "note":  "no new session: python /v1/interview/start returns 503 (LLM key missing)"
+                           },
+                           {
+                               "id":  "DB7-interview-session-latest",
+                               "sql":  "latest ai_interview_session rows",
+                               "expected":  "informational",
+                               "result":  "3\t13\tRAG\t1\t67\t中等\t2026-10-29 17:47:53",
+                               "pass":  true,
+                               "note":  "pre-existing session from 2026-10-22"
+                           },
+                           {
+                               "id":  "DB8-interview-qa-count",
+                               "sql":  "SELECT COUNT(*) FROM ai_interview_qa",
+                               "expected":  "new qa rows for the finished session",
+                               "result":  "3",
+                               "pass":  true,
+                               "note":  "no new qa rows (session never started)"
+                           },
+                           {
+                               "id":  "DB9-qdrant",
+                               "sql":  "GET http://127.0.0.1:6333/collections",
+                               "expected":  "reachable",
+                               "result":  "connection refused",
+                               "pass":  false,
+                               "note":  "Qdrant down -\u003e python vector retrieval + interview corpus miss (503/5203)"
+                           }
+                       ],
+    "pythonErrorBodies":  [
+                              {
+                                  "id":  "B3",
+                                  "url":  "http://127.0.0.1:8000/v1/agent/run",
+                                  "request":  "{\"userId\":3}",
+                                  "httpStatus":  400,
+                                  "body":  "{\"code\":5200,\"message\":\"参数错误：question Field required\",\"degraded\":false}"
+                              },
+                              {
+                                  "id":  "B4",
+                                  "url":  "http://127.0.0.1:8000/v1/agent/run",
+                                  "request":  "{\"question\":\"x\",\"subjectId\":5,\"maxSteps\":0}",
+                                  "httpStatus":  400,
+                                  "body":  "{\"code\":5200,\"message\":\"参数错误：maxSteps 必须在 1..12 之间（当前 0）\",\"degraded\":false}"
+                              },
+                              {
+                                  "id":  "B5",
+                                  "url":  "http://127.0.0.1:8000/v1/agent/run",
+                                  "request":  "{\"question\":\"x\",\"subjectId\":5,\"maxSteps\":13}",
+                                  "httpStatus":  400,
+                                  "body":  "{\"code\":5200,\"message\":\"参数错误：maxSteps 必须在 1..12 之间（当前 13）\",\"degraded\":false}"
+                              },
+                              {
+                                  "id":  "B6",
+                                  "url":  "http://127.0.0.1:8000/v1/agent/run",
+                                  "request":  "{\"question\":\"x\",\"subjectId\":5,\"maxSteps\":999}",
+                                  "httpStatus":  400,
+                                  "body":  "{\"code\":5200,\"message\":\"参数错误：maxSteps 必须在 1..12 之间（当前 999）\",\"degraded\":false}"
+                              },
+                              {
+                                  "id":  "C7",
+                                  "url":  "http://127.0.0.1:8000/v1/interview/start",
+                                  "request":  "{\"topic\":\"RAG\",\"total\":6}",
+                                  "httpStatus":  400,
+                                  "body":  "{\"code\":5200,\"message\":\"参数错误：total Input should be less than or equal to 5\",\"degraded\":false}"
+                              },
+                              {
+                                  "id":  "C9",
+                                  "url":  "http://127.0.0.1:8000/v1/interview/start",
+                                  "request":  "{\"topic\":\"RAG\",\"total\":2,\"subject_id\":5}",
+                                  "httpStatus":  503,
+                                  "body":  "{\"code\":5203,\"message\":\"面试语料不可用：向量检索无命中，请确认 Qdrant 已推送面试课件\",\"degraded\":true}"
+                              },
+                              {
+                                  "id":  "C8",
+                                  "url":  "http://127.0.0.1:8000/v1/interview/answer",
+                                  "request":  "{\"session_id\":\"nonexistent-xyz\",\"answer\":\"test\"}",
+                                  "httpStatus":  404,
+                                  "body":  "{\"detail\":\"SESSION_NOT_FOUND\"}"
+                              }
+                          ],
+    "infraChecks":  {
+                        "mysql":  "127.0.0.1:3306 UP (exam_prep)",
+                        "redis":  "127.0.0.1:6379 DOWN",
+                        "qdrant":  "127.0.0.1:6333 DOWN (connection refused) - blocks python vector retrieval / interview corpus lookup",
+                        "courseware_total":  584,
+                        "courseware_interview_title":  68,
+                        "note":  "PowerShell 5.1 cannot read FastAPI error bodies (SyncMemoryStream empty); pythonErrorBodies captured via curl.exe --data-binary"
+                    }
+}

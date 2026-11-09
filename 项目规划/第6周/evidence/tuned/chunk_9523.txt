@@ -1,0 +1,1 @@
+{"thought": "资料已覆盖问题，直接作答", "action": "final", "answer": "紧接着，面向超大预训练语言模型，Prompting出现了三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT[1]。"}

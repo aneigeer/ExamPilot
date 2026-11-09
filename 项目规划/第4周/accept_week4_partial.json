@@ -1,0 +1,74 @@
+{
+  "log": "项目规划\\第4周\\evidence\\chunk_100.log",
+  "ckpt_dir": "training\\output\\qwen2.5-3b-exam-lora-v1",
+  "steps_seen": 100,
+  "expect_steps": 135,
+  "training_active": false,
+  "peak_alloc_mb": 3809.28,
+  "items": [
+    {
+      "项": "B1 完成度",
+      "结果": "PARTIAL",
+      "说明": "100/135 步（74.2% epoch）——部分完成，不可用于正式模型比较",
+      "证据": [
+        "global_step=100，预期 135",
+        "已消耗样本 1600 / 2156 = 74.2%"
+      ]
+    },
+    {
+      "项": "B2 样本覆盖",
+      "结果": "PARTIAL",
+      "说明": "覆盖 74.21%，未跑满一轮（缺 556 条）",
+      "证据": [
+        "每步消耗 16 条（batch 1 × accum 16）",
+        "累计消耗 1600 条，覆盖 74.21%",
+        "drop_last=True → 尾部丢弃 12 条"
+      ]
+    },
+    {
+      "项": "B3 产物完整",
+      "结果": "FAIL",
+      "说明": "adapter 体积 114.3MB 超出 [45, 75]MB，可能是层数/rank 配错或写入不完整；adapter mtime 早于本次训练日志创建时间（疑似旧产物残留）",
+      "证据": [
+        "train_metrics={\"train_samples\": 2156, \"val_samples\": 427, \"steps\": 90}",
+        "adapter=114.3MB（3B r=16 期望 57MB ±20%）",
+        "adapter mtime=1793934256 vs 日志创建=1793934288"
+      ]
+    },
+    {
+      "项": "B4 指标合理",
+      "结果": "PASS",
+      "说明": "loss 下降 2.4758→1.0356，无 NaN/Inf/尖峰",
+      "证据": [
+        "loss 点数 20，首=3.7185，末=1.1323",
+        "首5均值=2.4758，末5均值=1.0356，变化 -58.2%",
+        "无 eval_loss（未开 eval 或尚未 eval）"
+      ]
+    },
+    {
+      "项": "B5 可加载",
+      "结果": "PASS",
+      "说明": "配置与 LoRA 张量校验通过（未做完整加载，需 --full-load）",
+      "证据": [
+        "PeftConfig 解析成功：r=16 alpha=32 targets=7 个",
+        "safetensors 张量 504 个，其中 lora_A 252 / lora_B 252",
+        "target_modules 命中 7/7"
+      ]
+    },
+    {
+      "项": "B6 归档",
+      "结果": "FAIL",
+      "说明": "归档清单不存在：项目规划\\第4周\\evidence\\artifacts_manifest.json（等 train-export 产出后复核）",
+      "证据": []
+    }
+  ],
+  "failed": [
+    "B3 产物完整",
+    "B6 归档"
+  ],
+  "partial": [
+    "B1 完成度",
+    "B2 样本覆盖"
+  ],
+  "skipped": []
+}

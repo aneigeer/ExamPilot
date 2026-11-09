@@ -1,0 +1,176 @@
+{
+  "definition": {
+    "S1": "对应X项/正确答案X/故答案X",
+    "S2": "S1+与X项最接近/答案为X/X项当选",
+    "S1_n": 9,
+    "S2_n": 15,
+    "S1_keys": [
+      [
+        "grounded",
+        1777
+      ],
+      [
+        "grounded",
+        3063
+      ],
+      [
+        "grounded",
+        3134
+      ],
+      [
+        "grounded",
+        3419
+      ],
+      [
+        "grounded",
+        3444
+      ],
+      [
+        "grounded",
+        3446
+      ],
+      [
+        "grounded",
+        3510
+      ],
+      [
+        "grounded",
+        3561
+      ],
+      [
+        "grounded",
+        3571
+      ]
+    ],
+    "S2_keys": [
+      [
+        "grounded",
+        1012
+      ],
+      [
+        "grounded",
+        1111
+      ],
+      [
+        "grounded",
+        1777
+      ],
+      [
+        "grounded",
+        2821
+      ],
+      [
+        "grounded",
+        2927
+      ],
+      [
+        "grounded",
+        2931
+      ],
+      [
+        "grounded",
+        3045
+      ],
+      [
+        "grounded",
+        3063
+      ],
+      [
+        "grounded",
+        3134
+      ],
+      [
+        "grounded",
+        3419
+      ],
+      [
+        "grounded",
+        3444
+      ],
+      [
+        "grounded",
+        3446
+      ],
+      [
+        "grounded",
+        3510
+      ],
+      [
+        "grounded",
+        3561
+      ],
+      [
+        "grounded",
+        3571
+      ]
+    ]
+  },
+  "metrics": {
+    "full": {
+      "base": {
+        "n_rows": 200,
+        "overall_pass": 84,
+        "overall_rate": 0.42,
+        "mcq_n": 100,
+        "mcq_acc": 15,
+        "mcq_rate": 0.15,
+        "grounded_n": 50,
+        "cite_rate": 0.14
+      },
+      "tuned": {
+        "n_rows": 200,
+        "overall_pass": 125,
+        "overall_rate": 0.625,
+        "mcq_n": 100,
+        "mcq_acc": 63,
+        "mcq_rate": 0.63,
+        "grounded_n": 50,
+        "cite_rate": 0.44
+      }
+    },
+    "exclude_s1": {
+      "base": {
+        "n_rows": 191,
+        "overall_pass": 83,
+        "overall_rate": 0.4346,
+        "mcq_n": 91,
+        "mcq_acc": 12,
+        "mcq_rate": 0.1319,
+        "grounded_n": 41,
+        "cite_rate": 0.1463
+      },
+      "tuned": {
+        "n_rows": 191,
+        "overall_pass": 121,
+        "overall_rate": 0.6335,
+        "mcq_n": 91,
+        "mcq_acc": 54,
+        "mcq_rate": 0.5934,
+        "grounded_n": 41,
+        "cite_rate": 0.439
+      }
+    },
+    "exclude_s2": {
+      "base": {
+        "n_rows": 185,
+        "overall_pass": 83,
+        "overall_rate": 0.4486,
+        "mcq_n": 85,
+        "mcq_acc": 12,
+        "mcq_rate": 0.1412,
+        "grounded_n": 35,
+        "cite_rate": 0.0857
+      },
+      "tuned": {
+        "n_rows": 185,
+        "overall_pass": 115,
+        "overall_rate": 0.6216,
+        "mcq_n": 85,
+        "mcq_acc": 48,
+        "mcq_rate": 0.5647,
+        "grounded_n": 35,
+        "cite_rate": 0.3429
+      }
+    }
+  }
+}

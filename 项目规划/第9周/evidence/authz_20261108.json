@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "task": "W9-1 鉴权与权限审查",
+    "date": "2026-11-08",
+    "mode": "read_only_review_plus_minimal_verification",
+    "report": "项目规划/第9周/01_鉴权与权限_2026-11-08.md",
+    "severity_summary": {"P0": 0, "P1": 7, "P2": 4},
+    "token_redaction": "未执行登录，未获取任何 JWT；本文件不含 token/密码明文（仅记录任务给定的测试口令是否用于探测，实际未发出请求）"
+  },
+  "environment": {
+    "checked_at": "2026-11-08T22:54:39+08:00",
+    "backend_api": {
+      "url": "http://127.0.0.1:8080/api",
+      "expected_from_task": "PID 3608, profile=local",
+      "tcp_8080_connect": false,
+      "listen_8080": false,
+      "probe": "GET /api/actuator/health -> 无法连接到远程服务器 (connection refused)",
+      "status": "NOT_RUNNING"
+    },
+    "ai_service": {
+      "url": "http://127.0.0.1:8000",
+      "expected_from_task": "PID 30748",
+      "tcp_8000_connect": false,
+      "listen_8000": false,
+      "status": "NOT_RUNNING"
+    },
+    "mysql": {
+      "host": "127.0.0.1:3306",
+      "listen": true,
+      "pid": 7508,
+      "status": "RUNNING",
+      "usage": "只读查询（SELECT / DESC）"
+    },
+    "process_note": "Get-CimInstance 显示仅有 VS Code Java 语言服务器(PID 40604/19800/41000/42556)、无关 pytest(PID 31616/39588)、mcp-for-blender(PID 33020/42552)；无 Spring Boot / uvicorn 进程，与任务给定 PID 3608/30748 不一致"
+  },
+  "live_probes": [
+    {"id": "P-01", "target": "GET /api/actuator/health", "expected": "200", "actual": "connection refused", "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-02", "target": "GET /api/me/stats (无 token)", "expected": "401", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-03", "target": "GET /api/me/stats (篡改 token)", "expected": "401", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-04", "target": "GET /api/admin/questions (学生 token)", "expected": "403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-05", "target": "POST /api/admin/audits/questions/{id}/approve (学生 token)", "expected": "403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-06", "target": "PUT /api/admin/users/3/status?status=1 (学生 token)", "expected": "403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-07", "target": "POST /api/admin/ai/retention/purge?days=3650 (学生 token)", "expected": "403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-08", "target": "GET /api/practice/29/report (第二账号)", "expected": "403 或 404", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听；未注册第二账号"},
+    {"id": "P-09", "target": "GET /api/practice/29/card (第二账号)", "expected": "403 或 404", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听；未注册第二账号"},
+    {"id": "P-10", "target": "POST /api/internal/agent/tools/search (无 token)", "expected": "401/403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-11", "target": "POST /api/internal/agent/tools/search (错 token)", "expected": "401/403", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-12", "target": "POST /api/auth/login (错误密码)", "expected_task": "记录实际", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"},
+    {"id": "P-13", "target": "GET /api/practice/99999999/report", "expected_task": "记录实际", "actual": null, "status": "NOT_EXECUTED", "reason": "8080 未监听"}
+  ],
+  "static_findings": [
+    {"id": "A-01", "severity": "P2", "title": "JWT 签发/过期配置", "evidence": ["backend/src/main/java/com/examprep/security/JwtUtil.java:31-45", "backend/src/main/java/com/examprep/security/JwtUtil.java:48-62", "backend/src/main/resources/application.yml:96-100", "backend/src/main/resources/application-local.yml:12-13"], "conclusion": "HS 签名 + 密钥>=32字节强校验；expire-minutes=10080(7天)；local 使用固定 secret（文件已 gitignore）"},
+    {"id": "A-02", "severity": "PASS_STATIC", "title": "无效/篡改 token", "evidence": ["JwtUtil.java:65-76", "JwtAuthenticationFilter.java:45-64", "SecurityConfig.java:94-101", "SecurityConfig.java:213-219"], "conclusion": "解析失败返回 null -> 不建 Authentication -> /me/** 与 /admin/** 命中 authenticated -> 401"},
+    {"id": "A-03", "severity": "P1", "title": "无 refresh、logout 空实现、令牌不可撤销", "evidence": ["AuthController.java:34-81", "AuthService.java:157-162"], "conclusion": "无 /auth/refresh；logout 仅写应用日志；JWT 无 jti/黑名单，签发后 7 天内始终有效"},
+    {"id": "A-04", "severity": "P1", "title": "角色取自令牌且不回查库", "evidence": ["JwtAuthenticationFilter.java:48-53", "JwtAuthenticationFilter.java:68-75", "AdminService.java:108-136"], "conclusion": "isActiveUser 只校验 status==1；role 来自 claim。降权/撤管后旧令牌剩余有效期内仍按旧角色授权（最长 7 天）；禁用账号即时失效"},
+    {"id": "A-05", "severity": "PASS_STATIC", "title": "学生访问管理端写接口", "evidence": ["SecurityConfig.java:206-211", "SecurityConfig.java:215-219", "AdminController.java:155-171", "AdminController.java:215-235", "AiOpsController.java:109-126", "QuestionAdminController.java:36"], "conclusion": "URL 规则 + 方法级 @PreAuthorize 双层，STUDENT 预期 403"},
+    {"id": "A-06", "severity": "P1", "title": "练习记录对象级越权（属主校验存在但错误码 HTTP 200）", "evidence": ["PracticeService.java:685-691", "PracticeService.java:214", "PracticeService.java:459", "PracticeService.java:488", "PracticeController.java:52-115"], "conclusion": "userId 不匹配 -> PRACTICE_NOT_FOUND(2003)；不泄露数据，但 HTTP 200 且与不存在不可区分"},
+    {"id": "A-07", "severity": "P1", "title": "模拟考记录对象级越权（同类）", "evidence": ["MockExamService.java:410-414", "MockExamService.java:157", "MockExamService.java:201", "MockExamService.java:248", "MockExamService.java:260"], "conclusion": "属主校验存在；非本人 -> NOT_FOUND(404 业务码) -> HTTP 200"},
+    {"id": "A-08", "severity": "PASS_STATIC", "title": "内部接口 X-Internal-Token", "evidence": ["SecurityConfig.java:147-161", "InternalTokenFilter.java:34-49", "application.yml:139-142"], "conclusion": "独立安全链 securityMatcher(/internal/**)；未配置/缺失/不匹配 -> 403；MessageDigest.isEqual 常量时间；默认 token 为空 -> fail-closed"},
+    {"id": "A-09", "severity": "P1", "title": "internal 出现在匿名可读 Swagger", "evidence": ["OpenApiConfig.java", "AgentInternalController.java:49-53", "WikiInternalController.java:36-40", "SecurityConfig.java:104-118", "项目规划/第8周/01_接口与数据流_2026-11-08.md:25"], "conclusion": "无 @Hidden/无 pathsToExclude；/v3/api-docs 匿名可读；上周实测 210 operations 含 14 个 internal"},
+    {"id": "A-10", "severity": "PASS_STATIC", "title": "审核操作审计", "evidence": ["AuditService.java:100-157", "AuditService.java:205-214", "AuditService.java:308-332", "AuditService.java:229-289", "OperationLogService.java:37-60"], "conclusion": "audit_record + operation_log(含 ip/UA) 双写；审核员回避自身内容(AUDIT_SELF_FORBIDDEN)；CAS 防并发"},
+    {"id": "A-11", "severity": "P1", "title": "高危删除审计缺口", "evidence": ["QuestionAdminService.java:145", "AdminService.java:102", "AdminService.java:134", "AgentRunRetentionService.java:86-111", "AdminController.java:354-360"], "conclusion": "题目删除/用户状态与角色变更已写 operation_log；AI 轨迹物理清理仅 log.info；公告删除无操作日志"},
+    {"id": "A-12", "severity": "P1", "title": "登录/登出无审计入库", "evidence": ["AuthService.java:44-68", "AuthService.java:157-162", "OperationLogService.java:29", "OperationLogService.java:63"], "conclusion": "MODULE_AUTH 与 recordAs 无调用方；DB module=AUTH 为 0 行"},
+    {"id": "A-13", "severity": "P1", "title": "A-07 错误码 HTTP 200", "evidence": ["ResultCode.java:26", "ResultCode.java:36", "GlobalExceptionHandler.java:44-49", "GlobalExceptionHandler.java:199-204", "LoginRequest.java:17-20"], "conclusion": "setStatusIfHttpRange 仅在 code 400-599 同步 HTTP；1001/2003 为 1000+ -> HTTP 200 + body code != 200（静态确定）"},
+    {"id": "A-14", "severity": "P1", "title": "登录限流可被 XFF 伪造绕过", "evidence": ["RateLimitFilter.java:29-31", "RateLimitFilter.java:43-49", "RateLimitFilter.java:95-101"], "conclusion": "login 5/60s、register 3/60s；clientIp 优先取 X-Forwarded-For 第一段，无可信代理校验"},
+    {"id": "A-15", "severity": "P2", "title": "安全响应头/CORS/CSRF", "evidence": ["SecurityConfig.java:166-183", "SecurityConfig.java:238-255"], "conclusion": "frame deny/nosniff/Referrer-Policy/Permissions-Policy 已下发；CSP 未启用、HSTS disable；CORS 仅 localhost:8080；CSRF 关闭 + STATELESS 合理"},
+    {"id": "A-16", "severity": "OBSERVE", "title": "本地 AI_INTERNAL_TOKEN 是否注入", "evidence": ["backend/src/main/resources/application-local.yml", "backend/src/main/resources/application.yml:139-142", "ai-service/.env.example:147", "ai-service/run.bat:31-48"], "conclusion": "仓库内无本地 token；未注入时 internal 全 403（安全）/Agent 不可用（功能）"},
+    {"id": "A-17", "severity": "PASS_STATIC", "title": "AI 面试/Agent 轨迹对象级权限", "evidence": ["AiInterviewController.java:108", "AiInterviewController.java:121", "AiAgentController.java:79", "AiAgentController.java:89"], "conclusion": "all 仅对 isAuditorOrAdmin 放开，非本人拒绝"}
+  ],
+  "p1_list": [
+    "P1-1 令牌不可撤销（无 refresh/黑名单，logout 空实现，7 天有效）",
+    "P1-2 角色取自令牌不回查库（降权最长 7 天不生效）",
+    "P1-3 对象级越权/错误密码返回 HTTP 200（A-07 族）",
+    "P1-4 /internal/** 出现在匿名可读 Swagger",
+    "P1-5 登录/登出无审计入库",
+    "P1-6 AI 轨迹物理清理、公告删除缺 DB 审计",
+    "P1-7 登录限流可用 X-Forwarded-For 绕过"
+  ],
+  "db_evidence": {
+    "queried_at": "2026-11-08T22:52-22:56+08:00",
+    "readonly": true,
+    "user_table": {
+      "total_rows": 13,
+      "target_user": {"id": 3, "student_no": "2021001", "role": "STUDENT", "status": 1},
+      "admin": {"id": 1, "student_no": "admin", "role": "ADMIN", "status": 1},
+      "auditor": {"id": 2, "student_no": "auditor", "role": "AUDITOR", "status": 1}
+    },
+    "practice_record_user3": {"ids": [25, 26, 27, 28, 29], "status": "FINISHED", "mode": "BY_TYPE", "sample_object_id": 29},
+    "wrong_book_user3": {"count": 3, "question_ids": [2, 3, 30], "mastered": 0},
+    "audit_record": {
+      "total_rows": 17,
+      "by_type_result": {"QUESTION_APPROVED": 8, "RESOURCE_APPROVED": 7, "RESOURCE_OFFLINE": 2},
+      "latest": {"id": 18, "target_type": "RESOURCE", "target_id": 8, "auditor_id": 2, "result": "APPROVED", "created_at": "2026-11-08 18:53:11"},
+      "columns": ["id", "target_type", "target_id", "auditor_id", "result", "reason", "created_at"],
+      "note": "无 ip/user_agent 列"
+    },
+    "operation_log": {
+      "total_rows": 59,
+      "by_module_action": {"EXAM_CREATE": 36, "AUDIT_AUDIT": 19, "AUDIT_CREATE": 2, "EXAM_DELETE": 2},
+      "auth_module_rows": 0,
+      "columns": ["id", "user_id", "username", "module", "action", "target_type", "target_id", "detail", "ip", "user_agent", "created_at"]
+    }
+  },
+  "notes": [
+    "本次未启动/重启任何服务，未执行 mvn/pytest，未修改代码，未删除或改动既有用户",
+    "因 8080/8000 未监听，所有 HTTP 用例均标记 NOT_EXECUTED；静态结论以代码路径为证据，复测脚本见报告 §5.2",
+    "未注册第二测试账号（注册需服务在线），因此对象级越权用例未实测"
+  ]
+}

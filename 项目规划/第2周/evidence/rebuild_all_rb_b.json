@@ -1,0 +1,40 @@
+{
+  "out": "d:\\tmp\\rb_b",
+  "max_tokens": 640,
+  "elapsed_sec": 35.5,
+  "timings": {
+    "build_dataset": 4.2,
+    "mix_behavior": 0.2,
+    "compress_train": 17.6,
+    "compress_behavior": 5.2,
+    "build_planner_eval": 2.5,
+    "build_eval": 5.6
+  },
+  "files": {
+    "sft_train.jsonl": {
+      "sha256": "70b0ce01fc11e612216dcbeef04d5b4833ff3c7f760ed158e0303f92585f4215",
+      "rows": 4751,
+      "bytes": 10113925
+    },
+    "sft_train_behavior.jsonl": {
+      "sha256": "82ddb7d32234ae264e0a31a5e2bdfd439790e422658df663e1dd452cf1c7d182",
+      "rows": 2156,
+      "bytes": 4604972
+    },
+    "sft_val.jsonl": {
+      "sha256": "4871481f61ddc0d6d9f39f72ca11782a3705f36ba9b1daf4dd3729a43da13f47",
+      "rows": 427,
+      "bytes": 942979
+    },
+    "eval_holdout.jsonl": {
+      "sha256": "ca9dc9dc6da69cb4872597f62816d23b6a8a2b42c89d067a72318af08929c0c1",
+      "rows": 200,
+      "bytes": 504809
+    },
+    "eval_planner.jsonl": {
+      "sha256": "e990cc1dcba8015308c6890a6f0deb32bdfea6acf457f1bd1b540f0ded900ea8",
+      "rows": 50,
+      "bytes": 102217
+    }
+  }
+}

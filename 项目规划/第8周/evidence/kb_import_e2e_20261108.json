@@ -1,0 +1,676 @@
+{
+  "meta": {
+    "task": "W8-4 知识库导入闭环",
+    "date": "2026-11-08",
+    "executed_at": "2026-11-08T18:56:23",
+    "operator": "TRAE sub-agent",
+    "result": "PASS_WITH_MANUAL_VECTOR_SYNC",
+    "environment": {
+      "os": "Windows",
+      "backend": {
+        "base_url": "http://127.0.0.1:8080/api",
+        "pid": 28584,
+        "java": "OpenJDK Temurin 21.0.10",
+        "profile": "local",
+        "internal_token": "已配置（脱敏：local-***）"
+      },
+      "fastapi": {
+        "base_url": "http://127.0.0.1:8000",
+        "pid": 12400,
+        "version": "1.0.0",
+        "embedding_model": "bge-small-zh-v1.5",
+        "dim": 512,
+        "qdrant": "local file mode ./data/qdrant（6333 未监听属正常）"
+      },
+      "mysql": {
+        "host": "127.0.0.1:3306",
+        "version": "8.0.46",
+        "ngram_token_size": 2
+      },
+      "redis": {
+        "host": "127.0.0.1:6379",
+        "tcp_open": false,
+        "impact": "本链路同步抽取，不依赖 Redis"
+      }
+    },
+    "accounts": {
+      "uploader": "admin / ADMIN / uid=1",
+      "auditor": "auditor / AUDITOR / uid=2",
+      "student": "2021001 / STUDENT / uid=3"
+    }
+  },
+  "chain": "上传 /files/document -> 提交 /resources(PENDING) -> 审核 /admin/audits/resources/{id}/approve -> ChunkSyncService 抽取切分写 ai_chunk -> 人工 /admin/ai/vector/sync 推 Qdrant -> 学生 /ai/ask 与内部 /internal/agent/tools/search 命中",
+  "artifacts": {
+    "test_pdf": "d:\\大学生多考试备考知识库与题库系统\\项目规划\\第8周\\evidence\\第8周导入验证_蓝鲸协议7421.pdf",
+    "size_bytes": 19654,
+    "sha256": "0E322DA7438133545B762C89648236CA63722CB624447990AA3BC2D99850450D",
+    "file_id": 12,
+    "resource_id": 8,
+    "chunk_id": 19066
+  },
+  "steps": [
+    {
+      "step": 1,
+      "name": "发现接口",
+      "expected": "存在管理端上传、导入、审核、发布、索引同步端点",
+      "actual": "OpenAPI 共 254,633 字节。/files/document 上传；/resources 提交资料(PENDING)；/admin/audits/resources/{id}/approve 审核；/admin/ai/vector/sync 推向量；/ai/ask 学生问答；/internal/agent/tools/search 内部检索。CoursewareController 仅 GET（无导入写接口）。",
+      "evidence": {
+        "api_docs_bytes": 254633,
+        "upload": "POST /api/files/document (multipart file)",
+        "submit": "POST /api/resources (ResourceSubmitRequest: title/examCategoryId/type/fileId)",
+        "approve": "POST /api/admin/audits/resources/{id}/approve (ROLE:AUDITOR/ADMIN)",
+        "vector_sync": "POST /api/admin/ai/vector/sync?limit=200",
+        "ask": "POST /api/ai/ask (AUTH)",
+        "internal_search": "POST /api/internal/agent/tools/search (X-Internal-Token)"
+      }
+    },
+    {
+      "step": 2,
+      "name": "准备测试素材",
+      "expected": "PDF/TXT/MD/DOCX 之一，正文含唯一短句「蓝鲸协议7421」",
+      "actual": "生成 1 页 PDF，使用 simhei 字体嵌入并子集化；PyMuPDF 提取正文可见唯一短句。",
+      "evidence": {
+        "path": "d:\\大学生多考试备考知识库与题库系统\\项目规划\\第8周\\evidence\\第8周导入验证_蓝鲸协议7421.pdf",
+        "format": "PDF",
+        "size_bytes": 19654,
+        "sha256": "0E322DA7438133545B762C89648236CA63722CB624447990AA3BC2D99850450D",
+        "pages": 1,
+        "text_extract_check": "蓝鲸协议7421 in extracted text = true"
+      }
+    },
+    {
+      "step": 3,
+      "name": "管理员上传",
+      "expected": "返回 fileId、原始文件名",
+      "actual": "HTTP 200，fileId=12，原始文件名保留中文。",
+      "evidence": {
+        "http": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "size": 19654,
+            "fileName": "第8周导入验证_蓝鲸协议7421.pdf",
+            "fileId": 12,
+            "md5": "174874a104de4266921abd41bc7a864d"
+          },
+          "traceId": "4037f2e51400b1ad"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "name": "提交资料（进入待审核）",
+      "expected": "创建资料，audit_status=PENDING，生成预览页",
+      "actual": "HTTP 200，resource id=8，auditStatus=PENDING，pageCount=1（PDF 渲染 1 页预览）。",
+      "evidence": {
+        "http": {
+          "code": 200,
+          "message": "已提交，等待审核",
+          "data": {
+            "id": 8,
+            "title": "第8周导入验证_蓝鲸协议7421",
+            "type": "NOTE",
+            "typeName": "笔记",
+            "examCategoryId": 1,
+            "examCategoryName": "校内课程",
+            "subjectId": 5,
+            "subjectName": "C语言程序设计",
+            "description": "第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421",
+            "tags": "重点必考",
+            "pageCount": 1,
+            "downloadCount": 0,
+            "viewCount": 0,
+            "ratingAvg": 0,
+            "ratingCount": 0,
+            "uploaderName": "系统管理员",
+            "auditStatus": "PENDING"
+          },
+          "traceId": "b9d2e41a69daa75d"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "name": "解析/切分",
+      "expected": "审核通过后同步抽取正文并切分写入 ai_chunk",
+      "actual": "审核通过接口返回 200；事务提交后钩子 ChunkSyncService.syncResource 生效，写入 chunk 19066（chunk_no=0, page_no=1）。本链路为同步抽取，未经过异步 jobs，Redis 6379 未监听不影响。",
+      "evidence": {
+        "approve_http": {
+          "code": 200,
+          "message": "已通过审核",
+          "traceId": "ed284ea8e0363bab"
+        },
+        "chunk_rows": [
+          "19066\tRESOURCE\t8\t0\t第8周导入验证_蓝鲸协议7421\t1\tACTIVE\t1\tbbb273c50a817557c8bd5f30aa59cb52\t702\t30"
+        ],
+        "redis_6379": false,
+        "jobs_probe": "GET /api/admin/ai/jobs?page=1&size=5 -> 200（列表读 MySQL，非 Redis）"
+      }
+    },
+    {
+      "step": 6,
+      "name": "核库",
+      "expected": "资料行状态 APPROVED；ai_chunk 新增 1 条，source_type=RESOURCE，source_id=8，status=ACTIVE",
+      "actual": "resource id=8 audit_status=APPROVED；ai_chunk 由 13306 增至 13307；RESOURCE ACTIVE 由 5 增至 6；新 chunk 正文含「蓝鲸协议7421」（INSTR 位置 30）。",
+      "evidence": {
+        "resource_row": [
+          "8\t第8周导入验证_蓝鲸协议7421\tNOTE\tAPPROVED\t12\t1\t1\t5\t1"
+        ],
+        "chunk_row": [
+          "19066\tRESOURCE\t8\t0\t第8周导入验证_蓝鲸协议7421\t1\tACTIVE\t1\tbbb273c50a817557c8bd5f30aa59cb52\t702\t30"
+        ],
+        "ai_chunk_total_before": 13306,
+        "ai_chunk_total_after": [
+          "13307"
+        ],
+        "resource_active_before": 5,
+        "resource_active_after": [
+          "6"
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "name": "抽检（正文 + 向量状态）",
+      "expected": "正文可读、唯一短句在块内；vector_synced 在审核后为 0（待推送）",
+      "actual": "审核后 vector_synced=0；调用 /admin/ai/vector/sync 后 pending=1/synced=1，vector_synced=1，vector_synced_at=2026-11-08 18:53:32。FastAPI chunk_synced 12648，与 MySQL 一致。",
+      "evidence": {
+        "chunk_content": [
+          "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421\\n标签：重点必考\\n第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点。 蓝鲸协议7421 仅出现在本测试资料的正文中，便于精确判断检索是否命中新导入的知识。 三、判定口径 若学生端检索“蓝鲸协议7421 是什么”时返回本资料作为来源，则说明新知识已进入检索链路。"
+        ],
+        "vector_before_push": "vector_synced=0",
+        "vector_sync_http": {
+          "code": 200,
+          "message": "向量推送完成",
+          "data": {
+            "pending": 1,
+            "synced": 1,
+            "skipped": 0,
+            "failed": 0,
+            "rejected": 0,
+            "mismatched": 0,
+            "tookMs": 60,
+            "pushed": true
+          },
+          "traceId": "353dfab2b793e12a"
+        },
+        "vector_after_push": [
+          "19066\tACTIVE\t1\t2026-11-08 18:53:32"
+        ],
+        "fastapi_health": {
+          "status": "ok",
+          "embedding": {
+            "ready": true,
+            "detail": "model=bge-small-zh-v1.5 load_ms=213 已加载",
+            "dim": 512,
+            "model_id": "bge-small-zh-v1.5",
+            "loaded": true
+          },
+          "qdrant": {
+            "ready": true,
+            "detail": "collection=exam_chunks 本地模式（本地持久化 ./data/qdrant）"
+          },
+          "ocr": {
+            "ready": true,
+            "detail": "未加载（懒加载，首次调用 /v1/ocr 时加载，模型目录 D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\paddle）"
+          },
+          "llm": {
+            "ready": true,
+            "detail": "model=qwen2.5-7b-instruct-baseline base_url=http://127.0.0.1:11434/v1 key=已配置"
+          },
+          "version": "1.0.0",
+          "security": {
+            "internalTokenConfigured": true,
+            "agentAuthRequired": true,
+            "anonymousAllowed": false
+          }
+        },
+        "fastapi_index_status": {
+          "collection": "exam_chunks",
+          "model_id": "bge-small-zh-v1.5",
+          "dim": 512,
+          "chunk_synced": 12648,
+          "config_model_id": "bge-small-zh-v1.5",
+          "status": "READY",
+          "message": "索引正常"
+        },
+        "reconcile": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "mySqlSynced": 12648,
+            "qdrantSynced": 12648,
+            "modelId": "bge-small-zh-v1.5",
+            "status": "READY",
+            "mySqlActive": 12648,
+            "orphanedInQdrant": 0,
+            "missingInQdrant": 0,
+            "consistent": true,
+            "message": "索引一致"
+          },
+          "traceId": "a86d0bb53ceb108c"
+        },
+        "reconcile_values": {
+          "mySqlSynced": 12648,
+          "qdrantSynced": 12648,
+          "consistent": true
+        }
+      }
+    },
+    {
+      "step": 8,
+      "name": "发布/审核",
+      "expected": "PENDING -> APPROVED",
+      "actual": "由 AUDITOR(auditor) 审核通过（管理员是上传者，受「不可自审」约束）；resource.audit_status=APPROVED，学生端 GET /api/resources/8 可见，预览 1 页。",
+      "evidence": {
+        "approve_http": {
+          "code": 200,
+          "message": "已通过审核",
+          "traceId": "ed284ea8e0363bab"
+        },
+        "resource_detail_http": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "id": 8,
+            "title": "第8周导入验证_蓝鲸协议7421",
+            "type": "NOTE",
+            "typeName": "笔记",
+            "examCategoryId": 1,
+            "examCategoryName": "校内课程",
+            "subjectId": 5,
+            "subjectName": "C语言程序设计",
+            "description": "第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421",
+            "tags": "重点必考",
+            "pageCount": 1,
+            "downloadCount": 0,
+            "viewCount": 1,
+            "ratingAvg": 0.0,
+            "ratingCount": 0,
+            "uploaderName": "系统管理员",
+            "auditStatus": "APPROVED",
+            "createdAt": "2026-11-08T18:52:46"
+          },
+          "traceId": "ee2307cd58af3636"
+        },
+        "resource_preview_http": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "totalPages": 1,
+            "visiblePages": 1,
+            "guest": false,
+            "pages": [
+              {
+                "pageId": 13,
+                "pageNo": 1,
+                "url": "/files/preview/13"
+              }
+            ]
+          },
+          "traceId": "545ad06691550f91"
+        },
+        "status_transition": "PENDING -> APPROVED"
+      }
+    },
+    {
+      "step": 9,
+      "name": "学生端检索",
+      "expected": "命中新 chunk，sources.refId 指回 resource 8",
+      "actual": "学生 JWT POST /ai/ask 返回 refused=false、retrievalMode=VECTOR_HYBRID、sources[0].chunkId=19066、refType=RESOURCE、refId=8、refPath=/resources/8，答案含唯一短句；耗时约 2.0s。内部检索工具返回同一 chunk（score=172.14，mode=VECTOR_HYBRID）。MySQL ngram 全文索引直接 MATCH 也命中（score≈339.32）。",
+      "evidence": {
+        "ask_http": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "question": "蓝鲸协议7421 是什么",
+            "answer": "蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点，用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。[1]",
+            "generator": "ollama",
+            "engine": "RAG",
+            "fallbackFromWiki": true,
+            "degraded": false,
+            "refused": false,
+            "costMillis": 1915,
+            "retrievalMillis": 197,
+            "retrievalMode": "VECTOR_HYBRID",
+            "recallCount": 2,
+            "sources": [
+              {
+                "chunkId": 19066,
+                "title": "第8周导入验证_蓝鲸协议7421",
+                "snippet": "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421 标签：重点必考 第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入…",
+                "refType": "RESOURCE",
+                "refId": 8,
+                "refPath": "/resources/8",
+                "offset": -1
+              }
+            ],
+            "contexts": [
+              "第8周导入验证_蓝鲸协议7421"
+            ]
+          },
+          "traceId": "a282763356bd246d"
+        },
+        "internal_search_http": {
+          "code": 200,
+          "message": "成功",
+          "data": {
+            "contexts": [
+              {
+                "chunkId": 19066,
+                "title": "第8周导入验证_蓝鲸协议7421",
+                "content": "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421\n标签：重点必考\n第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点。 蓝鲸协议7421 仅出现在本测试资料的正文中，便于精确判断检索是否命中新导入的知识。 三、判定口径 若学生端检索“蓝鲸协议7421 是什么”时返回本资料作为来源，则说明新知识已进入检索链路。",
+                "score": 172.1423767089844,
+                "refType": "RESOURCE",
+                "refId": 8,
+                "sourceType": "RESOURCE",
+                "sourceId": 8,
+                "subjectId": 5
+              }
+            ],
+            "mode": "VECTOR_HYBRID",
+            "recallCount": 2,
+            "bestScore": 172.1423767089844,
+            "refused": false
+          },
+          "traceId": "4a75638cec766638"
+        },
+        "mysql_fulltext_match": [
+          "19066\tRESOURCE\t8\t339.3173522949219"
+        ]
+      }
+    }
+  ],
+  "responses": {
+    "upload_document": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "size": 19654,
+        "fileName": "第8周导入验证_蓝鲸协议7421.pdf",
+        "fileId": 12,
+        "md5": "174874a104de4266921abd41bc7a864d"
+      },
+      "traceId": "4037f2e51400b1ad"
+    },
+    "submit_resource": {
+      "code": 200,
+      "message": "已提交，等待审核",
+      "data": {
+        "id": 8,
+        "title": "第8周导入验证_蓝鲸协议7421",
+        "type": "NOTE",
+        "typeName": "笔记",
+        "examCategoryId": 1,
+        "examCategoryName": "校内课程",
+        "subjectId": 5,
+        "subjectName": "C语言程序设计",
+        "description": "第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421",
+        "tags": "重点必考",
+        "pageCount": 1,
+        "downloadCount": 0,
+        "viewCount": 0,
+        "ratingAvg": 0,
+        "ratingCount": 0,
+        "uploaderName": "系统管理员",
+        "auditStatus": "PENDING"
+      },
+      "traceId": "b9d2e41a69daa75d"
+    },
+    "approve_resource": {
+      "code": 200,
+      "message": "已通过审核",
+      "traceId": "ed284ea8e0363bab"
+    },
+    "vector_sync": {
+      "code": 200,
+      "message": "向量推送完成",
+      "data": {
+        "pending": 1,
+        "synced": 1,
+        "skipped": 0,
+        "failed": 0,
+        "rejected": 0,
+        "mismatched": 0,
+        "tookMs": 60,
+        "pushed": true
+      },
+      "traceId": "353dfab2b793e12a"
+    },
+    "ask_student": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "question": "蓝鲸协议7421 是什么",
+        "answer": "蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点，用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。[1]",
+        "generator": "ollama",
+        "engine": "RAG",
+        "fallbackFromWiki": true,
+        "degraded": false,
+        "refused": false,
+        "costMillis": 1915,
+        "retrievalMillis": 197,
+        "retrievalMode": "VECTOR_HYBRID",
+        "recallCount": 2,
+        "sources": [
+          {
+            "chunkId": 19066,
+            "title": "第8周导入验证_蓝鲸协议7421",
+            "snippet": "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421 标签：重点必考 第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入…",
+            "refType": "RESOURCE",
+            "refId": 8,
+            "refPath": "/resources/8",
+            "offset": -1
+          }
+        ],
+        "contexts": [
+          "第8周导入验证_蓝鲸协议7421"
+        ]
+      },
+      "traceId": "a282763356bd246d"
+    },
+    "internal_search": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "contexts": [
+          {
+            "chunkId": 19066,
+            "title": "第8周导入验证_蓝鲸协议7421",
+            "content": "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421\n标签：重点必考\n第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点。 蓝鲸协议7421 仅出现在本测试资料的正文中，便于精确判断检索是否命中新导入的知识。 三、判定口径 若学生端检索“蓝鲸协议7421 是什么”时返回本资料作为来源，则说明新知识已进入检索链路。",
+            "score": 172.1423767089844,
+            "refType": "RESOURCE",
+            "refId": 8,
+            "sourceType": "RESOURCE",
+            "sourceId": 8,
+            "subjectId": 5
+          }
+        ],
+        "mode": "VECTOR_HYBRID",
+        "recallCount": 2,
+        "bestScore": 172.1423767089844,
+        "refused": false
+      },
+      "traceId": "4a75638cec766638"
+    },
+    "resource_detail": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "id": 8,
+        "title": "第8周导入验证_蓝鲸协议7421",
+        "type": "NOTE",
+        "typeName": "笔记",
+        "examCategoryId": 1,
+        "examCategoryName": "校内课程",
+        "subjectId": 5,
+        "subjectName": "C语言程序设计",
+        "description": "第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421",
+        "tags": "重点必考",
+        "pageCount": 1,
+        "downloadCount": 0,
+        "viewCount": 1,
+        "ratingAvg": 0.0,
+        "ratingCount": 0,
+        "uploaderName": "系统管理员",
+        "auditStatus": "APPROVED",
+        "createdAt": "2026-11-08T18:52:46"
+      },
+      "traceId": "ee2307cd58af3636"
+    },
+    "resource_preview": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "totalPages": 1,
+        "visiblePages": 1,
+        "guest": false,
+        "pages": [
+          {
+            "pageId": 13,
+            "pageNo": 1,
+            "url": "/files/preview/13"
+          }
+        ]
+      },
+      "traceId": "545ad06691550f91"
+    },
+    "vector_reconcile": {
+      "code": 200,
+      "message": "成功",
+      "data": {
+        "mySqlSynced": 12648,
+        "qdrantSynced": 12648,
+        "modelId": "bge-small-zh-v1.5",
+        "status": "READY",
+        "mySqlActive": 12648,
+        "orphanedInQdrant": 0,
+        "missingInQdrant": 0,
+        "consistent": true,
+        "message": "索引一致"
+      },
+      "traceId": "a86d0bb53ceb108c"
+    },
+    "fastapi_health": {
+      "status": "ok",
+      "embedding": {
+        "ready": true,
+        "detail": "model=bge-small-zh-v1.5 load_ms=213 已加载",
+        "dim": 512,
+        "model_id": "bge-small-zh-v1.5",
+        "loaded": true
+      },
+      "qdrant": {
+        "ready": true,
+        "detail": "collection=exam_chunks 本地模式（本地持久化 ./data/qdrant）"
+      },
+      "ocr": {
+        "ready": true,
+        "detail": "未加载（懒加载，首次调用 /v1/ocr 时加载，模型目录 D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\paddle）"
+      },
+      "llm": {
+        "ready": true,
+        "detail": "model=qwen2.5-7b-instruct-baseline base_url=http://127.0.0.1:11434/v1 key=已配置"
+      },
+      "version": "1.0.0",
+      "security": {
+        "internalTokenConfigured": true,
+        "agentAuthRequired": true,
+        "anonymousAllowed": false
+      }
+    },
+    "fastapi_index_status": {
+      "collection": "exam_chunks",
+      "model_id": "bge-small-zh-v1.5",
+      "dim": 512,
+      "chunk_synced": 12648,
+      "config_model_id": "bge-small-zh-v1.5",
+      "status": "READY",
+      "message": "索引正常"
+    }
+  },
+  "sql_checks": [
+    {
+      "sql": "SELECT id,title,type,audit_status,current_file_id,page_count,uploader_id,subject_id,exam_category_id FROM resource WHERE id=8",
+      "result": [
+        "8\t第8周导入验证_蓝鲸协议7421\tNOTE\tAPPROVED\t12\t1\t1\t5\t1"
+      ]
+    },
+    {
+      "sql": "SELECT id,source_type,source_id,chunk_no,title,page_no,status,vector_synced,content_hash,LENGTH(content),INSTR(content,'蓝鲸协议7421') FROM ai_chunk WHERE source_type='RESOURCE' AND source_id=8 ORDER BY chunk_no",
+      "result": [
+        "19066\tRESOURCE\t8\t0\t第8周导入验证_蓝鲸协议7421\t1\tACTIVE\t1\tbbb273c50a817557c8bd5f30aa59cb52\t702\t30"
+      ]
+    },
+    {
+      "sql": "SELECT id,status,vector_synced,vector_synced_at FROM ai_chunk WHERE id=19066",
+      "result": [
+        "19066\tACTIVE\t1\t2026-11-08 18:53:32"
+      ]
+    },
+    {
+      "sql": "SELECT COUNT(*) FROM ai_chunk  -- before approve=13306, after=13307",
+      "result": [
+        "13307"
+      ]
+    },
+    {
+      "sql": "SELECT COUNT(*) FROM ai_chunk WHERE source_type='RESOURCE' AND status='ACTIVE'  -- before=5, after=6",
+      "result": [
+        "6"
+      ]
+    },
+    {
+      "sql": "SELECT COUNT(*) FROM ai_chunk WHERE status='ACTIVE' AND vector_synced<>1",
+      "result": [
+        "0"
+      ]
+    },
+    {
+      "sql": "SELECT id,source_type,source_id,MATCH(title,content) AGAINST('蓝鲸协议7421' IN BOOLEAN MODE) FROM ai_chunk WHERE MATCH(title,content) AGAINST('蓝鲸协议7421' IN BOOLEAN MODE) LIMIT 5",
+      "result": [
+        "19066\tRESOURCE\t8\t339.3173522949219"
+      ]
+    },
+    {
+      "sql": "SELECT content FROM ai_chunk WHERE id=19066",
+      "result": [
+        "简介：第8周 W8-4 知识库导入闭环测试资料，唯一标记：蓝鲸协议7421\\n标签：重点必考\\n第8周知识库导入验证 唯一标记：蓝鲸协议7421 一、验证目的 本资料用于验证“管理端上传→解析→切分→ai_chunk→索引/向量同步→审核发布→ 学生端检索”的完整闭环。 二、唯一检索锚点 蓝鲸协议7421 是本次知识库导入闭环验证的唯一检索锚点。 蓝鲸协议7421 仅出现在本测试资料的正文中，便于精确判断检索是否命中新导入的知识。 三、判定口径 若学生端检索“蓝鲸协议7421 是什么”时返回本资料作为来源，则说明新知识已进入检索链路。"
+      ]
+    }
+  ],
+  "defects": [
+    {
+      "id": "W8-4-D01",
+      "severity": "中",
+      "title": "审核通过只置 vector_synced=0，不自动推送向量",
+      "repro": "审核通过后立即查 ai_chunk.vector_synced=0；需人工 POST /api/admin/ai/vector/sync 才变为 1",
+      "impact": "若不人工触发，向量通道对新资料滞后；但 MySQL ngram 全文索引在审核写块时已生效，学生问答可经 ngram 兜底命中（本次 retrievalMode=VECTOR_HYBRID）",
+      "evidence": "vector_sync.json；row_vec；RetrievalService/HybridRetriever 双通道"
+    },
+    {
+      "id": "W8-4-D02",
+      "severity": "中",
+      "title": "无管理端课件/知识库导入写接口，CoursewareController 只读",
+      "repro": "OpenAPI /courseware 仅 GET；无 POST /courseware 或 /admin/knowledge/import",
+      "impact": "课件批量入库依赖脚本（灌入操作系统PPT.bat），不能经管理端 API 完成上传→审核→发布的可审计闭环；本次以资料提交链路（/files/document + /resources）完成闭环",
+      "evidence": "CoursewareController.java 仅有 @GetMapping；api-docs paths"
+    },
+    {
+      "id": "W8-4-D03",
+      "severity": "中",
+      "title": "资料正文解析仅支持 PDF，docx/txt/md 正文不入索引",
+      "repro": "ChunkExtractor.extractPdfPages 仅在 file.ext=pdf 时抽取；其他格式仅 title/description/tags 进 chunk",
+      "impact": "docx/txt/md 资料的学生端检索只能命中标题与简介，正文不可检索；本次刻意使用 PDF 规避",
+      "evidence": "ChunkExtractor.java L303-330 / L239-243"
+    }
+  ],
+  "conclusion": {
+    "verdict": "闭环通过（含 1 次人工向量推送）",
+    "new_chunks": 1,
+    "student_retrieval_hit": true,
+    "sources_ref": "refType=RESOURCE, refId=8, refPath=/resources/8",
+    "manual_step_required": "审核后必须调用 POST /api/admin/ai/vector/sync（或 reconcile/full-sync）才能把 vector_synced 由 0 置 1；本次已执行且成功",
+    "manual_sql_intervention": false
+  }
+}

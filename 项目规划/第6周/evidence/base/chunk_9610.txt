@@ -1,0 +1,1 @@
+{"thought":"根据资料，归纳GPT模型相关面试题的信息。","action":"final","answer":"GPT模型是一个深度双向Transformer编码器堆叠的模型，目的是进行自然语言理解。"}

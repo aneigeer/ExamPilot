@@ -1,0 +1,1 @@
+{"thought":"根据资料中的信息，回答面试题是什么。","action":"final","answer":"Embedding模型面试题是关于ELMo的诞生，以及ELMo的相关信息。"}

@@ -1,0 +1,242 @@
+{
+  "task": "第8周 W8-7 自动化回归测试集",
+  "generatedAt": "2026-11-08T19:25:14+0800",
+  "runMarker": "W8-7-20261108-192505",
+  "target": {
+    "javaBase": "http://127.0.0.1:8080/api",
+    "aiBase": "http://127.0.0.1:8000",
+    "aiSubjectId": 5
+  },
+  "environment": {
+    "studentNo": "2021001",
+    "studentUserId": 3,
+    "adminRole": "ADMIN",
+    "internalTokenConfigured": true,
+    "python": "3.12.10"
+  },
+  "summary": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "xfail": 4,
+    "xpass": 0,
+    "skipped": 0,
+    "durationMs": 9302
+  },
+  "footprint": {
+    "practiceId": 29,
+    "practiceQuestionId": 3218,
+    "answeredWrongQuestionId": 3218
+  },
+  "results": [
+    {
+      "id": "H-1",
+      "name": "Spring Boot /api/actuator/health",
+      "expected": "HTTP 200 且 status=UP",
+      "actual": "HTTP 200 / status=UP",
+      "verdict": "PASS",
+      "evidence": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}",
+      "note": ""
+    },
+    {
+      "id": "H-2",
+      "name": "FastAPI /v1/health",
+      "expected": "HTTP 200 且 status 非 down",
+      "actual": "HTTP 200 / status=ok",
+      "verdict": "PASS",
+      "evidence": "{\"status\":\"ok\",\"embedding\":{\"ready\":true,\"detail\":\"model=bge-small-zh-v1.5 load_ms=475 已加载\",\"dim\":512,\"model_id\":\"bge-small-zh-v1.5\",\"loaded\":true},\"qdrant\":{\"ready\":true,\"detail\":\"collection=exam_chu",
+      "note": ""
+    },
+    {
+      "id": "A-1",
+      "name": "学生登录",
+      "expected": "HTTP 200 + token 非空 + userId>0",
+      "actual": "HTTP 200 / code=200 / userId=3 / tokenLen=201",
+      "verdict": "PASS",
+      "evidence": "学号=2021001",
+      "note": ""
+    },
+    {
+      "id": "A-2",
+      "name": "管理员登录",
+      "expected": "HTTP 200 + token 非空 + role=ADMIN",
+      "actual": "HTTP 200 / role=ADMIN / tokenLen=196",
+      "verdict": "PASS",
+      "evidence": "账号=admin",
+      "note": ""
+    },
+    {
+      "id": "Q-1",
+      "name": "题目分页列表",
+      "expected": "HTTP 200 + total>0 + list 非空",
+      "actual": "HTTP 200 / total=2500 / list=10",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"page\":1,\"size\":10,\"total\":2500,\"list\":[{\"id\":4022,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队乒乓球双打，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,",
+      "note": ""
+    },
+    {
+      "id": "Q-2",
+      "name": "题目详情含选项与答案",
+      "expected": "HTTP 200 + options 非空 + 含 isAnswer",
+      "actual": "HTTP 200 / options=4 / 含isAnswer=True",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"id\":4022,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"若宋和韩组队乒乓球双打，则以下哪项是可能的？\",\"difficulty\":3,\"source\":\"2026年国考行测（行政执法）\",\"tags\":\"国考,行测,2026,行政执法,判断推理\",\"score\":1,\"objective\":true,\"auditSt",
+      "note": ""
+    },
+    {
+      "id": "P-1",
+      "name": "开始练习并返回第一题",
+      "expected": "HTTP 200 + practiceId>0 + 题数>=1 + 题目存在",
+      "actual": "HTTP 200 / practiceId=29 / totalCount=2 / questionId=3218",
+      "verdict": "PASS",
+      "evidence": "subjectId=190 / type=SINGLE_CHOICE / count=2",
+      "note": ""
+    },
+    {
+      "id": "P-2",
+      "name": "练习题面不泄露答案",
+      "expected": "响应内无 isAnswer / analysis",
+      "actual": "命中isAnswer=False 命中analysis=False",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":29,\"answeredCount\":0,\"totalCount\":2,\"finished\":false,\"question\":{\"id\":3218,\"subjectId\":190,\"type\":\"SINGLE_CHOICE\",\"typeName\":\"单选题\",\"stem\":\"我国经济已由高速增长阶段转",
+      "note": ""
+    },
+    {
+      "id": "P-3",
+      "name": "答 1 题并判分（故意答错）",
+      "expected": "200 / judged=true / correct=false / correctAnswer 正确 / answeredCount=1",
+      "actual": "HTTP 200 / judged=True / correct=False / correctAnswer=C / answeredCount=1",
+      "verdict": "PASS",
+      "evidence": "提交 A，正确答案 C",
+      "note": ""
+    },
+    {
+      "id": "P-4",
+      "name": "重复提交同一题同一答案幂等",
+      "expected": "200 / 判分结果不变 / answeredCount 不增",
+      "actual": "HTTP 200 / correct=False / answeredCount=1->1",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"questionId\":3218,\"type\":\"SINGLE_CHOICE\",\"judged\":true,\"correct\":false,\"correctAnswer\":\"C\",\"analysis\":\"文段开篇交代背景，指出我国经济已转向高质量发展阶段，接着提出问题，即目前已不可能单纯依靠出口提升经济发展， 之后通过“因此”总结前文， 并通过“必须”给出对策， 且",
+      "note": ""
+    },
+    {
+      "id": "P-5",
+      "name": "结束练习并出报告",
+      "expected": "200 / FINISHED / answered=1 / correct=0 / details=1 / accuracy=correct÷answered",
+      "actual": "HTTP 200 / status=FINISHED / answered=1 / correct=0 / accuracy=0.0 / details=1",
+      "verdict": "PASS",
+      "evidence": "复算 accuracy=0.0",
+      "note": ""
+    },
+    {
+      "id": "P-6",
+      "name": "练习报告与 finish 一致",
+      "expected": "200 / accuracy 与 finish 一致 / details=answered",
+      "actual": "HTTP 200 / accuracy=0.0（finish=0.0）/ details=1",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"practiceId\":29,\"subjectName\":\"行政职业能力测验\",\"mode\":\"BY_TYPE\",\"totalCount\":2,\"answeredCount\":1,\"correctCount\":0,\"accuracy\":0.0,\"status\":\"FINISHED\",\"startedAt\":\"2026-11-08T19:25:06\",\"finishe",
+      "note": ""
+    },
+    {
+      "id": "W-1",
+      "name": "错题本可见刚答错的题",
+      "expected": "HTTP 200 + 列表包含该 questionId",
+      "actual": "HTTP 200 / 错题数=14 / 命中3218=True",
+      "verdict": "PASS",
+      "evidence": "questionId=3218",
+      "note": ""
+    },
+    {
+      "id": "AI-1",
+      "name": "域内答疑返回溯源答案",
+      "expected": "200 / refused=false / sources 非空 / 正文含 [n]",
+      "actual": "HTTP 200 / refused=False / sources=2 / 含引用=True",
+      "verdict": "PASS",
+      "evidence": "question=值传递和地址传递有什么区别；answer=值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。[1][2]",
+      "note": ""
+    },
+    {
+      "id": "AI-2",
+      "name": "域外问题拒答",
+      "expected": "200 / refused=true / answer=未找到相关资料 / sources=[]",
+      "actual": "HTTP 200 / refused=True / answerLen=7 / sources=0",
+      "verdict": "PASS",
+      "evidence": "question=明天上海天气怎么样；answer=未找到相关资料",
+      "note": ""
+    },
+    {
+      "id": "AG-1",
+      "name": "Agent 运行返回 final 事件",
+      "expected": "HTTP 200 + events 非空 + final 事件存在",
+      "actual": "HTTP 200 / events=7 / final存在=True",
+      "verdict": "PASS",
+      "evidence": "{\"answer\":\"根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、",
+      "note": ""
+    },
+    {
+      "id": "AG-2",
+      "name": "final 字段齐全且可用",
+      "expected": "字段 answer/generator/degraded/refused/step_count/tool_calls 全部存在",
+      "actual": "缺失=[] / refused=False / step_count=2 / tool_calls=1",
+      "verdict": "PASS",
+      "evidence": "{\"answer\": \"根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\\n根据《指针与函数》",
+      "note": ""
+    },
+    {
+      "id": "T-1",
+      "name": "内部检索工具返回 contexts",
+      "expected": "200 / contexts 非空 / refused=false",
+      "actual": "HTTP 200 / contexts=3 / mode=VECTOR_HYBRID / refused=False",
+      "verdict": "PASS",
+      "evidence": "{\"code\":200,\"message\":\"成功\",\"data\":{\"contexts\":[{\"chunkId\":49,\"title\":\"值传递和地址传递有什么区别？\",\"content\":\"题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改",
+      "note": ""
+    },
+    {
+      "id": "T-2",
+      "name": "检索结果字段完整",
+      "expected": "contexts[0] 含 chunkId/title/score/refType/refId",
+      "actual": "缺失=[] / refType=QUESTION / refId=46",
+      "verdict": "PASS",
+      "evidence": "{\"chunkId\": 49, \"title\": \"值传递和地址传递有什么区别？\", \"content\": \"题干：值传递和地址传递有什么区别？\\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\\n标签：C语言,函数,参数传递\\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、",
+      "note": ""
+    }
+  ],
+  "knownIssues": [
+    {
+      "id": "K-4",
+      "defect": "W8-7-KI-04（P2）AgentRunResponse 未声明 final，events 内 final 事件仍可用",
+      "name": "Agent 响应顶层 final 字段缺失",
+      "expected": "响应体含顶层 final 对象",
+      "observed": "顶层键=['answer', 'degraded', 'events', 'generator', 'refused', 'step_count', 'tool_calls']",
+      "verdict": "XFAIL",
+      "evidence": "[\"answer\", \"degraded\", \"events\", \"generator\", \"refused\", \"step_count\", \"tool_calls\"]"
+    },
+    {
+      "id": "K-1",
+      "defect": "W8-2-D-01（中）",
+      "name": "错误密码登录仍返回 HTTP 200",
+      "expected": "应返回 4xx（业务码非 1001）",
+      "observed": "HTTP 200 / code=1001",
+      "verdict": "XFAIL",
+      "evidence": "{\"code\":1001,\"message\":\"学号或密码错误\",\"traceId\":\"a3a7c4d9cc2572b1\"}"
+    },
+    {
+      "id": "K-2",
+      "defect": "W8-2-D-02（中）",
+      "name": "非法 practiceId 提交仍返回 HTTP 200",
+      "expected": "应返回 4xx",
+      "observed": "HTTP 200 / code=2003",
+      "verdict": "XFAIL",
+      "evidence": "{\"code\":2003,\"message\":\"练习记录不存在\",\"traceId\":\"5033136b33c12008\"}"
+    },
+    {
+      "id": "K-3",
+      "defect": "W8-3-D-01（P1/中）",
+      "name": "域外「红烧肉做法」未拒答",
+      "expected": "refused=true / 正文=未找到相关资料",
+      "observed": "HTTP 200 / refused=False / generator=ollama / sources=1",
+      "verdict": "XFAIL",
+      "evidence": "与其直接下命令，不如先给AI看几个高质量的范例，让它模仿你的风格。例如，你可以这样描述红烧肉的做法：你看着学，火候；做个红烧肉！；要够，糖色要亮。[1]"
+    }
+  ]
+}

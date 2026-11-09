@@ -1,0 +1,75 @@
+{
+  "log": "项目规划\\第4周\\evidence\\train_formal_v1.log",
+  "model": "C:\\models\\models\\Qwen--Qwen2.5-3B-Instruct\\snapshots\\master",
+  "total_steps": 135,
+  "last_step": 14,
+  "last_elapsed_sec": 621,
+  "step_avg_sec": 44.36,
+  "metrics": [
+    {
+      "step": 9,
+      "loss": 3.719,
+      "grad_norm": 4.344,
+      "learning_rate": 2.667e-05,
+      "entropy": 1.559,
+      "mean_token_accuracy": 0.4841,
+      "num_tokens": 37370.0,
+      "epoch": 0.03711
+    }
+  ],
+  "metrics_every5": [
+    {
+      "step": 9,
+      "loss": 3.719,
+      "grad_norm": 4.344,
+      "learning_rate": 2.667e-05,
+      "entropy": 1.559,
+      "mean_token_accuracy": 0.4841,
+      "num_tokens": 37370.0,
+      "epoch": 0.03711
+    }
+  ],
+  "mem": [
+    {
+      "step": 5,
+      "peak_alloc_gb": 3.58,
+      "peak_reserved_gb": 3.72
+    },
+    {
+      "step": 10,
+      "peak_alloc_gb": 3.58,
+      "peak_reserved_gb": 3.72
+    }
+  ],
+  "peak_alloc_gb": 3.58,
+  "peak_reserved_gb": 3.72,
+  "run_dir": "D:\\大学生多考试备考知识库与题库系统\\training\\output\\probe3b",
+  "checkpoints": [
+    {
+      "dir": "D:\\大学生多考试备考知识库与题库系统\\training\\output\\probe3b\\checkpoint-2",
+      "name": "checkpoint-2",
+      "global_step": 2,
+      "files": {
+        "adapter_model.safetensors": true,
+        "adapter_config.json": true,
+        "tokenizer.json": true,
+        "chat_template.jinja": true,
+        "trainer_state.json": true,
+        "optimizer.pt": true,
+        "train_metrics.json": false
+      },
+      "adapter_four_present": true,
+      "trainer_state_parseable": true,
+      "optimizer_present": true,
+      "sizes": {
+        "adapter_model.safetensors": 59934640,
+        "adapter_config.json": 1270,
+        "tokenizer.json": 11421892,
+        "chat_template.jinja": 2561,
+        "trainer_state.json": 1339,
+        "optimizer.pt": 61403188
+      },
+      "likely_incomplete": false
+    }
+  ]
+}

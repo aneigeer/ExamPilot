@@ -1,0 +1,1 @@
+{"thought":"根据资料中的描述，概述Prompting相关面试题的内容。","action":"final","answer":"Prompting相关面试题描述了Prompting的三个主要范式：上下文学习ICL，指令精调Instruction-tuning和思维链CoT。"}

@@ -1,0 +1,1 @@
+{"thought": "资料已覆盖问题，直接作答", "action": "final", "answer": "BERT相关面试题：Transformer诞生2017.6#解决RNN并行难题，预训练大模型出现曙光 大事件Big Event 放弃RNN结构，采用位置偏码（Positional Encoding，PE）与自注意力机制，并且设计了多头注意力机制。[1]"}

@@ -1,0 +1,440 @@
+{
+    "meta":  {
+                 "title":  "AI答疑端到端冒烟",
+                 "date":  "2026-11-08",
+                 "backend":  "http://127.0.0.1:8080",
+                 "aiService":  "http://127.0.0.1:8000",
+                 "loginUser":  "2021001",
+                 "tokenIssued":  true,
+                 "tokenMasked":  "eyJhbGciOiJIUzM4NCJ9..."
+             },
+    "login":  {
+                  "status":  200,
+                  "elapsedMs":  106,
+                  "response":  {
+                                   "code":  200,
+                                   "message":  "登录成功",
+                                   "data":  {
+                                                "token":  "eyJhbGciOiJIUzM4NCJ9.eyJ1aWQiOjMsInJvbGUiOiJTVFVERU5UIiwic3R1IjoiMjAyMTAwMSIsInN1YiI6IjMiLCJpYXQiOjE3OTQxMjIzNjYsImV4cCI6MTc5NDcyNzE2Nn0.zbyKW1hbuuRI4FrTv5hpOzDuTPmSYdMybJVSBh7dXHvWFqnbYlQiK5Ass_zo3-iI",
+                                                "expiresIn":  604800,
+                                                "user":  {
+                                                             "id":  3,
+                                                             "nickname":  "李同学",
+                                                             "maskedStudentNo":  "2021****01",
+                                                             "role":  "STUDENT",
+                                                             "collegeId":  1,
+                                                             "grade":  "2021"
+                                                         }
+                                            },
+                                   "traceId":  "e0149fb668324dcd"
+                               }
+              },
+    "asks":  [
+                 {
+                     "id":  "Q1",
+                     "request":  {
+                                     "question":  "值传递和地址传递有什么区别",
+                                     "subjectId":  5
+                                 },
+                     "status":  200,
+                     "elapsedMs":  2212,
+                     "response":  {
+                                      "code":  200,
+                                      "message":  "成功",
+                                      "data":  {
+                                                   "question":  "值传递和地址传递有什么区别",
+                                                   "answer":  "值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。[1][2]",
+                                                   "generator":  "ollama",
+                                                   "engine":  "RAG",
+                                                   "fallbackFromWiki":  true,
+                                                   "degraded":  false,
+                                                   "refused":  false,
+                                                   "costMillis":  2203,
+                                                   "retrievalMillis":  179,
+                                                   "retrievalMode":  "VECTOR_HYBRID",
+                                                   "recallCount":  8,
+                                                   "sources":  [
+                                                                   {
+                                                                       "chunkId":  49,
+                                                                       "title":  "值传递和地址传递有什么区别？",
+                                                                       "snippet":  "题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…",
+                                                                       "refType":  "QUESTION",
+                                                                       "refId":  46,
+                                                                       "refPath":  "/questions/46",
+                                                                       "offset":  -1
+                                                                   },
+                                                                   {
+                                                                       "chunkId":  5,
+                                                                       "title":  "简述 C 语言中「值传递」与「地址传递」的区别。",
+                                                                       "snippet":  "题干：简述 C 语言中「值传递」与「地址传递」的区别。 解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。 标签：重点必考,函数 参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关…",
+                                                                       "refType":  "QUESTION",
+                                                                       "refId":  5,
+                                                                       "refPath":  "/questions/5",
+                                                                       "offset":  -1
+                                                                   }
+                                                               ],
+                                                   "contexts":  [
+                                                                    "值传递和地址传递有什么区别？",
+                                                                    "简述 C 语言中「值传递」与「地址传递」的区别。",
+                                                                    "指针与函数",
+                                                                    "函数定义与调用"
+                                                                ]
+                                               },
+                                      "traceId":  "68935f78acc1abf5"
+                                  }
+                 },
+                 {
+                     "id":  "Q2",
+                     "request":  {
+                                     "question":  "数组下标为什么从 0 开始？",
+                                     "subjectId":  5
+                                 },
+                     "status":  200,
+                     "elapsedMs":  1173,
+                     "response":  {
+                                      "code":  200,
+                                      "message":  "成功",
+                                      "data":  {
+                                                   "question":  "数组下标为什么从 0 开始？",
+                                                   "answer":  "数组下标从 0 开始的原因在 C 语言的设计中体现得尤为明显。这种设计使得数组的索引更加直观和简洁，同时也便于实现动态内存管理等功能。[1]",
+                                                   "generator":  "ollama",
+                                                   "engine":  "RAG",
+                                                   "fallbackFromWiki":  true,
+                                                   "degraded":  false,
+                                                   "refused":  false,
+                                                   "costMillis":  1163,
+                                                   "retrievalMillis":  152,
+                                                   "retrievalMode":  "VECTOR_HYBRID",
+                                                   "recallCount":  2,
+                                                   "sources":  [
+                                                                   {
+                                                                       "chunkId":  3,
+                                                                       "title":  "C 语言中数组的下标从 1 开始。",
+                                                                       "snippet":  "题干：C 语言中数组的下标从 1 开始。 解析：C 语言数组下标从 0 开始。 标签：基础,数组",
+                                                                       "refType":  "QUESTION",
+                                                                       "refId":  3,
+                                                                       "refPath":  "/questions/3",
+                                                                       "offset":  -1
+                                                                   }
+                                                               ],
+                                                   "contexts":  [
+                                                                    "C 语言中数组的下标从 1 开始。"
+                                                                ]
+                                               },
+                                      "traceId":  "c1e3e7372256e0dd"
+                                  }
+                 },
+                 {
+                     "id":  "Q3",
+                     "request":  {
+                                     "question":  "量子纠缠能不能用来超光速通信？"
+                                 },
+                     "status":  200,
+                     "elapsedMs":  202,
+                     "response":  {
+                                      "code":  200,
+                                      "message":  "成功",
+                                      "data":  {
+                                                   "question":  "量子纠缠能不能用来超光速通信？",
+                                                   "answer":  "未找到相关资料",
+                                                   "generator":  "none",
+                                                   "engine":  "RAG",
+                                                   "fallbackFromWiki":  true,
+                                                   "degraded":  false,
+                                                   "refused":  true,
+                                                   "costMillis":  192,
+                                                   "retrievalMillis":  192,
+                                                   "retrievalMode":  "NONE",
+                                                   "recallCount":  50,
+                                                   "sources":  [
+
+                                                               ],
+                                                   "contexts":  [
+
+                                                                ]
+                                               },
+                                      "traceId":  "709392e12b5bbf15"
+                                  }
+                 }
+             ],
+    "capability":  {
+                       "status":  200,
+                       "elapsedMs":  284,
+                       "response":  {
+                                        "code":  200,
+                                        "message":  "成功",
+                                        "data":  {
+                                                     "available":  true,
+                                                     "generator":  "ollama",
+                                                     "provider":  "ollama",
+                                                     "llmConfigured":  true,
+                                                     "degraded":  false,
+                                                     "circuitOpen":  false,
+                                                     "circuitRemainingMillis":  0,
+                                                     "extractiveMode":  false,
+                                                     "chunkCount":  12647,
+                                                     "rejectThreshold":  0.15,
+                                                     "indexStats":  {
+                                                                        "chunk":  12647
+                                                                    },
+                                                     "vectorEnabled":  true,
+                                                     "vectorIndexReady":  true,
+                                                     "vectorChannelAvailable":  true,
+                                                     "aiServiceStatus":  "ok",
+                                                     "embeddingModel":  "bge-small-zh-v1.5",
+                                                     "embeddingDim":  512,
+                                                     "ocrEnabled":  true,
+                                                     "storageProvider":  "local"
+                                                 },
+                                        "traceId":  "faec338ac1a871ed"
+                                    }
+                   },
+    "knowledgeProfile":  {
+                             "status":  200,
+                             "elapsedMs":  15,
+                             "response":  {
+                                              "code":  200,
+                                              "message":  "成功",
+                                              "data":  [
+                                                           {
+                                                               "knowledgeId":  2,
+                                                               "knowledgeName":  "数据类型与变量",
+                                                               "subjectId":  5,
+                                                               "attempts":  4,
+                                                               "mastery":  0.3043,
+                                                               "weakness":  0.6957,
+                                                               "confidence":  1.0,
+                                                               "lastAnsweredAt":  "2026-09-24 13:04:52"
+                                                           },
+                                                           {
+                                                               "knowledgeId":  29,
+                                                               "knowledgeName":  "判断推理",
+                                                               "subjectId":  190,
+                                                               "attempts":  2,
+                                                               "mastery":  0.0,
+                                                               "weakness":  0.6667,
+                                                               "confidence":  0.6667,
+                                                               "lastAnsweredAt":  "2026-11-07 21:08:59"
+                                                           },
+                                                           {
+                                                               "knowledgeId":  26,
+                                                               "knowledgeName":  "常识判断",
+                                                               "subjectId":  190,
+                                                               "attempts":  1,
+                                                               "mastery":  1.0,
+                                                               "weakness":  0.0,
+                                                               "confidence":  0.3333,
+                                                               "lastAnsweredAt":  "2026-10-19 23:46:20"
+                                                           }
+                                                       ],
+                                              "traceId":  "bfa8ca981a0da73f"
+                                          }
+                         },
+    "vectorSearch":  {
+                         "request":  {
+                                         "topK":  5,
+                                         "query":  "值传递和地址传递有什么区别"
+                                     },
+                         "status":  200,
+                         "elapsedMs":  36,
+                         "response":  {
+                                          "hits":  [
+                                                       {
+                                                           "chunk_id":  49,
+                                                           "score":  0.7015637533692434,
+                                                           "payload":  {
+                                                                           "chunk_id":  49,
+                                                                           "source_type":  "QUESTION",
+                                                                           "title":  "值传递和地址传递有什么区别？",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  46,
+                                                                           "subject_id":  5,
+                                                                           "knowledge_id":  10,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  46,
+                                                                           "ref_type":  "QUESTION",
+                                                                           "content_hash":  "72b525b73a4e015d288faaf67068d47f",
+                                                                           "rerank_score":  0.851564
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  28,
+                                                           "score":  0.8109882957221353,
+                                                           "payload":  {
+                                                                           "chunk_id":  28,
+                                                                           "source_type":  "KNOWLEDGE",
+                                                                           "title":  "指针与函数",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  10,
+                                                                           "subject_id":  5,
+                                                                           "knowledge_id":  10,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  10,
+                                                                           "ref_type":  "KNOWLEDGE",
+                                                                           "content_hash":  "23853f0119b407f7b260dba5b72ebaa1",
+                                                                           "rerank_score":  0.810988
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  5,
+                                                           "score":  0.7235310905812136,
+                                                           "payload":  {
+                                                                           "chunk_id":  5,
+                                                                           "source_type":  "QUESTION",
+                                                                           "title":  "简述 C 语言中「值传递」与「地址传递」的区别。",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  5,
+                                                                           "subject_id":  5,
+                                                                           "knowledge_id":  6,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  5,
+                                                                           "ref_type":  "QUESTION",
+                                                                           "content_hash":  "0aff37c928974c5ffdc282648dbef8ca",
+                                                                           "rerank_score":  0.723531
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  24,
+                                                           "score":  0.7113963567841065,
+                                                           "payload":  {
+                                                                           "chunk_id":  24,
+                                                                           "source_type":  "KNOWLEDGE",
+                                                                           "title":  "函数定义与调用",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  6,
+                                                                           "subject_id":  5,
+                                                                           "knowledge_id":  6,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  6,
+                                                                           "ref_type":  "KNOWLEDGE",
+                                                                           "content_hash":  "2edc0b71582a11b85362d5dd1ef3b916",
+                                                                           "rerank_score":  0.711396
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  16107,
+                                                           "score":  0.5489207400420788,
+                                                           "payload":  {
+                                                                           "chunk_id":  16107,
+                                                                           "source_type":  "COURSEWARE",
+                                                                           "title":  "如何设计一个支持海量存储的网盘系统",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  462,
+                                                                           "subject_id":  213,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  462,
+                                                                           "ref_type":  "COURSEWARE",
+                                                                           "content_hash":  "ec61b3273023e35ae0e0ba1b857029a2",
+                                                                           "rerank_score":  0.548921
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  499,
+                                                           "score":  0.5377873096058948,
+                                                           "payload":  {
+                                                                           "chunk_id":  499,
+                                                                           "source_type":  "QUESTION",
+                                                                           "title":  "传递关系指的是对任意的元素 A. B. C 来说，若元素 A 与元素 B 有某关系并且元素 B 与元素 C 有该关系，则元素 A 与元素 C 也有该关系。反传递关系指的是若元素 A 与元素 B 有某种关系并且元素 B 与元素 C 有该关系，但元素 A 与元素 C 没有该关系。根据上述定义，下列关系属于传递关系的是：",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  1439,
+                                                                           "subject_id":  190,
+                                                                           "knowledge_id":  29,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  1439,
+                                                                           "ref_type":  "QUESTION",
+                                                                           "content_hash":  "828c64a23121ca6dc8d7bdf561fe209d",
+                                                                           "rerank_score":  0.537787
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  381,
+                                                           "score":  0.5376373661930054,
+                                                           "payload":  {
+                                                                           "chunk_id":  381,
+                                                                           "source_type":  "QUESTION",
+                                                                           "title":  "传递关系指的是对任意的元素 A. B. C 来说，若元素 A 与元素 B 有某关系并且元素 B 与元素 C 有该关系，则元素 A 与元素 C 也有该关系。反传递关系指的是若元素 A 与元素 B 有某种关系并且元素 B 与元素 C 有该关系，但元素 A 与元素 C 没有该关系。根据上述定义，下列关系属于传递关系的是：",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  1321,
+                                                                           "subject_id":  190,
+                                                                           "knowledge_id":  29,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  1321,
+                                                                           "ref_type":  "QUESTION",
+                                                                           "content_hash":  "9ce0dc136409217cf327d1c8a30c61dd",
+                                                                           "rerank_score":  0.537637
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  9773,
+                                                           "score":  0.5317543630333719,
+                                                           "payload":  {
+                                                                           "chunk_id":  9773,
+                                                                           "source_type":  "COURSEWARE",
+                                                                           "title":  "神经网络训练面试题",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  50,
+                                                                           "subject_id":  211,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  50,
+                                                                           "ref_type":  "COURSEWARE",
+                                                                           "content_hash":  "6b5441f0dba71a25c68eab0223b01d55",
+                                                                           "rerank_score":  0.531754
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  16231,
+                                                           "score":  0.5302791473250115,
+                                                           "payload":  {
+                                                                           "chunk_id":  16231,
+                                                                           "source_type":  "COURSEWARE",
+                                                                           "title":  "石墨文档百万级长连接技术实践",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  471,
+                                                                           "subject_id":  213,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  471,
+                                                                           "ref_type":  "COURSEWARE",
+                                                                           "content_hash":  "16fab3f1ba9d7f5e0362e0770b7f728d",
+                                                                           "rerank_score":  0.530279
+                                                                       }
+                                                       },
+                                                       {
+                                                           "chunk_id":  13481,
+                                                           "score":  0.5255640330737684,
+                                                           "payload":  {
+                                                                           "chunk_id":  13481,
+                                                                           "source_type":  "COURSEWARE",
+                                                                           "title":  "AI大模型领域核心概念",
+                                                                           "status":  "ACTIVE",
+                                                                           "hot_count":  0,
+                                                                           "source_id":  271,
+                                                                           "subject_id":  212,
+                                                                           "difficulty":  3,
+                                                                           "ref_id":  271,
+                                                                           "ref_type":  "COURSEWARE",
+                                                                           "content_hash":  "ceb00852ebb979ef62aec8ffd45c04bb",
+                                                                           "rerank_score":  0.525564
+                                                                       }
+                                                       }
+                                                   ],
+                                          "took_ms":  28,
+                                          "dim":  512
+                                      }
+                     },
+    "findings":  [
+                     "Q1/Q2/Q3 均 HTTP 200，generator=ollama，degraded=false",
+                     "Q1 sources=3（QUESTION/KNOWLEDGE，subject 5），Q2 sources=1，Q3 refused=true/sources=0/generator=none",
+                     "rerank 排序：search 结果按 payload.rerank_score 降序返回",
+                     "topK=5 但 /v1/search 实际返回 10 条 hits，topK 未严格生效（待确认）",
+                     "capability: available=true, vectorEnabled=true, chunkCount=12647, rejectThreshold=0.15, embedding=bge-small-zh-v1.5/512"
+                 ]
+}

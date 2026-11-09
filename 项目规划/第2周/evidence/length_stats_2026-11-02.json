@@ -1,0 +1,672 @@
+{
+  "meta": {
+    "data": "D:\\大学生多考试备考知识库与题库系统\\training\\data\\sft_train_behavior.jsonl",
+    "sha256": "b2bdc971a17db72e44b5ded41dd8b486efdb0e6f008f6007d9748244dea2a2b5",
+    "rows": 2110,
+    "tokenizer": "C:/models/models/Qwen--Qwen2.5-7B-Instruct/snapshots/master",
+    "vocab": 151665,
+    "render": "apply_chat_template(tokenize=False, add_generation_prompt=False) → tokenizer(text, add_special_tokens=False)",
+    "elapsed_sec": 2.5
+  },
+  "overall": {
+    "n": 2110,
+    "min": 195,
+    "p50": 495,
+    "p90": 656,
+    "p95": 703,
+    "p99": 759,
+    "max": 868,
+    "mean": 490.2,
+    "over_512": 936,
+    "over_640": 268,
+    "over_768": 17
+  },
+  "assistant_tokens": {
+    "n": 2110,
+    "min": 6,
+    "p50": 70,
+    "p90": 167,
+    "p95": 217,
+    "p99": 351,
+    "max": 426,
+    "mean": 84.3,
+    "over_512": 0,
+    "over_640": 0,
+    "over_768": 0
+  },
+  "total_tokens_untruncated": 1034258,
+  "by_kind": {
+    "citation": {
+      "n": 42,
+      "min": 207,
+      "p50": 244,
+      "p90": 276,
+      "p95": 298,
+      "p99": 315,
+      "max": 315,
+      "mean": 247.3,
+      "over_512": 0,
+      "over_640": 0,
+      "over_768": 0
+    },
+    "grounded": {
+      "n": 210,
+      "min": 274,
+      "p50": 558,
+      "p90": 698,
+      "p95": 727,
+      "p99": 772,
+      "max": 784,
+      "mean": 536.9,
+      "over_512": 124,
+      "over_640": 47,
+      "over_768": 3
+    },
+    "injection": {
+      "n": 599,
+      "min": 262,
+      "p50": 594,
+      "p90": 716,
+      "p95": 747,
+      "p99": 778,
+      "max": 868,
+      "mean": 585.2,
+      "over_512": 461,
+      "over_640": 193,
+      "over_768": 12
+    },
+    "mcq": {
+      "n": 197,
+      "min": 195,
+      "p50": 489,
+      "p90": 629,
+      "p95": 658,
+      "p99": 713,
+      "max": 841,
+      "mean": 483.2,
+      "over_512": 84,
+      "over_640": 17,
+      "over_768": 2
+    },
+    "planner": {
+      "n": 419,
+      "min": 275,
+      "p50": 365,
+      "p90": 415,
+      "p95": 428,
+      "p99": 442,
+      "max": 459,
+      "mean": 359.1,
+      "over_512": 0,
+      "over_640": 0,
+      "over_768": 0
+    },
+    "refusal": {
+      "n": 600,
+      "min": 327,
+      "p50": 504,
+      "p90": 588,
+      "p95": 611,
+      "p99": 650,
+      "max": 736,
+      "mean": 506.2,
+      "over_512": 267,
+      "over_640": 11,
+      "over_768": 0
+    },
+    "wiki": {
+      "n": 43,
+      "min": 221,
+      "p50": 261,
+      "p90": 290,
+      "p95": 299,
+      "p99": 303,
+      "max": 303,
+      "mean": 261.9,
+      "over_512": 0,
+      "over_640": 0,
+      "over_768": 0
+    }
+  },
+  "limits": {
+    "512": {
+      "truncated": 936,
+      "truncated_pct": 44.36,
+      "by_kind": {
+        "citation": {
+          "n": 42,
+          "over": 0
+        },
+        "grounded": {
+          "n": 210,
+          "over": 124
+        },
+        "injection": {
+          "n": 599,
+          "over": 461
+        },
+        "mcq": {
+          "n": 197,
+          "over": 84
+        },
+        "planner": {
+          "n": 419,
+          "over": 0
+        },
+        "refusal": {
+          "n": 600,
+          "over": 267
+        },
+        "wiki": {
+          "n": 43,
+          "over": 0
+        }
+      },
+      "answer_tail_cut": 432,
+      "answer_fully_lost": 504,
+      "answer_marker_lost": 253,
+      "citation_lost": 584,
+      "fits_if_material_dropped": 845,
+      "median_over_by": 607.0,
+      "effective_token_total": 945363,
+      "unsavable_by_kind": {
+        "mcq": 84,
+        "injection": 6,
+        "grounded": 1
+      },
+      "median_assistant_kept_ratio": 0.237,
+      "samples": [
+        {
+          "qid": 1505,
+          "kind": "injection",
+          "n_tokens": 659,
+          "assistant_tokens": 165,
+          "min_tokens_without_material": 402,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.115
+        },
+        {
+          "qid": 2255,
+          "kind": "grounded",
+          "n_tokens": 680,
+          "assistant_tokens": 161,
+          "min_tokens_without_material": 499,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 1917,
+          "kind": "injection",
+          "n_tokens": 635,
+          "assistant_tokens": 101,
+          "min_tokens_without_material": 314,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2746,
+          "kind": "refusal",
+          "n_tokens": 647,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 290,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2794,
+          "kind": "refusal",
+          "n_tokens": 553,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 295,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2995,
+          "kind": "refusal",
+          "n_tokens": 651,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 297,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2218,
+          "kind": "mcq",
+          "n_tokens": 567,
+          "assistant_tokens": 364,
+          "min_tokens_without_material": 567,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.868
+        },
+        {
+          "qid": 1110,
+          "kind": "injection",
+          "n_tokens": 739,
+          "assistant_tokens": 194,
+          "min_tokens_without_material": 357,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2858,
+          "kind": "injection",
+          "n_tokens": 736,
+          "assistant_tokens": 145,
+          "min_tokens_without_material": 394,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2990,
+          "kind": "grounded",
+          "n_tokens": 730,
+          "assistant_tokens": 171,
+          "min_tokens_without_material": 457,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 1876,
+          "kind": "mcq",
+          "n_tokens": 567,
+          "assistant_tokens": 306,
+          "min_tokens_without_material": 567,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.817
+        },
+        {
+          "qid": 2147,
+          "kind": "refusal",
+          "n_tokens": 591,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 252,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        }
+      ]
+    },
+    "640": {
+      "truncated": 268,
+      "truncated_pct": 12.7,
+      "by_kind": {
+        "citation": {
+          "n": 42,
+          "over": 0
+        },
+        "grounded": {
+          "n": 210,
+          "over": 47
+        },
+        "injection": {
+          "n": 599,
+          "over": 193
+        },
+        "mcq": {
+          "n": 197,
+          "over": 17
+        },
+        "planner": {
+          "n": 419,
+          "over": 0
+        },
+        "refusal": {
+          "n": 600,
+          "over": 11
+        },
+        "wiki": {
+          "n": 43,
+          "over": 0
+        }
+      },
+      "answer_tail_cut": 253,
+      "answer_fully_lost": 15,
+      "answer_marker_lost": 5,
+      "citation_lost": 235,
+      "fits_if_material_dropped": 251,
+      "median_over_by": 696.0,
+      "effective_token_total": 1019248,
+      "unsavable_by_kind": {
+        "mcq": 17
+      },
+      "median_assistant_kept_ratio": 0.598,
+      "samples": [
+        {
+          "qid": 1505,
+          "kind": "injection",
+          "n_tokens": 659,
+          "assistant_tokens": 165,
+          "min_tokens_without_material": 402,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.89
+        },
+        {
+          "qid": 2255,
+          "kind": "grounded",
+          "n_tokens": 680,
+          "assistant_tokens": 161,
+          "min_tokens_without_material": 499,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.759
+        },
+        {
+          "qid": 2746,
+          "kind": "refusal",
+          "n_tokens": 647,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 290,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 2995,
+          "kind": "refusal",
+          "n_tokens": 651,
+          "assistant_tokens": 6,
+          "min_tokens_without_material": 297,
+          "cut_in": "user_or_system",
+          "answer_fully_lost": true,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.0
+        },
+        {
+          "qid": 1110,
+          "kind": "injection",
+          "n_tokens": 739,
+          "assistant_tokens": 194,
+          "min_tokens_without_material": 357,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.5
+        },
+        {
+          "qid": 2858,
+          "kind": "injection",
+          "n_tokens": 736,
+          "assistant_tokens": 145,
+          "min_tokens_without_material": 394,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.315
+        },
+        {
+          "qid": 2990,
+          "kind": "grounded",
+          "n_tokens": 730,
+          "assistant_tokens": 171,
+          "min_tokens_without_material": 457,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.496
+        },
+        {
+          "qid": 2314,
+          "kind": "mcq",
+          "n_tokens": 652,
+          "assistant_tokens": 326,
+          "min_tokens_without_material": 652,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.973
+        },
+        {
+          "qid": 3966,
+          "kind": "injection",
+          "n_tokens": 641,
+          "assistant_tokens": 145,
+          "min_tokens_without_material": 389,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 1.045
+        },
+        {
+          "qid": 2953,
+          "kind": "injection",
+          "n_tokens": 708,
+          "assistant_tokens": 174,
+          "min_tokens_without_material": 336,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.559
+        },
+        {
+          "qid": 2320,
+          "kind": "injection",
+          "n_tokens": 663,
+          "assistant_tokens": 120,
+          "min_tokens_without_material": 386,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.822
+        },
+        {
+          "qid": 3484,
+          "kind": "injection",
+          "n_tokens": 651,
+          "assistant_tokens": 149,
+          "min_tokens_without_material": 312,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.933
+        }
+      ]
+    },
+    "768": {
+      "truncated": 17,
+      "truncated_pct": 0.81,
+      "by_kind": {
+        "citation": {
+          "n": 42,
+          "over": 0
+        },
+        "grounded": {
+          "n": 210,
+          "over": 3
+        },
+        "injection": {
+          "n": 599,
+          "over": 12
+        },
+        "mcq": {
+          "n": 197,
+          "over": 2
+        },
+        "planner": {
+          "n": 419,
+          "over": 0
+        },
+        "refusal": {
+          "n": 600,
+          "over": 0
+        },
+        "wiki": {
+          "n": 43,
+          "over": 0
+        }
+      },
+      "answer_tail_cut": 17,
+      "answer_fully_lost": 0,
+      "answer_marker_lost": 0,
+      "citation_lost": 13,
+      "fits_if_material_dropped": 15,
+      "median_over_by": 790.6,
+      "effective_token_total": 1033874,
+      "unsavable_by_kind": {
+        "mcq": 2
+      },
+      "median_assistant_kept_ratio": 0.901,
+      "samples": [
+        {
+          "qid": 1910,
+          "kind": "grounded",
+          "n_tokens": 784,
+          "assistant_tokens": 172,
+          "min_tokens_without_material": 518,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.929
+        },
+        {
+          "qid": 3550,
+          "kind": "injection",
+          "n_tokens": 778,
+          "assistant_tokens": 166,
+          "min_tokens_without_material": 437,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.937
+        },
+        {
+          "qid": 1876,
+          "kind": "injection",
+          "n_tokens": 785,
+          "assistant_tokens": 222,
+          "min_tokens_without_material": 473,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.934
+        },
+        {
+          "qid": 3433,
+          "kind": "injection",
+          "n_tokens": 774,
+          "assistant_tokens": 180,
+          "min_tokens_without_material": 424,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.978
+        },
+        {
+          "qid": 3145,
+          "kind": "grounded",
+          "n_tokens": 772,
+          "assistant_tokens": 176,
+          "min_tokens_without_material": 434,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.987
+        },
+        {
+          "qid": 2869,
+          "kind": "injection",
+          "n_tokens": 792,
+          "assistant_tokens": 157,
+          "min_tokens_without_material": 491,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.853
+        },
+        {
+          "qid": 2492,
+          "kind": "injection",
+          "n_tokens": 769,
+          "assistant_tokens": 117,
+          "min_tokens_without_material": 461,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 1.049
+        },
+        {
+          "qid": 3721,
+          "kind": "injection",
+          "n_tokens": 769,
+          "assistant_tokens": 124,
+          "min_tokens_without_material": 416,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 1.059
+        },
+        {
+          "qid": 1822,
+          "kind": "injection",
+          "n_tokens": 798,
+          "assistant_tokens": 228,
+          "min_tokens_without_material": 549,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.88
+        },
+        {
+          "qid": 3509,
+          "kind": "mcq",
+          "n_tokens": 779,
+          "assistant_tokens": 151,
+          "min_tokens_without_material": 779,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.94
+        },
+        {
+          "qid": 3569,
+          "kind": "injection",
+          "n_tokens": 792,
+          "assistant_tokens": 152,
+          "min_tokens_without_material": 482,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": true,
+          "assistant_kept_ratio": 0.847
+        },
+        {
+          "qid": 3102,
+          "kind": "mcq",
+          "n_tokens": 841,
+          "assistant_tokens": 206,
+          "min_tokens_without_material": 841,
+          "cut_in": "assistant",
+          "answer_fully_lost": false,
+          "citation_lost": false,
+          "assistant_kept_ratio": 0.649
+        }
+      ]
+    }
+  }
+}

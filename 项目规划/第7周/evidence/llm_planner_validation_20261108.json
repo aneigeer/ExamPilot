@@ -1,0 +1,477 @@
+{
+  "generatedAt": "2026-11-08T16:13:07+0800",
+  "endpoint": "http://127.0.0.1:8000/v1/agent/run",
+  "note": "只读探测；未改代码/配置，未重启服务",
+  "cases": [
+    {
+      "caseId": "A_search_knowledge",
+      "request": {
+        "question": "值传递和地址传递有什么区别",
+        "userId": 3,
+        "subjectId": 5,
+        "maxSteps": 4
+      },
+      "httpStatus": 200,
+      "elapsedMs": 7975,
+      "response": {
+        "answer": "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+        "generator": "extractive",
+        "degraded": true,
+        "refused": false,
+        "step_count": 2,
+        "tool_calls": 1,
+        "events": [
+          {
+            "event": "meta",
+            "data": {
+              "traceId": "a9136db9043a4846",
+              "sessionId": "",
+              "question": "值传递和地址传递有什么区别",
+              "maxSteps": 4,
+              "maxToolCalls": 4,
+              "userId": 3,
+              "subjectId": 5,
+              "historyTurns": 0,
+              "memoryChars": 0,
+              "promptVersion": "agent-planner-v3",
+              "contextChars": 58,
+              "contextTokens": 45,
+              "contextBudget": 8000,
+              "subagent": false
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 1,
+              "text": "需要先确认值传递和地址传递的具体区别"
+            }
+          },
+          {
+            "event": "tool_call",
+            "data": {
+              "step": 1,
+              "tool": "search_knowledge",
+              "arguments": {
+                "query": "值传递和地址传递的区别",
+                "topK": 5
+              }
+            }
+          },
+          {
+            "event": "tool_result",
+            "data": {
+              "step": 1,
+              "tool": "search_knowledge",
+              "ok": true,
+              "summary": "检索「值传递和地址传递的区别」命中 4 条，最高分 108.46845044617031，模式 VECTOR_HYBRID",
+              "elapsedMs": 509,
+              "data": [
+                {
+                  "chunkId": 49,
+                  "title": "值传递和地址传递有什么区别？",
+                  "snippet": "题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参",
+                  "refType": "QUESTION",
+                  "refId": 46,
+                  "score": 108.46845044617031
+                },
+                {
+                  "chunkId": 5,
+                  "title": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                  "snippet": "题干：简述 C 语言中「值传递」与「地址传递」的区别。\n解析：值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。\n标签：重点必考,函数\n参考答案：值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。 关键词：值传递、地址传递、副本、指针",
+                  "refType": "QUESTION",
+                  "refId": 5,
+                  "score": 81.49108310932372
+                },
+                {
+                  "chunkId": 28,
+                  "title": "指针与函数",
+                  "snippet": "知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+                  "refType": "KNOWLEDGE",
+                  "refId": 10,
+                  "score": 22.1675619999961
+                }
+              ]
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 2,
+              "text": "已有资料足够解释值传递和地址传递的区别"
+            }
+          },
+          {
+            "event": "final",
+            "data": {
+              "answer": "根据《值传递和地址传递有什么区别？》：题干：值传递和地址传递有什么区别？\n解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。\n标签：C语言,函数,参数传递\n参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参可修改实参指向的内容。C 只支持值传递，传指针是把地址值拷贝过去。 关键词：值传递、地址传递、指针、形参、实参\n根据《指针与函数》：知识点：指针与函数\n相关题目：值传递和地址传递有什么区别？",
+              "generator": "extractive",
+              "degraded": true,
+              "refused": false,
+              "step_count": 2,
+              "tool_calls": 1,
+              "sources": [
+                {
+                  "chunkId": 49,
+                  "title": "值传递和地址传递有什么区别？",
+                  "snippet": "题干：值传递和地址传递有什么区别？ 解析：值传递把实参的值复制给形参，形参改变不影响实参；地址传递把实参地址传给形参（指针/引用），函数内可通过地址修改实参所指内容。C 语言只有值传递，传指针本质是传地址值。 标签：C语言,函数,参数传递 参考答案：值传递：拷贝实参的值，形参修改不影响实参。地址传递：传入实参地址，形参…",
+                  "refType": "QUESTION",
+                  "refId": 46,
+                  "refPath": "/questions/46"
+                },
+                {
+                  "chunkId": 28,
+                  "title": "指针与函数",
+                  "snippet": "知识点：指针与函数 相关题目：值传递和地址传递有什么区别？",
+                  "refType": "KNOWLEDGE",
+                  "refId": 10,
+                  "refPath": "/knowledge/10"
+                }
+              ]
+            }
+          },
+          {
+            "event": "done",
+            "data": {
+              "totalMs": 7970
+            }
+          }
+        ]
+      },
+      "rawText": null
+    },
+    {
+      "caseId": "B_wrong_book",
+      "request": {
+        "question": "帮我查一下我最近的错题本里有哪些题",
+        "userId": 3,
+        "maxSteps": 4
+      },
+      "httpStatus": 200,
+      "elapsedMs": 2316,
+      "response": {
+        "answer": "错题：错题 5 道：30、2、1449、1428、3。把左列概念与右列解释配对；以下哪些是 C 语言的合法关键字？（多选）；故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+        "generator": "agent-rule",
+        "degraded": true,
+        "refused": false,
+        "step_count": 2,
+        "tool_calls": 1,
+        "events": [
+          {
+            "event": "meta",
+            "data": {
+              "traceId": "247e890af69a436a",
+              "sessionId": "",
+              "question": "帮我查一下我最近的错题本里有哪些题",
+              "maxSteps": 4,
+              "maxToolCalls": 4,
+              "userId": 3,
+              "subjectId": null,
+              "historyTurns": 0,
+              "memoryChars": 0,
+              "promptVersion": "agent-planner-v3",
+              "contextChars": 62,
+              "contextTokens": 49,
+              "contextBudget": 8000,
+              "subagent": false
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 1,
+              "text": "需要获取学生最近未掌握的错题信息"
+            }
+          },
+          {
+            "event": "tool_call",
+            "data": {
+              "step": 1,
+              "tool": "get_wrong_book",
+              "arguments": {}
+            }
+          },
+          {
+            "event": "tool_result",
+            "data": {
+              "step": 1,
+              "tool": "get_wrong_book",
+              "ok": true,
+              "summary": "错题 5 道：30、2、1449、1428、3",
+              "elapsedMs": 131,
+              "data": [
+                {
+                  "questionId": 30,
+                  "stem": "把左列概念与右列解释配对",
+                  "wrongCount": 3
+                },
+                {
+                  "questionId": 2,
+                  "stem": "以下哪些是 C 语言的合法关键字？（多选）",
+                  "wrongCount": 2
+                },
+                {
+                  "questionId": 1449,
+                  "stem": "故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+                  "wrongCount": 1
+                },
+                {
+                  "questionId": 1428,
+                  "stem": "把下面的六个图形分为两类，使每一类图形都有各自的共同特征或规律，分类正确的一项是：",
+                  "wrongCount": 1
+                },
+                {
+                  "questionId": 3,
+                  "stem": "C 语言中数组的下标从 1 开始。",
+                  "wrongCount": 1
+                }
+              ]
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 2,
+              "text": "已有错题列表，直接给出答案即可"
+            }
+          },
+          {
+            "event": "final",
+            "data": {
+              "answer": "错题：错题 5 道：30、2、1449、1428、3。把左列概念与右列解释配对；以下哪些是 C 语言的合法关键字？（多选）；故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+              "generator": "agent-rule",
+              "degraded": true,
+              "refused": false,
+              "step_count": 2,
+              "tool_calls": 1,
+              "sources": []
+            }
+          },
+          {
+            "event": "done",
+            "data": {
+              "totalMs": 2314
+            }
+          }
+        ]
+      },
+      "rawText": null
+    },
+    {
+      "caseId": "C_wiki",
+      "request": {
+        "question": "函数专题的 Wiki 页面讲了什么",
+        "userId": 3,
+        "maxSteps": 4
+      },
+      "httpStatus": 200,
+      "elapsedMs": 6720,
+      "response": {
+        "answer": "未找到相关资料[1][2][3]。",
+        "generator": "ollama",
+        "degraded": false,
+        "refused": false,
+        "step_count": 4,
+        "tool_calls": 2,
+        "events": [
+          {
+            "event": "meta",
+            "data": {
+              "traceId": "f4d53e53cfa84397",
+              "sessionId": "",
+              "question": "函数专题的 Wiki 页面讲了什么",
+              "maxSteps": 4,
+              "maxToolCalls": 4,
+              "userId": 3,
+              "subjectId": null,
+              "historyTurns": 0,
+              "memoryChars": 0,
+              "promptVersion": "agent-planner-v3",
+              "contextChars": 62,
+              "contextTokens": 44,
+              "contextBudget": 8000,
+              "subagent": false
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 1,
+              "text": "需要查询函数专题的 Wiki 页面内容"
+            }
+          },
+          {
+            "event": "tool_call",
+            "data": {
+              "step": 1,
+              "tool": "search_wiki",
+              "arguments": {
+                "query": "函数专题",
+                "topK": 3
+              }
+            }
+          },
+          {
+            "event": "tool_result",
+            "data": {
+              "step": 1,
+              "tool": "search_wiki",
+              "ok": true,
+              "summary": "Wiki 专题「函数专题」命中 3 页，最高分 0.49699526164258506",
+              "elapsedMs": 179,
+              "data": [
+                {
+                  "pageId": 12,
+                  "slug": "doc-38",
+                  "title": "Prompting相关面试题",
+                  "summary": "Prompting、Prompt tuning和Prompt Learning是大语言模型高效学习的重要方法，包括参数化Prompt、硬提示和软提示等。InstructGPT展示了通过人类反馈微调模型，使其更好地遵循用户意图的方法。",
+                  "score": 0.49699526164258506,
+                  "channel": "VECTOR"
+                },
+                {
+                  "pageId": 17,
+                  "slug": "doc-94",
+                  "title": "分布式训练DeepSpeed面试题",
+                  "summary": "本主题涵盖了分布式训练中使用DeepSpeed的相关知识，包括其基本概念、通信策略、安装与使用方法以及优化器和调度器等内容，适合备考学生了解并掌握。",
+                  "score": 0.4595343546572419,
+                  "channel": "VECTOR"
+                },
+                {
+                  "pageId": 38,
+                  "slug": "doc-67",
+                  "title": "RAG关键痛点和解决方案面试题",
+                  "summary": "本主题涵盖了大模型RAG在实际应用中遇到的关键痛点，包括内容缺失、错过排名靠前的文档、脱离上下文等，并提供了相应的解决方案。",
+                  "score": 0.45108414113980333,
+                  "channel": "VECTOR"
+                }
+              ]
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 2,
+              "text": "已搜索到相关 Wiki 专题，但未找到函数专题，需要进一步确认"
+            }
+          },
+          {
+            "event": "tool_call",
+            "data": {
+              "step": 2,
+              "tool": "search_knowledge",
+              "arguments": {
+                "query": "函数专题",
+                "topK": 5
+              }
+            }
+          },
+          {
+            "event": "tool_result",
+            "data": {
+              "step": 2,
+              "tool": "search_knowledge",
+              "ok": true,
+              "summary": "检索「函数专题」命中 5 条，最高分 0.8983299868568329，模式 VECTOR_ONLY",
+              "elapsedMs": 399,
+              "data": [
+                {
+                  "chunkId": 23,
+                  "title": "函数",
+                  "snippet": "知识点：函数",
+                  "refType": "KNOWLEDGE",
+                  "refId": 5,
+                  "score": 0.8983299868568329
+                },
+                {
+                  "chunkId": 36,
+                  "title": "复合函数求导",
+                  "snippet": "知识点：复合函数求导\n相关题目：叙述复合函数的求导法则。",
+                  "refType": "KNOWLEDGE",
+                  "refId": 18,
+                  "score": 0.8387189868568329
+                },
+                {
+                  "chunkId": 25,
+                  "title": "递归",
+                  "snippet": "知识点：递归\n相关题目：简述函数递归的两个必要条件。",
+                  "refType": "KNOWLEDGE",
+                  "refId": 7,
+                  "score": 0.8357039868568329
+                }
+              ]
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 3,
+              "text": "已检索到相关知识点，但未找到完整的函数专题 Wiki 页面内容，需进一步确认"
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 3,
+              "text": "重复调用已跳过：相同工具与参数不再执行、不重复扣预算"
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 4,
+              "text": "已检索到相关知识点，但未找到完整的函数专题 Wiki 页面内容，需进一步确认"
+            }
+          },
+          {
+            "event": "thought",
+            "data": {
+              "step": 4,
+              "text": "重复调用已跳过：相同工具与参数不再执行、不重复扣预算"
+            }
+          },
+          {
+            "event": "final",
+            "data": {
+              "answer": "未找到相关资料[1][2][3]。",
+              "generator": "ollama",
+              "degraded": false,
+              "refused": false,
+              "step_count": 4,
+              "tool_calls": 2,
+              "sources": [
+                {
+                  "title": "Prompting相关面试题",
+                  "snippet": "## 考点与方法 - Prompting、Prompt tuning和Prompt Learning是大语言模型高效学习的重要方法。 - 参数化Prompt包括部分参数微调（Selective Method）、基于重参数化的方法（Reparametrization-based PEFT）等。 - 硬提示（Discret…",
+                  "refType": "WIKI",
+                  "refId": 12,
+                  "refPath": "/wiki/12"
+                },
+                {
+                  "title": "分布式训练DeepSpeed面试题",
+                  "snippet": "## 考点一：为什么需要Deepspeed Deepspeed旨在提高深度学习模型的训练效率，特别是在大规模数据集和多GPU环境下。它通过减少内存使用和加速通信来优化训练过程。 ## 考点二：Deepspeed的基本概念与支持功能 Deepspeed支持多种优化策略，如ZeRO、自动混合精度（AMP）等，旨在提高模型训…",
+                  "refType": "WIKI",
+                  "refId": 17,
+                  "refPath": "/wiki/17"
+                },
+                {
+                  "title": "RAG关键痛点和解决方案面试题",
+                  "snippet": "## 考点 大模型RAG在实际应用中面临多种挑战，包括内容缺失、错过排名靠前的文档、脱离上下文、未能提取答案、格式错误、特异性错误、回答不全面、数据处理能力的挑战以及结构化数据查询的难题。这些问题需要通过各种方法来解决。 ## 方法 1. **内容缺失问题**：可以通过提供更多的上下文信息或更具体的提示来解决。 2. …",
+                  "refType": "WIKI",
+                  "refId": 38,
+                  "refPath": "/wiki/38"
+                }
+              ]
+            }
+          },
+          {
+            "event": "done",
+            "data": {
+              "totalMs": 6718
+            }
+          }
+        ]
+      },
+      "rawText": null
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "log": "项目规划\\第3周\\evidence\\shortrun_3b_20.log",
+  "ckpt_dir": "training\\output\\shortrun_3b",
+  "samples": 2156,
+  "steps_seen": 20,
+  "expect_steps": 20,
+  "step_seconds": 57.37,
+  "results": [
+    {
+      "项": "A1 短跑完成",
+      "结果": "PASS",
+      "说明": "20/20 步，正常结束",
+      "证据": [
+        "日志中最大 step=20",
+        "完成标记=True",
+        "退出码=0"
+      ]
+    },
+    {
+      "项": "A2 步数对账",
+      "结果": "PASS",
+      "说明": "20 步 = 显式预期，误差 0",
+      "证据": [
+        "样本 2156 ÷ (batch 1 × accum 16) = 135",
+        "实际 global_step=20",
+        "短跑模式：--expect-steps=20，按公式满 epoch 应为 135 步（以显式值为准）"
+      ]
+    },
+    {
+      "项": "A3 检查点完整",
+      "结果": "PASS",
+      "说明": "2 个检查点四件齐全，optimizer/adapter 达 0.5 且 >10MB",
+      "证据": [
+        "checkpoint-10: adapter=57.2MB optimizer=58.6MB ratio=1.02 state=有 sched=有",
+        "checkpoint-20: adapter=57.2MB optimizer=58.6MB ratio=1.02 state=有 sched=有",
+        "shortrun_3b: 根目录仅有最终 adapter（无 state/optimizer），按惯例不计为检查点"
+      ]
+    },
+    {
+      "项": "A4 恢复正确",
+      "结果": "PASS",
+      "说明": "global_step 未回退且继续推进，loss 在恢复点连续",
+      "证据": [
+        "最终 trainer_state.global_step=12，存档时=10",
+        "恢复后新增 loss 点 1 个（step 11…11）",
+        "恢复点前 loss=2.5328，恢复后 loss=2.3400，相对跳变=7.6%"
+      ]
+    },
+    {
+      "项": "A5 显存与步速",
+      "结果": "PASS",
+      "说明": "无共享内存回退，步速正常",
+      "证据": [
+        "Shared Usage=未记录 MB",
+        "峰值显存(max_memory_allocated)=未记录",
+        "步均耗时=57.4s"
+      ]
+    },
+    {
+      "项": "A6 可复现",
+      "结果": "SKIP",
+      "说明": "未提供 --run2-log，本轮未做两次对比",
+      "证据": []
+    }
+  ],
+  "failed": [],
+  "skipped": [
+    "A6 可复现"
+  ]
+}

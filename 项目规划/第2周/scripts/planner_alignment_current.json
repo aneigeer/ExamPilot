@@ -1,0 +1,175 @@
+{
+  "input": "training/data/sft_train_behavior.jsonl",
+  "tag": "current",
+  "rows": 2156,
+  "planner_final": 250,
+  "subset_exact": 49,
+  "subset_normalized": 49,
+  "answer_longer": 201,
+  "material_chars_median": 95.0,
+  "answer_chars_median": 162.5,
+  "material_chars_min": 30,
+  "answer_chars_max": 199,
+  "violations": [
+    {
+      "row_index": 54,
+      "qid": null,
+      "chunk_id": 14816,
+      "material_chars": 117,
+      "answer_chars": 194,
+      "answer_head": "灵活与适应性 适应性强，适合动态环境和多样化任务。 适应性较差，主要适用于特定任务和稳定环境。 优点 动态知识更新、较少的数据需求、灵活性强、可定制化。 定制化"
+    },
+    {
+      "row_index": 81,
+      "qid": null,
+      "chunk_id": 18877,
+      "material_chars": 106,
+      "answer_chars": 135,
+      "answer_head": "；1. 知识注入(Knowledge Injection)；2. 迁移学习 (Transfer Learning)；让模型学习特定领域的专业术语和事实；在自有数"
+    },
+    {
+      "row_index": 82,
+      "qid": null,
+      "chunk_id": 12577,
+      "material_chars": 95,
+      "answer_chars": 136,
+      "answer_head": "大家在创作过程中，想必都经历过这样的场景：花费大量时间和精力，精心使用视频剪辑软件，将各种素材巧妙拼接，反复打磨每一个细节，终于制作出了一部自认为满意的视频作品"
+    },
+    {
+      "row_index": 100,
+      "qid": null,
+      "chunk_id": 14086,
+      "material_chars": 109,
+      "answer_chars": 165,
+      "answer_head": "该团队表示：「这一成果突显了将强化学习应用于经过大规模预训练的强大基础模型的有效性。」 QwQ-32B 中还集成了与 Agent（智能体）相关的能力，使其能够在"
+    },
+    {
+      "row_index": 105,
+      "qid": null,
+      "chunk_id": 9786,
+      "material_chars": 119,
+      "answer_chars": 158,
+      "answer_head": "2. 反向传播：从输出层开始，根据链式法则计算损失函数对每一层输入的梯度。对于每一层，根据当前层的输出和权重，计算该层输入的梯度，并传递到前一层。 3. 计算参"
+    },
+    {
+      "row_index": 115,
+      "qid": null,
+      "chunk_id": 15389,
+      "material_chars": 119,
+      "answer_chars": 180,
+      "answer_head": "最终查询 SELECT * FROM cte_name ORDER BY ancestors 在递归查询完成后，从完整的cte_name中选择所有行，并按照生成"
+    },
+    {
+      "row_index": 117,
+      "qid": null,
+      "chunk_id": 12128,
+      "material_chars": 49,
+      "answer_chars": 153,
+      "answer_head": "但在获取云端数据、调用在线 API 等方面，SSE 类型表现出色，能够为你提供丰富的外部信息支持。 2.3 MCP本地服务测试 现在我们来演示一下，如何在添加服"
+    },
+    {
+      "row_index": 125,
+      "qid": null,
+      "chunk_id": 10105,
+      "material_chars": 81,
+      "answer_chars": 190,
+      "answer_head": "这不应该是共享模型参数的问题，但传递其他类型的数据应该小心。请注意，此限制不适用于共享CPU内存。 四、介绍一下共享策略？ 本节简要概述了不同的共享策略如何工作"
+    },
+    {
+      "row_index": 128,
+      "qid": null,
+      "chunk_id": 16402,
+      "material_chars": 72,
+      "answer_chars": 195,
+      "answer_head": "对于写频繁的应用程序（写操作高可伸缩性和大吞吐量），需要使用写可水平伸缩的数据库（如全球托管的公共云数据库）。标准化的数据则保存在写数据存储中。 对搜索（例如 "
+    },
+    {
+      "row_index": 136,
+      "qid": null,
+      "chunk_id": 10848,
+      "material_chars": 97,
+      "answer_chars": 158,
+      "answer_head": "以下是结构化解答思路： 1. 问题定义：明确多轮对话连贯性的核心挑战（如上下文丢失、信息断层、意图漂移）。 2. 技术方法：分述关键技术（如上下文窗口管理、状态"
+    },
+    {
+      "row_index": 169,
+      "qid": null,
+      "chunk_id": 13557,
+      "material_chars": 96,
+      "answer_chars": 163,
+      "answer_head": "子工作流中提取出的图片和文本内容会被合并为一段固定格式的内容，传输给后续节点进行处理。 ②数据质检 此流程同样依赖一个子工作流，用于对提取出的数据进行质检，也就"
+    },
+    {
+      "row_index": 184,
+      "qid": null,
+      "chunk_id": 18333,
+      "material_chars": 117,
+      "answer_chars": 125,
+      "answer_head": "通过这种方式，以极小的计算成本实现模型的高效个性；化调整。；1. 轻量级微调；2. 个性化调整；LoRA通过引入低秩矩阵来更新模；特别适用于大规模预训练模型的；"
+    },
+    {
+      "row_index": 198,
+      "qid": null,
+      "chunk_id": 13499,
+      "material_chars": 70,
+      "answer_chars": 183,
+      "answer_head": "bingWebSearch 设置 query 输入参数，在参数值区域选择引用 Start > user_query。其他参数项保持默认配置。 代码 1. 新增 "
+    },
+    {
+      "row_index": 202,
+      "qid": null,
+      "chunk_id": 13791,
+      "material_chars": 109,
+      "answer_chars": 157,
+      "answer_head": "它将首先从用户那里收集需求，然后生成提示（并根据用户输入进行细化）。这些被分成两个独立的状态，LLM 决定何时在它们之间转换。 下面的图表显示了该系统的图形表示"
+    },
+    {
+      "row_index": 233,
+      "qid": null,
+      "chunk_id": 16566,
+      "material_chars": 108,
+      "answer_chars": 196,
+      "answer_head": "为了验证这个问题，我搭建了一个demo 工程，模拟了两个使用同一个 HttpClient 的接口。fast 接口用来访问百度，很快就能返回；slow 接口访问谷"
+    },
+    {
+      "row_index": 240,
+      "qid": null,
+      "chunk_id": 13949,
+      "material_chars": 108,
+      "answer_chars": 192,
+      "answer_head": "主图可以通过状态对象与子图交互，确保各子图能够访问和更新全局状态。这种机制使得多个智能体可以协同工作，同时保持状态的一致性。 对于更复杂的系统，子图是一个有用的"
+    },
+    {
+      "row_index": 259,
+      "qid": null,
+      "chunk_id": 13807,
+      "material_chars": 116,
+      "answer_chars": 173,
+      "answer_head": "\"\"\" # 创建一个聊天提示模板 prompt = ChatPromptTemplate.from_messages( [ ( \"system\", \"你是一个有"
+    },
+    {
+      "row_index": 270,
+      "qid": null,
+      "chunk_id": 18421,
+      "material_chars": 94,
+      "answer_chars": 188,
+      "answer_head": "它将复杂任务分解为一系列“思考 ->行动 ->；观察”的迭代循环，直至问题解决。；第一步(Thought-思考)；“我应该做什么？”-LLM根据当前目标和历史信"
+    },
+    {
+      "row_index": 279,
+      "qid": null,
+      "chunk_id": 9852,
+      "material_chars": 97,
+      "answer_chars": 194,
+      "answer_head": "穗部可呈红、紫、黄，植株形状类似灰灰菜，成熟后穗部类似高粱穗。植株大小受环境及遗传因素影响较大，从0.3-3米不等，茎部质地较硬，可分枝可不分。单叶互生，叶片呈"
+    },
+    {
+      "row_index": 297,
+      "qid": null,
+      "chunk_id": 12575,
+      "material_chars": 51,
+      "answer_chars": 184,
+      "answer_head": "这个地方设置比较简单，在回复设置一下llm text文本输出以及 开始节点file 输出，这样设置后。就会将发票提取的票面信息以json格式的文本信息返回，并将"
+    }
+  ]
+}

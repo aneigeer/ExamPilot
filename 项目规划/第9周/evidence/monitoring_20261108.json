@@ -1,0 +1,209 @@
+{
+  "task": "W9-4 监控告警配置清单",
+  "date": "2026-11-08",
+  "captured_at": "2026-11-08T22:57:04+08:00",
+  "mode": "read-only (no code/config change, no restart, no training, no heapdump)",
+  "environment": {
+    "given": {
+      "backend_8080": "UP (PID 3608)",
+      "ai_service_8000": "UP (PID 30748)",
+      "mysql_3306": "UP",
+      "ollama_11434": "UP",
+      "redis_6379": "DOWN"
+    },
+    "observed": [
+      {"target": "127.0.0.1:8080", "tcp": false, "note": "netstat 无 LISTENING；PID 3608 不存在", "verdict": "DOWN"},
+      {"target": "127.0.0.1:8000", "tcp": false, "note": "netstat 无 LISTENING；PID 30748 不存在；uvicorn watch dog 最后 PORT_READY 22:29:52 pid=35664，现已退出", "verdict": "DOWN"},
+      {"target": "127.0.0.1:3306", "tcp": true, "note": "LISTENING pid=7508, SELECT 1 OK", "verdict": "UP"},
+      {"target": "127.0.0.1:11434", "tcp": true, "note": "/api/tags 200；/api/ps -> {\"models\":[]}", "verdict": "UP"},
+      {"target": "127.0.0.1:6379", "tcp": false, "verdict": "DOWN"}
+    ],
+    "impact": "Actuator、/v1/health、/admin/ai/metrics 无法在线实测，相关结论基于源码/配置静态取证 + 历史日志 + MySQL 只读复算"
+  },
+  "actuator": {
+    "dependency": "backend/pom.xml:48 spring-boot-starter-actuator",
+    "prometheus_registry": "absent (pom 无 micrometer-registry-prometheus)",
+    "exposure_include": ["health", "info"],
+    "exposed_endpoints": ["/api/actuator/health", "/api/actuator/info"],
+    "not_exposed": ["/api/actuator/metrics", "/api/actuator/prometheus"],
+    "health_show_details": "never",
+    "probes_enabled": true,
+    "probe_paths": ["/api/actuator/health/liveness", "/api/actuator/health/readiness"],
+    "redis_health_enabled": false,
+    "anonymous_access": "SecurityConfig.java:116-117 放行 /actuator/health 与 /actuator/health/**",
+    "context_path": "/api",
+    "live_probe": "not_possible (service down)"
+  },
+  "custom_metrics": {
+    "agent_metrics": {
+      "endpoint": "GET /api/admin/ai/metrics?days=1|7|30",
+      "controller": "AiOpsController.java:213-218",
+      "access": "AUDITOR/ADMIN",
+      "fields": ["total", "running", "terminal", "statusCounts", "successRate", "refusedRate", "failureRate", "cancelRate", "degradedCount", "degradedRate", "latency.samples", "latency.avgMs", "latency.p95Ms", "latency.maxMs", "generators[]", "errorTop5[]"],
+      "latency_percentiles": "P95 only (no P50/P99)",
+      "live_probe": "not_possible (service down)"
+    },
+    "queue": {
+      "endpoint": "GET /api/admin/ai/jobs",
+      "fields": "page/size 列表，无积压量/lag/最老 pending 时长",
+      "jobs_enabled_default": "false (application.yml:158 ${AI_JOBS_ENABLED:false})",
+      "redis_stream": "exam:jobs (application.yml:159)",
+      "rejection_trace": "AgentStreamService.java:161-164 记录 FAILED run, error=executor_rejected",
+      "executor": "AgentConfig.java:20-31 core=4 max=8 queue=100 AbortPolicy"
+    },
+    "capability": {
+      "endpoint": "GET /api/ai/capability (PUBLIC)",
+      "fields": ["llmConfigured", "provider", "circuitOpen", "circuitRemainingMillis", "extractiveMode", "generator", "degraded", "degradedReason", "available", "chunkCount", "rejectThreshold", "vectorEnabled", "vectorIndexReady", "vectorChannelAvailable", "ocrEnabled", "aiServiceStatus", "embeddingModel", "embeddingDim", "indexStats", "storageProvider"],
+      "source": "AiQaService.java:394-462"
+    },
+    "admin_panel": {
+      "location": "backend/src/main/resources/static/admin/index.html:991-1122",
+      "content": "Agent 运行指标：total/statusCounts/rates/P95/errorTop5，days 1/7/30",
+      "alerting": "none (人工查看)"
+    }
+  },
+  "ai_service_health": {
+    "endpoint": "GET :8000/v1/health",
+    "http_status": "always 200",
+    "status_values": ["ok", "degraded"],
+    "fields": {
+      "status": "ok|degraded",
+      "embedding": ["ready", "detail", "dim", "model_id", "loaded"],
+      "qdrant": ["ready", "detail"],
+      "ocr": ["ready", "detail"],
+      "llm": ["ready", "detail"],
+      "version": "string",
+      "security": ["internalTokenConfigured", "agentAuthRequired", "anonymousAllowed"]
+    },
+    "source": "ai-service/app/routers/health.py:55-125; app/schemas.py:107-120",
+    "live_probe": "not_possible (service down)",
+    "last_known_good": "ai_service_watchdog_v2.log: 2026-11-08 22:29:52 PORT_READY pid=35664 health200=True"
+  },
+  "ollama": {
+    "api_ps": {"http": 200, "body": {"models": []}},
+    "api_tags": {"http": 200, "models_seen": ["qwen2.5-3b-instruct-q8_0-baseline:latest", "exam-prep-3b-v1-q8:latest"]},
+    "gpu_metric_collected": false
+  },
+  "coverage": {
+    "granular": {
+      "total": 16,
+      "present": 5,
+      "partial": 3,
+      "missing": 8,
+      "present_ids": ["backend_health", "ai_health", "agent_metrics", "admin_panel", "agent_failure_rate"],
+      "partial_ids": ["liveness_readiness", "latency_p95_only", "business_failure_rate"],
+      "missing_ids": ["component_health_detail", "http_5xx_rate", "p50_p99_ai_latency", "jvm_memory_cpu", "gpu_vram", "queue_backlog", "token_cost", "alert_channel"]
+    },
+    "dimensions": {
+      "健康状态": "部分",
+      "错误率": "部分",
+      "延迟P50-P95-P99": "部分",
+      "GPU·内存": "缺失",
+      "队列": "缺失",
+      "调用成本": "缺失",
+      "关键业务失败率": "部分",
+      "present": 0,
+      "partial": 4,
+      "missing": 3
+    }
+  },
+  "db_snapshot": {
+    "note": "只读查询，凭据取自 application-local.yml，报告/证据不记录口令",
+    "ai_agent_run": {
+      "total_rows": 10,
+      "status_counts": {"SUCCESS": 4, "REFUSED": 3, "FAILED": 3},
+      "error_top": [{"error": "upstream_error", "count": 3}],
+      "first_created_at": "2026-10-22 23:00:50",
+      "last_created_at": "2026-10-31 20:42:26",
+      "days_since_last": 8,
+      "last_7d_rows": 0
+    },
+    "async_task": {"status_counts": {"SUCCESS": 6, "FAILED": 2}, "last_7d_rows": 0},
+    "ai_eval_run": {"status_counts": {"SUCCESS": 6, "FAILED": 2}},
+    "operation_log": {"total_rows": 59, "last_7d_rows": 1},
+    "tables_like_metric_usage_cost": "none (仅 operation_log)",
+    "mysql_settings": {"general_log": "ON", "general_log_file": "D:/bigplan/tools/mysql-8.0.46/data/mysql.log", "general_log_size_bytes": 199923465, "slow_query_log": "OFF", "long_query_time": "10.000000", "log_error": "D:\\bigplan\\tools\\mysql-8.0.46\\data\\mysql.err"}
+  },
+  "logs": {
+    "backend": {
+      "config": "application.yml:427-433 仅 console pattern；无 logging.file.name；无 logback-spring.xml",
+      "persisted_file": "项目规划/第7周/evidence/backend_058_20261108.log",
+      "size_bytes": 29369557,
+      "last_write": "2026-11-08 16:24:14",
+      "rotation": "none (单文件)",
+      "stdout_redirect_in_launcher": false
+    },
+    "ai_service": {
+      "config": "app/main.py:85-102 StreamHandler only",
+      "watchdog_redirect": "run_watchdog.ps1:11 *>> 项目规划/第7周/evidence/ai_service_watchdog.log",
+      "rotation": "none (append；仅手工 .prev 改名)",
+      "trace_id_in_log": true
+    },
+    "sensitive_findings": [
+      {"item": "用户问题原文进日志", "evidence": "HybridRetriever.java:168 log.info 打出 question；backend_058_20261108.log 命中原题「如何学习吉他弹唱？」", "note": "与 app.observability.log-question:false 的意图不一致"},
+      {"item": "MyBatis 结果行打印", "evidence": "application.yml:67 StdOutImpl + :430 com.examprep:debug；日志含 <== Row: 题干/课程名，BLOB 显示为 <<BLOB>>", "note": "日志体积主要来源"},
+      {"item": "默认安全口令打印", "evidence": "backend_058_20261108.log:43 'Using generated security password: <uuid>'", "note": "开发期凭据类信息"},
+      {"item": "MySQL general_log=ON", "evidence": "全量 SQL 落盘 mysql.log(约190MB)，含 ai_agent_run.question/answer 明文", "note": "建议关闭或限定保留期"}
+    ],
+    "agent_audit": {
+      "location": "ai-service/app/agent/harness.py:384-395",
+      "fields": ["trace_id", "user_id", "step", "tool", "ok", "elapsed_ms", "error_code", "arg_keys"],
+      "args_values_logged": false
+    }
+  },
+  "alert_gaps": [
+    {"priority": "P0", "gap": "队列积压/拒绝无指标无告警（XLEN、最老 pending、executor_rejected 仅事后可从 FAILED run 追）"},
+    {"priority": "P0", "gap": "调用成本完全缺失（无 token 字段/无 usage 表，cost_ms 仅为耗时）"},
+    {"priority": "P0", "gap": "HTTP 5xx/接口错误率缺失（无 micrometer、无 nginx access log）"},
+    {"priority": "P1", "gap": "组件级健康不可见（health details=never、Redis 健康关闭）且全仓无邮件/IM 告警通道"},
+    {"priority": "P1", "gap": "GPU/显存无采集（仅 Ollama /api/ps 原始数据，且当前无模型驻留）"},
+    {"priority": "P2", "gap": "仅有 P95，无 P50/P99；判分回退/入库失败等业务失败率只有日志/任务状态列表"}
+  ],
+  "minimal_alert_plan": [
+    {"metric": "backend_up", "collect": "GET /api/actuator/health (60s)", "threshold": "连续3次非200/非UP", "channel": "IM+邮件", "priority": "P0"},
+    {"metric": "mysql_up", "collect": "TCP3306 + SELECT 1 (60s)", "threshold": "连续2次失败", "channel": "IM+邮件", "priority": "P0"},
+    {"metric": "agent_failure_rate", "collect": "GET /api/admin/ai/metrics?days=1 (5min)", "threshold": "failureRate>0.15 且 terminal>=20", "channel": "IM+邮件", "priority": "P0"},
+    {"metric": "queue_backlog", "collect": "XLEN exam:jobs + async_task 最老 PENDING 时长", "threshold": "XLEN>20 或 最老pending>10min", "channel": "IM", "priority": "P0"},
+    {"metric": "executor_rejected_1h", "collect": "ai_agent_run.error='executor_rejected' 1h 增量", "threshold": ">0", "channel": "IM", "priority": "P0"},
+    {"metric": "token_cost_daily", "collect": "需新增 token 采集（AiAgentRun 或独立表）", "threshold": "日用量 > 7日均值+50%", "channel": "邮件日报", "priority": "P0(依赖改造)"},
+    {"metric": "ai_service_health", "collect": "GET :8000/v1/health (60s)", "threshold": "status!=ok 持续15min 或 llm/embedding ready=false 15min", "channel": "IM", "priority": "P1"},
+    {"metric": "redis_up", "collect": "TCP6379 + PING (60s)", "threshold": "连续2次失败", "channel": "IM", "priority": "P1"},
+    {"metric": "ollama_up", "collect": "GET :11434/api/tags (60s)", "threshold": "连续3次超时/非200", "channel": "IM", "priority": "P1"},
+    {"metric": "agent_p95_latency", "collect": "metrics.latency.p95Ms", "threshold": "p95Ms>25000", "channel": "IM", "priority": "P1"},
+    {"metric": "agent_error_top1_1h", "collect": "metrics.errorTop5 或 SQL", "threshold": "单类 error 1h 增量>5", "channel": "IM", "priority": "P1"},
+    {"metric": "http_5xx_rate", "collect": "需补 micrometer/nginx access log；过渡期日志关键字计数", "threshold": "5min 5xx>1% 或 ERROR>10条/5min", "channel": "IM+邮件", "priority": "P0"},
+    {"metric": "grading_fallback_rate", "collect": "日志 [AI判分] 无可用大模型 计数", "threshold": "5min>3", "channel": "IM", "priority": "P1"},
+    {"metric": "gpu_vram_used", "collect": "Ollama /api/ps 汇总 size_vram", "threshold": ">90% 或 模型退出驻留>10min", "channel": "IM", "priority": "P1"},
+    {"metric": "disk_free", "collect": "uploads/、mysql data、evidence 日志目录", "threshold": "可用<10% 或 <10GB", "channel": "IM", "priority": "P1"},
+    {"metric": "async_task_failed_rate", "collect": "SQL async_task 1d FAILED/总数", "threshold": ">5% (总数>=10)", "channel": "IM 日报", "priority": "P2"},
+    {"metric": "agent_refused_rate", "collect": "metrics.refusedRate", "threshold": ">0.40 (1d, terminal>=20)", "channel": "IM", "priority": "P2"},
+    {"metric": "jvm_heap", "collect": "需补 actuator metrics 或 JMX；过渡期 OOM 关键字", "threshold": ">85% 持续10min", "channel": "邮件", "priority": "P2"}
+  ],
+  "daily_inspection": [
+    "端口/进程 8080/8000/3306/11434/6379",
+    "后端 /api/actuator/health + liveness/readiness",
+    "AI /v1/health 四能力 ready 与 detail",
+    "Ollama /api/ps 驻留与 size_vram、/api/tags 模型清单",
+    "Agent 指标 days=1（total/failureRate/refusedRate/p95Ms/errorTop5）",
+    "队列 async_task 状态与最老 pending、XLEN exam:jobs、executor_rejected",
+    "业务失败 async_task/ai_eval_run 近1天 FAILED；判分回退日志计数",
+    "日志 ERROR/注入告警/upstream_error/OOM 关键字与文件体积",
+    "磁盘 uploads、mysql data、evidence 日志目录",
+    "成本：日调用次数（generators[]）对比 7 日均值"
+  ],
+  "evidence_paths": [
+    "backend/src/main/resources/application.yml",
+    "backend/pom.xml",
+    "backend/src/main/java/com/examprep/config/SecurityConfig.java",
+    "backend/src/main/java/com/examprep/service/ai/agent/AgentMetricsService.java",
+    "backend/src/main/java/com/examprep/controller/AiOpsController.java",
+    "backend/src/main/java/com/examprep/config/AgentConfig.java",
+    "backend/src/main/java/com/examprep/service/ai/HybridRetriever.java",
+    "ai-service/app/routers/health.py",
+    "ai-service/app/main.py",
+    "ai-service/app/agent/harness.py",
+    "scripts/qa/week8_e2e.py",
+    "项目规划/第7周/evidence/backend_058_20261108.log",
+    "项目规划/第7周/evidence/ai_service_watchdog_v2.log"
+  ]
+}

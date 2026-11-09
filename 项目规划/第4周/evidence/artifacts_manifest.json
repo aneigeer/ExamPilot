@@ -1,0 +1,257 @@
+{
+  "generated_at": "2026-11-06T12:35:44+08:00",
+  "host": "A",
+  "git_commit": "ca67d16d7b58b589dd6de7d1d0a3a266473a5896",
+  "run_dir": "training\\output\\qwen2.5-3b-exam-lora-v1",
+  "missing_expected": [],
+  "env": {
+    "python": "3.12.10",
+    "torch": "2.6.0+cu124",
+    "transformers": "5.22.1",
+    "peft": "0.21.2",
+    "trl": "1.17.1",
+    "datasets": "5.1.0",
+    "bitsandbytes": "0.50.2"
+  },
+  "base": {
+    "path": "C:\\models\\models\\Qwen--Qwen2.5-3B-Instruct\\snapshots\\master",
+    "exists": true,
+    "arch": [
+      "Qwen2ForCausalLM"
+    ],
+    "hidden_size": 2048,
+    "num_hidden_layers": 36,
+    "vocab_size": 151936,
+    "config_sha256": "eed00b17e22553979d090fa492e587e92885e328914c8e0b0b78f0a0d3576b3b",
+    "params_total_size_bytes": 6171877376,
+    "index_sha256": "bc8aaa0c87d4335177e01c765f1de0db81661c67c1a72fbfb0d521b09f5ddc56",
+    "shards": [
+      {
+        "name": "model-00001-of-00002.safetensors",
+        "bytes": 3968658944
+      },
+      {
+        "name": "model-00002-of-00002.safetensors",
+        "bytes": 2203268048
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "adapter_config.json",
+      "bytes": 1270,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "7e0774bfacdf5514ea4c6ea94e8f29f923578eaac370dacbecd58c7c11d1e74a"
+    },
+    {
+      "path": "adapter_model.safetensors",
+      "bytes": 119801528,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef"
+    },
+    {
+      "path": "chat_template.jinja",
+      "bytes": 2561,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "8aa40ce145adb73cb3a75194dc0224702a95850ec5275cabb728496bbd749fc6"
+    },
+    {
+      "path": "checkpoint-130/adapter_config.json",
+      "bytes": 1270,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "7e0774bfacdf5514ea4c6ea94e8f29f923578eaac370dacbecd58c7c11d1e74a"
+    },
+    {
+      "path": "checkpoint-130/adapter_model.safetensors",
+      "bytes": 119801528,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "9b67fc2eecf1457948fc82a72159049c45796ba7ede653c888bf3a7096135a6d"
+    },
+    {
+      "path": "checkpoint-130/chat_template.jinja",
+      "bytes": 2561,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "8aa40ce145adb73cb3a75194dc0224702a95850ec5275cabb728496bbd749fc6"
+    },
+    {
+      "path": "checkpoint-130/optimizer.pt",
+      "bytes": 62709090,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "673024caeba7f3a8f9dd78f98898e1acc311c8110113e36f44c7bfaee8c90019"
+    },
+    {
+      "path": "checkpoint-130/README.md",
+      "bytes": 5284,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "9e7da45be01b1aac794a12e9e4eda966eb5b8adaed4c8c2f5d8a84dbb9be53a8"
+    },
+    {
+      "path": "checkpoint-130/rng_state.pth",
+      "bytes": 14244,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "5803daeb716f569de1379f20bac69ef13cb55701b7128b2a02e214ffe6b318ba"
+    },
+    {
+      "path": "checkpoint-130/scheduler.pt",
+      "bytes": 1064,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "42980e355d93a86e752d8d9f8e633190fcaef8028c2452675243939ef3280193"
+    },
+    {
+      "path": "checkpoint-130/tokenizer.json",
+      "bytes": 11421892,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "path": "checkpoint-130/tokenizer_config.json",
+      "bytes": 723,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "1f18fb516a5b9ec1286b09ef8df6cbe736ad8298c77d99953d85f182572b273e"
+    },
+    {
+      "path": "checkpoint-130/trainer_state.json",
+      "bytes": 8788,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "1cc5a37da9d9d6d8b08bd06da4b77c5e8b93cec9391e8c6f37d9cef42d25f4e6"
+    },
+    {
+      "path": "checkpoint-130/training_args.bin",
+      "bytes": 5304,
+      "mtime": "2026-11-06T12:33:59+08:00",
+      "sha256": "cef674b5424658dd2fbb8d383c4709015e3288ad5e8745fd4c1a2993c2134a88"
+    },
+    {
+      "path": "checkpoint-135/adapter_config.json",
+      "bytes": 1270,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "7e0774bfacdf5514ea4c6ea94e8f29f923578eaac370dacbecd58c7c11d1e74a"
+    },
+    {
+      "path": "checkpoint-135/adapter_model.safetensors",
+      "bytes": 119801528,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "3aed26e718267fcf17dc91e3f776dbf7b9822f9b5d93f78ffd476b5418d005ef"
+    },
+    {
+      "path": "checkpoint-135/chat_template.jinja",
+      "bytes": 2561,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "8aa40ce145adb73cb3a75194dc0224702a95850ec5275cabb728496bbd749fc6"
+    },
+    {
+      "path": "checkpoint-135/optimizer.pt",
+      "bytes": 62709090,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "1489ef40a941ec27e00ef5435e679baf5b456a5b6dfc82db333349303bf8e6b9"
+    },
+    {
+      "path": "checkpoint-135/README.md",
+      "bytes": 5284,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "9e7da45be01b1aac794a12e9e4eda966eb5b8adaed4c8c2f5d8a84dbb9be53a8"
+    },
+    {
+      "path": "checkpoint-135/rng_state.pth",
+      "bytes": 14244,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "2cbde397af16ef77be618af06a9dace3cbbaabf649a820403e78ccdfe6b99e41"
+    },
+    {
+      "path": "checkpoint-135/scheduler.pt",
+      "bytes": 1064,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "21ac55d3df783439e979e89df86976874a6eb7dc0d9151ffea1c10f79aafffcb"
+    },
+    {
+      "path": "checkpoint-135/tokenizer.json",
+      "bytes": 11421892,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "path": "checkpoint-135/tokenizer_config.json",
+      "bytes": 723,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "1f18fb516a5b9ec1286b09ef8df6cbe736ad8298c77d99953d85f182572b273e"
+    },
+    {
+      "path": "checkpoint-135/trainer_state.json",
+      "bytes": 9067,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "bba69f2752d7d524c54c9280159f7335954acbf1a1820f0c89e0921b569fbe44"
+    },
+    {
+      "path": "checkpoint-135/training_args.bin",
+      "bytes": 5304,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "cef674b5424658dd2fbb8d383c4709015e3288ad5e8745fd4c1a2993c2134a88"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1534,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "26a1211b6e8817abb1e052c9382627ace4145e7377f39402a77e7b7aa8a6d1bd"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 11421892,
+      "mtime": "2026-11-06T12:35:22+08:00",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 723,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "1f18fb516a5b9ec1286b09ef8df6cbe736ad8298c77d99953d85f182572b273e"
+    },
+    {
+      "path": "train_metrics.json",
+      "bytes": 252,
+      "mtime": "2026-11-06T12:35:44+08:00",
+      "sha256": "c4800560781aec5a1698732b84b7f69055ecb7b1b921156b83d0ca23af267216"
+    },
+    {
+      "path": "train_metrics_summary.json",
+      "bytes": 1161,
+      "mtime": "2026-11-05T22:43:02+08:00",
+      "sha256": "681e4f55b3f0dc6a28b54725a6a96e72e53b9f1de9d44e59cc5d9ad009963f3f"
+    },
+    {
+      "path": "train_metrics_summary.md",
+      "bytes": 491,
+      "mtime": "2026-11-05T22:43:02+08:00",
+      "sha256": "9d7e798db6d3d0bee4420bff0c0fbd9fd80d2f6423e6c0b8741b625f96ead04c"
+    },
+    {
+      "path": "training_args.bin",
+      "bytes": 5304,
+      "mtime": "2026-11-06T12:35:21+08:00",
+      "sha256": "cef674b5424658dd2fbb8d383c4709015e3288ad5e8745fd4c1a2993c2134a88"
+    }
+  ],
+  "extras": [
+    {
+      "path": "training/data/sft_train_behavior.jsonl",
+      "bytes": 4564388,
+      "mtime": "2026-11-04T15:13:48+08:00",
+      "sha256": "1fb1510e0a367c19f0579d014df73deadafc4e5c54852426a82768ea434ce044"
+    },
+    {
+      "path": "training/train_qlora.py",
+      "bytes": 9470,
+      "mtime": "2026-11-05T22:44:40+08:00",
+      "sha256": "b2231a77e154250d4a40759f325c069405026865c195477e6afc72e2cd94e464"
+    },
+    {
+      "path": "项目规划/第4周/evidence/train_final_to135.log",
+      "bytes": 5763,
+      "mtime": "2026-11-06T12:35:22+08:00",
+      "sha256": "24af0f5e53bfd955d9a8066658fe6d9c6e8eb77d4d17b3b2cca17933403b80db"
+    }
+  ],
+  "totals": {
+    "run_files": 32,
+    "run_bytes": 519180491
+  }
+}
