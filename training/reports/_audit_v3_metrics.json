@@ -1,0 +1,223 @@
+{
+  "file": "D:\\大学生多考试备考知识库与题库系统\\training\\data\\sft_train_behavior.jsonl",
+  "total": 2110,
+  "counts": {
+    "refusal": 600,
+    "injection": 599,
+    "grounded": 210,
+    "citation": 42,
+    "mcq": 197,
+    "planner": 419,
+    "wiki": 43
+  },
+  "cite": {
+    "grounded": {
+      "n": 210,
+      "any_cite": 210,
+      "cite_1": 210,
+      "any_pct": 100.0,
+      "cite1_pct": 100.0
+    },
+    "injection": {
+      "n": 599,
+      "any_cite": 599,
+      "cite_1": 599,
+      "any_pct": 100.0,
+      "cite1_pct": 100.0
+    }
+  },
+  "sys": {
+    "mcq": {
+      "n": 197,
+      "distinct_system": 1,
+      "has_strict": 0,
+      "has_nomaterial": 0,
+      "has_nodata_clause": 197
+    },
+    "grounded": {
+      "n": 210,
+      "distinct_system": 1,
+      "has_strict": 210,
+      "has_nomaterial": 210,
+      "has_nodata_clause": 0
+    },
+    "refusal": {
+      "n": 600,
+      "distinct_system": 1,
+      "has_strict": 600,
+      "has_nomaterial": 600,
+      "has_nodata_clause": 0
+    },
+    "injection": {
+      "n": 599,
+      "distinct_system": 1,
+      "has_strict": 599,
+      "has_nomaterial": 599,
+      "has_nodata_clause": 0
+    },
+    "citation": {
+      "n": 42,
+      "distinct_system": 1,
+      "has_strict": 42,
+      "has_nomaterial": 42,
+      "has_nodata_clause": 0
+    },
+    "wiki": {
+      "n": 43,
+      "distinct_system": 1,
+      "has_strict": 43,
+      "has_nomaterial": 43,
+      "has_nodata_clause": 0
+    },
+    "planner": {
+      "n": 419,
+      "distinct_system": 1,
+      "has_strict": 419,
+      "has_nomaterial": 419,
+      "has_nodata_clause": 0
+    }
+  },
+  "sys_bad_count": 0,
+  "sys_bad_samples": [],
+  "refusal": {
+    "n": 600,
+    "exact": 600,
+    "pct": 100.0,
+    "bad_samples": []
+  },
+  "planner": {
+    "n": 419,
+    "legal": 419,
+    "pct": 100.0,
+    "actions": {
+      "final": 158,
+      "tool": 261
+    },
+    "tools": {
+      "search_wiki": 130,
+      "search_knowledge": 131
+    },
+    "bad_samples": []
+  },
+  "injection": {
+    "n": 599,
+    "violations": 0,
+    "viol_samples": [],
+    "answer_known": 597,
+    "answer_match": 597,
+    "answer_match_pct": 100.0,
+    "attack_echo": 0
+  },
+  "mix": {
+    "refusal": {
+      "n": 600,
+      "pct": 28.44
+    },
+    "injection": {
+      "n": 599,
+      "pct": 28.39
+    },
+    "planner": {
+      "n": 419,
+      "pct": 19.86
+    },
+    "grounded": {
+      "n": 210,
+      "pct": 9.95
+    },
+    "mcq": {
+      "n": 197,
+      "pct": 9.34
+    },
+    "wiki": {
+      "n": 43,
+      "pct": 2.04
+    },
+    "citation": {
+      "n": 42,
+      "pct": 1.99
+    }
+  },
+  "dedup": {
+    "dup_keys": 2,
+    "dup_rows": 3,
+    "samples": [
+      {
+        "kind": "injection",
+        "user120": "【资料】\n[1] 第一步： 分析题干条件。6 天假期每天需安排一人值班，6 个部门各推荐 2 人，从 12 人中选择 6 人，每人值班一天。安排要求如下：（ 1）法务部第二、四天；（ 2）后勤值班后勤安排在法务前一天；（ 3）研发值班研发安",
+        "count": 3
+      },
+      {
+        "kind": "injection",
+        "user120": "【资料】\n[1] 第一步：分析题干。（1）艺术至少有一次安排在第 3 天（2）数学只能安排在逻辑的次日（3）第 1 天或第 2 天至少有一天为统计（4）哲学与数学或哲学与艺术安排在同一天（5）开设 2 次的课程不在同一天，也不在第 3 天，",
+        "count": 2
+      }
+    ],
+    "exact_dup_rows": 0
+  },
+  "tokens": {
+    "p50": 495,
+    "p90": 656,
+    "p99": 759,
+    "max": 868,
+    "min": 195,
+    "mean": 490.2,
+    "gt1024": 0,
+    "gt2048": 0,
+    "gt4096": 0
+  },
+  "tokens_by_kind": {
+    "refusal": {
+      "n": 600,
+      "p50": 504,
+      "p90": 588,
+      "max": 736
+    },
+    "injection": {
+      "n": 599,
+      "p50": 594,
+      "p90": 716,
+      "max": 868
+    },
+    "grounded": {
+      "n": 210,
+      "p50": 558,
+      "p90": 698,
+      "max": 784
+    },
+    "citation": {
+      "n": 42,
+      "p50": 244,
+      "p90": 276,
+      "max": 315
+    },
+    "mcq": {
+      "n": 197,
+      "p50": 489,
+      "p90": 629,
+      "max": 841
+    },
+    "planner": {
+      "n": 419,
+      "p50": 365,
+      "p90": 415,
+      "max": 459
+    },
+    "wiki": {
+      "n": 43,
+      "p50": 261,
+      "p90": 290,
+      "max": 303
+    }
+  },
+  "source_counts": {
+    "injection": 715,
+    "planner": 804,
+    "mcq": 1635,
+    "grounded": 932,
+    "refusal": 745,
+    "citation": 42,
+    "wiki": 43
+  },
+  "source_total": 4916
+}

@@ -1,0 +1,7 @@
+# 对比基线：Qwen2.5-7B-Instruct 官方 Q4_K_M（与微调模型同起点、同量化等级）
+# 用法：ollama create qwen2.5-7b-instruct-baseline -f training/Modelfile.baseline-qwen7b
+FROM D:/models/gguf/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 8192

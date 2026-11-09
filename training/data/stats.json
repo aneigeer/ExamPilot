@@ -1,0 +1,56 @@
+{
+  "note": "前置 by_kind/total 为 build_dataset.py 生成后、压缩前的口径；post_compress 为 compress_for_training.py --max-tokens 640 之后的实际文件口径（2026-11-04）",
+  "total": 5343,
+  "train": 4916,
+  "val": 427,
+  "by_kind": {
+    "grounded": 1014,
+    "injection": 788,
+    "refusal": 799,
+    "planner": 858,
+    "mcq": 1793,
+    "wiki": 47,
+    "citation": 44
+  },
+  "max_chars_filter": 1400,
+  "avg_chars": 746,
+  "post_compress": {
+    "sft_train": {
+      "rows": 4751,
+      "by_kind": {
+        "citation": 42,
+        "grounded": 925,
+        "injection": 709,
+        "mcq": 1483,
+        "planner": 804,
+        "refusal": 745,
+        "wiki": 43
+      }
+    },
+    "sft_val": {
+      "rows": 427,
+      "by_kind": {
+        "citation": 2,
+        "grounded": 82,
+        "injection": 73,
+        "mcq": 158,
+        "planner": 54,
+        "refusal": 54,
+        "wiki": 4
+      }
+    },
+    "sft_train_behavior": {
+      "rows": 2156,
+      "by_kind": {
+        "citation": 42,
+        "grounded": 209,
+        "injection": 593,
+        "mcq": 178,
+        "planner": 491,
+        "refusal": 600,
+        "wiki": 43
+      }
+    },
+    "max_tokens": 640
+  }
+}

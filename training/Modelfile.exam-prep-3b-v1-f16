@@ -1,0 +1,5 @@
+# 同一 adapter 的 F16 版本，仅用于「量化影响」抽检对照，不作为交付模型
+FROM C:/models/exam-3b-v1-f16.gguf
+PARAMETER temperature 0
+PARAMETER top_p 1
+PARAMETER num_ctx 2048

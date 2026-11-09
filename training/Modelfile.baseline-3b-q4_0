@@ -1,0 +1,6 @@
+# Qwen2.5-3B-Instruct 基线（同一量化器 q4_0，用于与 exam-prep-3b-v1 同档对比）
+# 用法：ollama create qwen2.5-3b-instruct-q4_0-baseline -f training/Modelfile.baseline-3b-q4_0
+FROM C:/models/qwen2.5-3b-instruct-q4_0.gguf
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 8192

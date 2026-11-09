@@ -1,0 +1,5 @@
+# Qwen2.5-3B-Instruct 基线（Q8_0，与 exam-prep-3b-v1-q8 同档）
+FROM C:/models/qwen2.5-3b-instruct-q8_0.gguf
+PARAMETER temperature 0
+PARAMETER top_p 1
+PARAMETER num_ctx 4096

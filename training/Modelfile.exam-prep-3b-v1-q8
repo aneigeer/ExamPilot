@@ -1,0 +1,4 @@
+FROM C:/models/exam-3b-v1-q8_0.gguf
+PARAMETER temperature 0
+PARAMETER top_p 1
+PARAMETER num_ctx 4096
