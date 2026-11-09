@@ -17,15 +17,26 @@
     4. v1 不记录 pid / 退出码 / 端口就绪耗时，无法出验收证据。v2 全部落盘。
     5. IDE 后台终端随任务结束回收整个进程树；watchdog 必须放在独立的外部
        PowerShell 窗口（或 Start-Process 脱离），否则天然无法长驻。
+    6. v2.1（2026-11-09）修复 R1：宿主环境可能同时存在 Path / PATH / path 三份
+       同名环境变量，Start-Process 构造环境字典时会抛
+       "已添加项。字典中的关键字:'Path'所添加的关键字:'PATH'" 并让脚本 26ms 秒退。
+       现在拉起子进程前先由 Repair-ProcessPath 合并为单一 Path，并保留
+       ProcessStartInfo 兜底路径。同时新增 -Port 参数（默认 8000），互斥量按端口区分，
+       可在 8001 等隔离端口上做自愈演练而不影响线上 8000。
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File "D:\大学生多考试备考知识库与题库系统\ai-service\run_watchdog_v2.ps1"
+
+.EXAMPLE
+    # 隔离演练：在 8001 上起一个受监督实例，不影响正在运行的 8000
+    powershell -NoProfile -ExecutionPolicy Bypass -File "D:\大学生多考试备考知识库与题库系统\ai-service\run_watchdog_v2.ps1" -Port 8001
 
 .NOTES
     停止方式：在窗口按 Ctrl+C，或在 ai-service 目录下创建 .watchdog_stop 文件。
 #>
 param(
     [string]$LogDir = "",
+    [int]$Port = 8000,
     [int]$RestartDelayMs = 100,
     [int]$MaxRestarts = 0,
     [int]$ReadyTimeoutSeconds = 20
@@ -64,7 +75,6 @@ $StdoutLog   = Join-Path $LogDir 'ai_service_v2_stdout.log'
 $StderrLog   = Join-Path $LogDir 'ai_service_v2_stderr.log'
 $StopFile    = Join-Path $ScriptDir '.watchdog_stop'
 
-$Port = 8000
 $BaseUrl = "http://127.0.0.1:$Port"
 
 function Write-WatchdogLog([string]$Message) {
@@ -101,15 +111,38 @@ function Wait-Health([int]$TimeoutSeconds) {
     return $false
 }
 
-# —— 单实例互斥：避免两个 watchdog 抢端口导致秒退死循环
-$MutexName = 'Global\ExamprepAiServiceWatchdogV2'
+# —— 环境变量归一（修复 R1）：本机/宿主可能同时存在 Path、PATH、path 三份同名键。
+#    Windows 环境块区分大小写存储，而 Start-Process 构造环境字典用的是大小写不敏感
+#    集合，遇到重复键会抛 "已添加项。字典中的关键字:'Path'所添加的关键字:'PATH'"
+#    并使脚本 26ms 内秒退（2026-11-09 演练实测）。这里合并为单一 Path 后再拉起子进程。
+function Repair-ProcessPath {
+    $snapshot = [Environment]::GetEnvironmentVariables()
+    $pathKeys = @($snapshot.Keys | Where-Object { $_ -ieq 'Path' })
+    if ($pathKeys.Count -le 1) { return 0 }
+
+    $segments = New-Object System.Collections.Generic.List[string]
+    foreach ($key in $pathKeys) {
+        foreach ($segment in ("$($snapshot[$key])" -split ';')) {
+            if ($segment -and -not $segments.Contains($segment)) { $segments.Add($segment) }
+        }
+    }
+    foreach ($key in $pathKeys) {
+        [Environment]::SetEnvironmentVariable($key, $null, 'Process')
+    }
+    [Environment]::SetEnvironmentVariable('Path', ($segments -join ';'), 'Process')
+    return $pathKeys.Count
+}
+
+# —— 单实例互斥：避免两个 watchdog 抢同一端口导致秒退死循环。
+#    互斥量按端口区分，便于在 8001 等隔离端口上同时做自愈演练而不影响 8000。
+$MutexName = "Global\ExamprepAiServiceWatchdogV2_$Port"
 $Mutex = New-Object System.Threading.Mutex($false, $MutexName)
 if (-not $Mutex.WaitOne(0)) {
     Write-Host "[FATAL] 已有另一个 watchdog 在运行（$MutexName），本次直接退出。" -ForegroundColor Yellow
     exit 2
 }
 
-# —— 端口已被占用时不要盲目重启：那会把 8000 交给一个不受监管的进程
+# —— 端口已被占用时不要盲目重启：那会把端口交给一个不受监管的进程
 if (Test-PortOpen $Port) {
     Write-WatchdogLog "ABORT port=$Port 已被占用；请先停止已有 uvicorn/服务，再启动 watchdog"
     $Mutex.ReleaseMutex()
@@ -122,10 +155,16 @@ $env:PYTHONUNBUFFERED = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 Set-Location -LiteralPath $ScriptDir
 
+# —— 拉起子进程前先修掉重复的 Path/PATH 键（R1），否则 Start-Process 必然抛异常秒退
+$dupKeyCount = Repair-ProcessPath
+if ($dupKeyCount -gt 1) {
+    Write-WatchdogLog "ENV_NORMALIZED duplicate_path_keys=$dupKeyCount -> merged into single 'Path'"
+}
+
 $restartCount = 0
 $lastExitAt = $null
 
-Write-WatchdogLog "START watchdog pid=$PID python=$Python logdir=$LogDir restart_delay_ms=$RestartDelayMs"
+Write-WatchdogLog "START watchdog pid=$PID port=$Port python=$Python logdir=$LogDir restart_delay_ms=$RestartDelayMs"
 Write-WatchdogLog "HINT 本脚本需在独立 PowerShell 窗口长驻（IDE 后台终端会被回收）"
 
 try {
@@ -145,16 +184,40 @@ try {
             Move-Item -LiteralPath $StderrLog -Destination "$StderrLog.prev" -Force -ErrorAction SilentlyContinue
         }
 
-        $proc = Start-Process -FilePath $Python `
-            -ArgumentList @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$Port", '--limit-concurrency', '4') `
-            -WorkingDirectory $ScriptDir `
-            -NoNewWindow -PassThru `
-            -RedirectStandardOutput $StdoutLog `
-            -RedirectStandardError $StderrLog
+        $argList = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$Port", '--limit-concurrency', '4')
+
+        # —— 首选 Start-Process（可把 stdout/stderr 直接重定向到文件，便于留崩溃现场）
+        $proc = $null
+        try {
+            $proc = Start-Process -FilePath $Python `
+                -ArgumentList $argList `
+                -WorkingDirectory $ScriptDir `
+                -NoNewWindow -PassThru `
+                -RedirectStandardOutput $StdoutLog `
+                -RedirectStandardError $StderrLog
+        } catch {
+            # —— 兜底（方案 B）：环境里仍有无法归一的重复键时，绕开 Start-Process 的环境字典构造
+            Write-WatchdogLog "WARN Start-Process 失败（$($_.Exception.Message)），改用 ProcessStartInfo 兜底；本轮日志走当前控制台"
+            $null = Repair-ProcessPath
+            try {
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = $Python
+                $psi.Arguments = ($argList -join ' ')
+                $psi.WorkingDirectory = $ScriptDir
+                $psi.UseShellExecute = $false
+                $psi.CreateNoWindow = $true
+                $proc = New-Object System.Diagnostics.Process
+                $proc.StartInfo = $psi
+                $null = $proc.Start()
+            } catch {
+                Write-WatchdogLog "FATAL 无法拉起 uvicorn（Start-Process 与 ProcessStartInfo 均失败）：$($_.Exception.Message)"
+                break
+            }
+        }
 
         Write-WatchdogLog "STARTED pid=$($proc.Id) restart_no=$restartCount"
 
-        # —— 端口就绪耗时：从拉起子进程到 8000 可连接
+        # —— 端口就绪耗时：从拉起子进程到该端口可连接
         $portReadyMs = -1
         $deadline = $launchAt.AddSeconds($ReadyTimeoutSeconds)
         while ((Get-Date) -lt $deadline) {

@@ -1,0 +1,882 @@
+{
+  "meta": {
+    "drill": "第9周 P0 备份恢复演练",
+    "drill_date": "2026-11-09",
+    "source_db": "exam_prep",
+    "drill_db": "exam_prep_drill_20261109",
+    "mysql_host": "127.0.0.1",
+    "mysql_port": 3306,
+    "server_version": "8.0.46",
+    "tools": {
+      "mysql": "D:/bigplan/tools/mysql-8.0.46/bin/mysql Ver 8.0.46 for Win64",
+      "mysqldump": "D:/bigplan/tools/mysql-8.0.46/bin/mysqldump Ver 8.0.46"
+    },
+    "started_at": "2026-11-09 21:02:00",
+    "finished_at": "2026-11-09 21:04:35",
+    "source_db_write_policy": "仅 SELECT / SHOW / mysqldump；未对 exam_prep 执行 DROP/TRUNCATE/DELETE/UPDATE/INSERT",
+    "drill_db_write_policy": "隔离库 exam_prep_drill_20261109 演练前 DROP IF EXISTS 后重建，仅用于本次恢复验证",
+    "kept_after_drill": true,
+    "service_impact": "未停服务、未改代码、未执行 mvn"
+  },
+  "baseline": {
+    "db": "exam_prep",
+    "tables": 56,
+    "total_rows": 32869,
+    "size_mib": 34.0,
+    "per_table": [
+      {
+        "table": "ai_agent_checkpoint",
+        "rows": 0
+      },
+      {
+        "table": "ai_agent_memory",
+        "rows": 0
+      },
+      {
+        "table": "ai_agent_run",
+        "rows": 10
+      },
+      {
+        "table": "ai_agent_session",
+        "rows": 19
+      },
+      {
+        "table": "ai_chunk",
+        "rows": 13307
+      },
+      {
+        "table": "ai_eval_run",
+        "rows": 8
+      },
+      {
+        "table": "ai_interview_qa",
+        "rows": 3
+      },
+      {
+        "table": "ai_interview_session",
+        "rows": 2
+      },
+      {
+        "table": "ai_vector_index_meta",
+        "rows": 1
+      },
+      {
+        "table": "announcement",
+        "rows": 2
+      },
+      {
+        "table": "answer_detail",
+        "rows": 82
+      },
+      {
+        "table": "appeal",
+        "rows": 2
+      },
+      {
+        "table": "async_task",
+        "rows": 8
+      },
+      {
+        "table": "audit_record",
+        "rows": 17
+      },
+      {
+        "table": "college",
+        "rows": 23
+      },
+      {
+        "table": "comment",
+        "rows": 2
+      },
+      {
+        "table": "comment_like",
+        "rows": 0
+      },
+      {
+        "table": "course",
+        "rows": 7
+      },
+      {
+        "table": "courseware",
+        "rows": 584
+      },
+      {
+        "table": "download_record",
+        "rows": 3
+      },
+      {
+        "table": "exam_answer_detail",
+        "rows": 13
+      },
+      {
+        "table": "exam_category",
+        "rows": 7
+      },
+      {
+        "table": "exam_paper",
+        "rows": 8
+      },
+      {
+        "table": "exam_paper_question",
+        "rows": 40
+      },
+      {
+        "table": "exam_record",
+        "rows": 8
+      },
+      {
+        "table": "favorite",
+        "rows": 0
+      },
+      {
+        "table": "file_record",
+        "rows": 10
+      },
+      {
+        "table": "follow",
+        "rows": 1
+      },
+      {
+        "table": "knowledge_point",
+        "rows": 30
+      },
+      {
+        "table": "listening_audio",
+        "rows": 1
+      },
+      {
+        "table": "major",
+        "rows": 5
+      },
+      {
+        "table": "notification",
+        "rows": 11
+      },
+      {
+        "table": "operation_log",
+        "rows": 59
+      },
+      {
+        "table": "practice_record",
+        "rows": 35
+      },
+      {
+        "table": "question",
+        "rows": 3085
+      },
+      {
+        "table": "question_answer",
+        "rows": 39
+      },
+      {
+        "table": "question_knowledge",
+        "rows": 3056
+      },
+      {
+        "table": "question_note",
+        "rows": 1
+      },
+      {
+        "table": "question_option",
+        "rows": 12158
+      },
+      {
+        "table": "report",
+        "rows": 0
+      },
+      {
+        "table": "resource",
+        "rows": 7
+      },
+      {
+        "table": "resource_like",
+        "rows": 0
+      },
+      {
+        "table": "resource_page",
+        "rows": 7
+      },
+      {
+        "table": "resource_rating",
+        "rows": 2
+      },
+      {
+        "table": "resource_version",
+        "rows": 0
+      },
+      {
+        "table": "rsi_run",
+        "rows": 1
+      },
+      {
+        "table": "school",
+        "rows": 1
+      },
+      {
+        "table": "self_evaluation",
+        "rows": 1
+      },
+      {
+        "table": "semester",
+        "rows": 2
+      },
+      {
+        "table": "subject",
+        "rows": 114
+      },
+      {
+        "table": "teacher",
+        "rows": 4
+      },
+      {
+        "table": "user",
+        "rows": 13
+      },
+      {
+        "table": "wiki_page",
+        "rows": 47
+      },
+      {
+        "table": "wiki_page_link",
+        "rows": 1
+      },
+      {
+        "table": "wiki_page_revision",
+        "rows": 3
+      },
+      {
+        "table": "wrong_book",
+        "rows": 19
+      }
+    ],
+    "key_checks": {
+      "ai_chunk": {
+        "rows": 13307,
+        "min_id": 1,
+        "max_id": 19066
+      },
+      "question": {
+        "rows": 3085,
+        "min_id": 1,
+        "max_id": 4026,
+        "by_audit_status": {
+          "APPROVED": 2500,
+          "PENDING": 585
+        }
+      },
+      "user": {
+        "rows": 13,
+        "min_id": 1,
+        "max_id": 13
+      }
+    }
+  },
+  "backup": {
+    "path": "项目规划/第9周/evidence/exam_prep_backup_20261109.sql",
+    "relative_path": "项目规划/第9周/evidence/exam_prep_backup_20261109.sql",
+    "command": "mysqldump --single-transaction --routines --triggers --default-character-set=utf8mb4 -uroot -p*** exam_prep > 项目规划/第9周/evidence/exam_prep_backup_20261109.sql",
+    "size_bytes": 24891258,
+    "size_mib": 23.74,
+    "sha256": "d34d43fa721b25153c4029497821a7197a3babe91b0c3f1a189a00a1a3b9a7d5",
+    "sha256_prefix12": "d34d43fa721b",
+    "seconds": 3,
+    "create_table_count": 56,
+    "drop_table_if_exists_count": 56,
+    "view_count": 0,
+    "routine_count": 0,
+    "trigger_count": 0,
+    "create_table_matches_baseline": true,
+    "exit_code": 0
+  },
+  "restore": {
+    "db": "exam_prep_drill_20261109",
+    "prepare_sql": "DROP DATABASE IF EXISTS `exam_prep_drill_20261109`; CREATE DATABASE `exam_prep_drill_20261109` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;",
+    "command": "mysql --default-character-set=utf8mb4 -uroot -p*** exam_prep_drill_20261109 < 项目规划/第9周/evidence/exam_prep_backup_20261109.sql",
+    "seconds": 46,
+    "tables_after_restore": 56,
+    "total_rows_after_restore": 32869,
+    "size_mib": 34.41,
+    "exit_code": 0,
+    "stderr": "仅 'Using a password on the command line interface can be insecure.' 警告，无 ERROR",
+    "kept": true
+  },
+  "verify": {
+    "mismatch_count": 0,
+    "mismatches": [],
+    "extra_tables_in_drill": [],
+    "missing_tables_in_drill": [],
+    "baseline_total_rows": 32869,
+    "restored_total_rows": 32869,
+    "total_rows_match": true,
+    "compared_table_count": 56,
+    "per_table": [
+      {
+        "table": "ai_agent_checkpoint",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "ai_agent_memory",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "ai_agent_run",
+        "baseline_rows": 10,
+        "restored_rows": 10,
+        "match": true
+      },
+      {
+        "table": "ai_agent_session",
+        "baseline_rows": 19,
+        "restored_rows": 19,
+        "match": true
+      },
+      {
+        "table": "ai_chunk",
+        "baseline_rows": 13307,
+        "restored_rows": 13307,
+        "match": true
+      },
+      {
+        "table": "ai_eval_run",
+        "baseline_rows": 8,
+        "restored_rows": 8,
+        "match": true
+      },
+      {
+        "table": "ai_interview_qa",
+        "baseline_rows": 3,
+        "restored_rows": 3,
+        "match": true
+      },
+      {
+        "table": "ai_interview_session",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "ai_vector_index_meta",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "announcement",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "answer_detail",
+        "baseline_rows": 82,
+        "restored_rows": 82,
+        "match": true
+      },
+      {
+        "table": "appeal",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "async_task",
+        "baseline_rows": 8,
+        "restored_rows": 8,
+        "match": true
+      },
+      {
+        "table": "audit_record",
+        "baseline_rows": 17,
+        "restored_rows": 17,
+        "match": true
+      },
+      {
+        "table": "college",
+        "baseline_rows": 23,
+        "restored_rows": 23,
+        "match": true
+      },
+      {
+        "table": "comment",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "comment_like",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "course",
+        "baseline_rows": 7,
+        "restored_rows": 7,
+        "match": true
+      },
+      {
+        "table": "courseware",
+        "baseline_rows": 584,
+        "restored_rows": 584,
+        "match": true
+      },
+      {
+        "table": "download_record",
+        "baseline_rows": 3,
+        "restored_rows": 3,
+        "match": true
+      },
+      {
+        "table": "exam_answer_detail",
+        "baseline_rows": 13,
+        "restored_rows": 13,
+        "match": true
+      },
+      {
+        "table": "exam_category",
+        "baseline_rows": 7,
+        "restored_rows": 7,
+        "match": true
+      },
+      {
+        "table": "exam_paper",
+        "baseline_rows": 8,
+        "restored_rows": 8,
+        "match": true
+      },
+      {
+        "table": "exam_paper_question",
+        "baseline_rows": 40,
+        "restored_rows": 40,
+        "match": true
+      },
+      {
+        "table": "exam_record",
+        "baseline_rows": 8,
+        "restored_rows": 8,
+        "match": true
+      },
+      {
+        "table": "favorite",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "file_record",
+        "baseline_rows": 10,
+        "restored_rows": 10,
+        "match": true
+      },
+      {
+        "table": "follow",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "knowledge_point",
+        "baseline_rows": 30,
+        "restored_rows": 30,
+        "match": true
+      },
+      {
+        "table": "listening_audio",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "major",
+        "baseline_rows": 5,
+        "restored_rows": 5,
+        "match": true
+      },
+      {
+        "table": "notification",
+        "baseline_rows": 11,
+        "restored_rows": 11,
+        "match": true
+      },
+      {
+        "table": "operation_log",
+        "baseline_rows": 59,
+        "restored_rows": 59,
+        "match": true
+      },
+      {
+        "table": "practice_record",
+        "baseline_rows": 35,
+        "restored_rows": 35,
+        "match": true
+      },
+      {
+        "table": "question",
+        "baseline_rows": 3085,
+        "restored_rows": 3085,
+        "match": true
+      },
+      {
+        "table": "question_answer",
+        "baseline_rows": 39,
+        "restored_rows": 39,
+        "match": true
+      },
+      {
+        "table": "question_knowledge",
+        "baseline_rows": 3056,
+        "restored_rows": 3056,
+        "match": true
+      },
+      {
+        "table": "question_note",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "question_option",
+        "baseline_rows": 12158,
+        "restored_rows": 12158,
+        "match": true
+      },
+      {
+        "table": "report",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "resource",
+        "baseline_rows": 7,
+        "restored_rows": 7,
+        "match": true
+      },
+      {
+        "table": "resource_like",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "resource_page",
+        "baseline_rows": 7,
+        "restored_rows": 7,
+        "match": true
+      },
+      {
+        "table": "resource_rating",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "resource_version",
+        "baseline_rows": 0,
+        "restored_rows": 0,
+        "match": true
+      },
+      {
+        "table": "rsi_run",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "school",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "self_evaluation",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "semester",
+        "baseline_rows": 2,
+        "restored_rows": 2,
+        "match": true
+      },
+      {
+        "table": "subject",
+        "baseline_rows": 114,
+        "restored_rows": 114,
+        "match": true
+      },
+      {
+        "table": "teacher",
+        "baseline_rows": 4,
+        "restored_rows": 4,
+        "match": true
+      },
+      {
+        "table": "user",
+        "baseline_rows": 13,
+        "restored_rows": 13,
+        "match": true
+      },
+      {
+        "table": "wiki_page",
+        "baseline_rows": 47,
+        "restored_rows": 47,
+        "match": true
+      },
+      {
+        "table": "wiki_page_link",
+        "baseline_rows": 1,
+        "restored_rows": 1,
+        "match": true
+      },
+      {
+        "table": "wiki_page_revision",
+        "baseline_rows": 3,
+        "restored_rows": 3,
+        "match": true
+      },
+      {
+        "table": "wrong_book",
+        "baseline_rows": 19,
+        "restored_rows": 19,
+        "match": true
+      }
+    ],
+    "fingerprint": [
+      {
+        "table": "question",
+        "count": 3085,
+        "columns_hashed": "全列（17 列）",
+        "baseline_sum_crc32": 6591625647520,
+        "restored_sum_crc32": 6591625647520,
+        "match": true
+      },
+      {
+        "table": "ai_chunk",
+        "count": 13307,
+        "columns_hashed": "全列（20 列）",
+        "baseline_sum_crc32": 28697858964882,
+        "restored_sum_crc32": 28697858964882,
+        "match": true
+      },
+      {
+        "table": "user",
+        "count": 13,
+        "columns_hashed": "剔除 last_login_at/updated_at 后的 15 列",
+        "baseline_sum_crc32": 31167901937,
+        "restored_sum_crc32": 31167901937,
+        "match": true
+      }
+    ],
+    "schema_checks": {
+      "engine": {
+        "InnoDB": 56
+      },
+      "foreign_key_count": 0,
+      "index_count_baseline": 173,
+      "index_count_restored": 173,
+      "index_count_match": true,
+      "auto_increment_compared_tables": 55,
+      "auto_increment_identical_tables": 53,
+      "auto_increment_diffs": [
+        {
+          "table": "file_record",
+          "baseline": 23,
+          "restored": 13,
+          "baseline_max_id": 12,
+          "restored_max_id": 12,
+          "cause": "备份后源库继续插入新文件记录（快照时 10 行 / AUTO_INCREMENT=13，演练后 20 行 / AUTO_INCREMENT=23），恢复库的 13 与快照时点一致",
+          "is_restore_defect": false
+        },
+        {
+          "table": "download_record",
+          "baseline": 8,
+          "restored": 7,
+          "baseline_max_id": 7,
+          "restored_max_id": 4,
+          "cause": "备份后源库新增下载记录（快照时 3 行 / AUTO_INCREMENT=7，演练后 4 行 / AUTO_INCREMENT=8）",
+          "is_restore_defect": false
+        }
+      ]
+    },
+    "post_drill_drift": {
+      "measured_at": "2026-11-09 21:06",
+      "note": "演练结束后源库仍在被写入（同期有上传安全测试在跑），下列行数已高于基线，属正常线上漂移，不是恢复差异",
+      "items": [
+        {
+          "table": "file_record",
+          "baseline_rows": 10,
+          "live_rows": 20,
+          "baseline_max_id": 12,
+          "live_max_id": 22
+        },
+        {
+          "table": "download_record",
+          "baseline_rows": 3,
+          "live_rows": 4,
+          "baseline_max_id": 4,
+          "live_max_id": 7
+        }
+      ]
+    }
+  },
+  "sample_checks": {
+    "strict": {
+      "description": "question/ai_chunk/user 各取首行、中位行、末行，整行全列 MD5 比对",
+      "total": 9,
+      "match_count": 8,
+      "all_match": false,
+      "mismatched": [
+        {
+          "table": "user",
+          "position": "first",
+          "id": 1,
+          "baseline_md5": "90be24adebbe52dd6935d863102392a7",
+          "restored_md5": "6f5f980cd8123ff83b47ba53d77d362b",
+          "match": false
+        }
+      ],
+      "mismatch_reason": "唯一差异为 user(id=1) 的 last_login_at/updated_at：源库在备份快照后用该账号登录过一次，恢复库保留快照时点旧值，属线上数据漂移，非恢复缺陷（见 known_drift）",
+      "items": [
+        {
+          "table": "question",
+          "position": "first",
+          "id": 1,
+          "baseline_md5": "217e8e6b4ccf101f0a6eddae5c6029e1",
+          "restored_md5": "217e8e6b4ccf101f0a6eddae5c6029e1",
+          "match": true
+        },
+        {
+          "table": "question",
+          "position": "mid",
+          "id": 2484,
+          "baseline_md5": "6e57263c8f2b3d1720a5c8163c1599a8",
+          "restored_md5": "6e57263c8f2b3d1720a5c8163c1599a8",
+          "match": true
+        },
+        {
+          "table": "question",
+          "position": "last",
+          "id": 4026,
+          "baseline_md5": "6f562fb4753ffa4e33c4a2d3c712412d",
+          "restored_md5": "6f562fb4753ffa4e33c4a2d3c712412d",
+          "match": true
+        },
+        {
+          "table": "ai_chunk",
+          "position": "first",
+          "id": 1,
+          "baseline_md5": "e0e09b26648a217df806f926e13dd742",
+          "restored_md5": "e0e09b26648a217df806f926e13dd742",
+          "match": true
+        },
+        {
+          "table": "ai_chunk",
+          "position": "mid",
+          "id": 12209,
+          "baseline_md5": "66851ae6ee6bd612416e23a222bce926",
+          "restored_md5": "66851ae6ee6bd612416e23a222bce926",
+          "match": true
+        },
+        {
+          "table": "ai_chunk",
+          "position": "last",
+          "id": 19066,
+          "baseline_md5": "9f26e40597dcc7fc6279f36970076594",
+          "restored_md5": "9f26e40597dcc7fc6279f36970076594",
+          "match": true
+        },
+        {
+          "table": "user",
+          "position": "first",
+          "id": 1,
+          "baseline_md5": "90be24adebbe52dd6935d863102392a7",
+          "restored_md5": "6f5f980cd8123ff83b47ba53d77d362b",
+          "match": false
+        },
+        {
+          "table": "user",
+          "position": "mid",
+          "id": 7,
+          "baseline_md5": "d76710020e16c16f40c093bd936ef07d",
+          "restored_md5": "d76710020e16c16f40c093bd936ef07d",
+          "match": true
+        },
+        {
+          "table": "user",
+          "position": "last",
+          "id": 13,
+          "baseline_md5": "228b6cf8688d42cead3b099074e5a8f1",
+          "restored_md5": "228b6cf8688d42cead3b099074e5a8f1",
+          "match": true
+        }
+      ]
+    },
+    "normalized": {
+      "description": "user 表剔除易变列 last_login_at/updated_at 后的 MD5 比对",
+      "total": 3,
+      "match_count": 3,
+      "all_match": true,
+      "items": [
+        {
+          "table": "user_norm",
+          "position": "first",
+          "id": 1,
+          "baseline_md5": "bf54d2234862420df25de061f8fcf33c",
+          "restored_md5": "bf54d2234862420df25de061f8fcf33c",
+          "match": true
+        },
+        {
+          "table": "user_norm",
+          "position": "mid",
+          "id": 7,
+          "baseline_md5": "bf91b696d9bc701a6855753359cda71d",
+          "restored_md5": "bf91b696d9bc701a6855753359cda71d",
+          "match": true
+        },
+        {
+          "table": "user_norm",
+          "position": "last",
+          "id": 13,
+          "baseline_md5": "aaab4942aa4bbba85d256d4d1a464940",
+          "restored_md5": "aaab4942aa4bbba85d256d4d1a464940",
+          "match": true
+        }
+      ]
+    },
+    "known_drift": {
+      "table": "user",
+      "id": 1,
+      "columns": [
+        "last_login_at",
+        "updated_at"
+      ],
+      "baseline_value": "2026-11-09 21:03:06 / 2026-11-09 21:03:05",
+      "restored_value": "2026-11-09 21:02:26 / 2026-11-09 21:02:25",
+      "explanation": "备份快照于 21:02:26 完成，此后源库在 21:03:05 因一次管理员登录写入 last_login_at/updated_at。隔离库保存的是快照时点的旧值，属线上数据漂移而非恢复缺陷；剔除易变列后该行 MD5 完全一致。",
+      "is_restore_defect": false
+    }
+  },
+  "conclusion": {
+    "recoverable": true,
+    "table_count_match": true,
+    "mismatch_count": 0,
+    "total_rows": 32869,
+    "sample_strict_all_match": false,
+    "sample_normalized_all_match": true,
+    "fingerprint_all_match": true,
+    "index_count_match": true,
+    "auto_increment_identical_tables": 53,
+    "auto_increment_diffs_explained": 2,
+    "backup_seconds": 3,
+    "restore_seconds": 46,
+    "rpo_estimate": "备份耗时 3 秒，可在分钟级完成全量快照",
+    "rto_estimate": "恢复耗时 46 秒（34 MiB / 32869 行），满足 RTO ≤ 30 分钟要求",
+    "verdict": "PASS"
+  }
+}

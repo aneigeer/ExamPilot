@@ -1,0 +1,471 @@
+{
+  "meta": {
+    "task": "W9-8 认证限流验证 + 核心接口性能基线",
+    "script": "scripts/qa/w9_rate_limit_perf.py",
+    "generated_at": "2026-11-09 21:20:49",
+    "base_url": "http://127.0.0.1:8080/api",
+    "mode": "all",
+    "dry_run": false,
+    "out": "D:\\大学生多考试备考知识库与题库系统\\项目规划\\第9周\\evidence\\rate_limit_perf_20261109.json",
+    "python": "3.13.14",
+    "os": "nt",
+    "read_only_guarantee": "只打 /auth/login（错误口令+不存在学号）、/questions、/questions/4022、/me/stats、/ai/ask、/actuator/health；脚本内置白名单，不会调用 register/upload 等写接口",
+    "expected_duration_seconds": {
+      "rate": 70,
+      "perf": 90
+    }
+  },
+  "static_analysis": {
+    "rate_limit_filter": {
+      "source_path": "backend/src/main/java/com/examprep/config/RateLimitFilter.java",
+      "source_sha256": "ec0abcf94d953024c4e1c9462330fd1747affbc561eee2920b13c1ec0a7012a0",
+      "login_limit": 5,
+      "register_limit": 3,
+      "window_ms": 60000,
+      "max_buckets": 10000,
+      "applies_to": [
+        "POST /auth/login",
+        "POST /auth/register"
+      ],
+      "covers_upload": false,
+      "key_strategy": "X-Forwarded-For 第一段，缺失则 remoteAddr（规则名:IP）",
+      "xff_trust": "无条件信任客户端 X-Forwarded-For（可伪造换桶）",
+      "response_status": 429,
+      "response_body": "{\"code\":429,\"message\":\"请求过于频繁，请稍后再试\",\"data\":null}",
+      "retry_after_header": false,
+      "login_failure_http_status": 200,
+      "login_failure_biz_code": 1001,
+      "notes": [
+        "固定窗口（滑动的请求时间戳队列，窗口 60s），非令牌桶",
+        "被 429 拒绝的请求不写入队列，因此客户端持续重试不会延长封禁窗口",
+        "只按 IP 限流，没有按账号限流：换 IP 即可继续爆破同一账号",
+        "filter 顺序 @Order(1)，位于 JWT 认证过滤器之前"
+      ],
+      "parsed_ok": true
+    }
+  },
+  "preflight": {
+    "actuator_health": {
+      "status": 200,
+      "body_head": "{\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}"
+    },
+    "questions_list": {
+      "status": 200,
+      "biz_code": 200,
+      "total": 2500
+    },
+    "question_detail": {
+      "status": 200,
+      "biz_code": 200
+    },
+    "ok": true
+  },
+  "jwt": {
+    "available": true,
+    "secret_source": "application-local.yml",
+    "user_id": 1,
+    "role": "ADMIN",
+    "alg": "HS384",
+    "tried": [
+      {
+        "alg": "HS384",
+        "status": 200,
+        "biz_code": 200
+      }
+    ],
+    "note": "自签令牌可用（jjwt 按密钥位长选择 HS384）",
+    "token_minted": true
+  },
+  "rate_limit": {
+    "probe_target": "POST /auth/login",
+    "probe_credential": {
+      "studentNo": "w9_probe_no_such_user",
+      "password": "（错误口令，已隐去）"
+    },
+    "xff_used": "203.0.113.78",
+    "xff_rationale": "限流桶 key = 规则名:IP，clientIp() 取 X-Forwarded-For 首段；注入专用假 IP 可让桶与真实客户端隔离，测试不会封锁真人登录",
+    "expected_first_429_at": 6,
+    "attempts_planned": 12,
+    "attempts": [
+      {
+        "attempt": 1,
+        "http_status": 200,
+        "biz_code": 1001,
+        "elapsed_ms": 46.58,
+        "error": ""
+      },
+      {
+        "attempt": 2,
+        "http_status": 200,
+        "biz_code": 1001,
+        "elapsed_ms": 17.85,
+        "error": ""
+      },
+      {
+        "attempt": 3,
+        "http_status": 200,
+        "biz_code": 1001,
+        "elapsed_ms": 36.1,
+        "error": ""
+      },
+      {
+        "attempt": 4,
+        "http_status": 200,
+        "biz_code": 1001,
+        "elapsed_ms": 27.43,
+        "error": ""
+      },
+      {
+        "attempt": 5,
+        "http_status": 200,
+        "biz_code": 1001,
+        "elapsed_ms": 30.74,
+        "error": ""
+      },
+      {
+        "attempt": 6,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 10.93,
+        "error": ""
+      },
+      {
+        "attempt": 7,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 10.53,
+        "error": ""
+      },
+      {
+        "attempt": 8,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 9.98,
+        "error": ""
+      },
+      {
+        "attempt": 9,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 8.2,
+        "error": ""
+      },
+      {
+        "attempt": 10,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 8.32,
+        "error": ""
+      },
+      {
+        "attempt": 11,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 32.09,
+        "error": ""
+      },
+      {
+        "attempt": 12,
+        "http_status": 429,
+        "biz_code": 429,
+        "elapsed_ms": 19.21,
+        "error": ""
+      }
+    ],
+    "first_429_at": 6,
+    "accepted_count": 5,
+    "blocked_count": 7,
+    "blocked_status": 429,
+    "blocked_body": "{\"code\":429,\"message\":\"请求过于频繁，请稍后再试\",\"data\":null}",
+    "enforced": true,
+    "matches_code": true,
+    "recovery": {
+      "window_ms": 60000,
+      "recovered": true,
+      "recovered_after_seconds": 60.28,
+      "poll_interval_seconds": 3.0,
+      "polls": [
+        {
+          "t_seconds": 3.02,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 6.03,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 9.04,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 12.05,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 15.06,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 18.07,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 21.08,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 24.1,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 27.11,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 30.13,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 33.14,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 36.16,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 39.17,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 42.18,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 45.22,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 48.22,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 51.25,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 54.26,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 57.27,
+          "http_status": 429,
+          "biz_code": 429
+        },
+        {
+          "t_seconds": 60.28,
+          "http_status": 200,
+          "biz_code": 1001
+        }
+      ],
+      "explain": "封禁自第一条被接受的请求起算，恢复时间应 ≈ 窗口长度（60s）；轮询请求被 429 拒绝时不入队，因此轮询不延长窗口"
+    },
+    "bypass_check": {
+      "xff_when_exhausted_was": "203.0.113.78",
+      "xff_now": "203.0.113.80",
+      "http_status": 200,
+      "biz_code": 1001,
+      "bypassed": true,
+      "explain": "若换了 X-Forwarded-For 后不再是 429，说明攻击者只要伪造该头就能无限制爆破；根因：RateLimitFilter 无条件信任 XFF 首段，且 nginx 用 $proxy_add_x_forwarded_for 会把客户端自带 XFF 拼在最前面"
+    },
+    "register_probe": "skipped: 会写 user 表，按要求不打",
+    "upload_covered": false
+  },
+  "perf": {
+    "targets": [
+      {
+        "key": "questions_list",
+        "name": "题目列表",
+        "method": "GET",
+        "path": "/questions?page=1&size=20",
+        "auth": false,
+        "requests_planned": 60,
+        "requests_done": 60,
+        "concurrency": 5,
+        "warmup": {
+          "status": 200,
+          "elapsed_ms": 128.32,
+          "biz_code": 200
+        },
+        "latency_ms": {
+          "mean": 87.35,
+          "min": 60.49,
+          "max": 113.55,
+          "p50": 84.11,
+          "p95": 113.01,
+          "p99": 113.5
+        },
+        "throughput_rps": 55.32,
+        "wall_seconds": 1.08,
+        "status_counts": {
+          "200": 60
+        },
+        "biz_code_counts": {
+          "200": 60
+        },
+        "error_rate": 0.0,
+        "business_ok_count": 60,
+        "errors": [],
+        "truncated": false
+      },
+      {
+        "key": "question_detail",
+        "name": "题目详情",
+        "method": "GET",
+        "path": "/questions/4022",
+        "auth": false,
+        "requests_planned": 60,
+        "requests_done": 60,
+        "concurrency": 5,
+        "warmup": {
+          "status": 200,
+          "elapsed_ms": 22.82,
+          "biz_code": 200
+        },
+        "latency_ms": {
+          "mean": 25.69,
+          "min": 17.05,
+          "max": 48.48,
+          "p50": 21.83,
+          "p95": 44.12,
+          "p99": 46.89
+        },
+        "throughput_rps": 178.33,
+        "wall_seconds": 0.34,
+        "status_counts": {
+          "200": 60
+        },
+        "biz_code_counts": {
+          "200": 60
+        },
+        "error_rate": 0.0,
+        "business_ok_count": 60,
+        "errors": [],
+        "truncated": false
+      },
+      {
+        "key": "me_stats",
+        "name": "我的统计",
+        "method": "GET",
+        "path": "/me/stats",
+        "auth": true,
+        "requests_planned": 60,
+        "requests_done": 60,
+        "concurrency": 5,
+        "warmup": {
+          "status": 200,
+          "elapsed_ms": 70.74,
+          "biz_code": 200
+        },
+        "latency_ms": {
+          "mean": 45.75,
+          "min": 30.86,
+          "max": 62.91,
+          "p50": 43.01,
+          "p95": 61.86,
+          "p99": 62.64
+        },
+        "throughput_rps": 104.53,
+        "wall_seconds": 0.57,
+        "status_counts": {
+          "200": 60
+        },
+        "biz_code_counts": {
+          "200": 60
+        },
+        "error_rate": 0.0,
+        "business_ok_count": 60,
+        "errors": [],
+        "truncated": false
+      },
+      {
+        "key": "ai_ask",
+        "name": "AI 问答",
+        "method": "POST",
+        "path": "/ai/ask",
+        "auth": true,
+        "requests_planned": 20,
+        "requests_done": 20,
+        "concurrency": 3,
+        "warmup": {
+          "status": 200,
+          "elapsed_ms": 12347.23,
+          "biz_code": 200
+        },
+        "latency_ms": {
+          "mean": 3976.67,
+          "min": 1705.2,
+          "max": 4467.25,
+          "p50": 4134.64,
+          "p95": 4169.73,
+          "p99": 4407.74
+        },
+        "throughput_rps": 0.72,
+        "wall_seconds": 27.9,
+        "status_counts": {
+          "200": 20
+        },
+        "biz_code_counts": {
+          "200": 20
+        },
+        "error_rate": 0.0,
+        "business_ok_count": 20,
+        "errors": [],
+        "truncated": false
+      }
+    ],
+    "total_wall_seconds": 42.46,
+    "max_seconds": 180.0,
+    "concurrency_cap": 5
+  },
+  "conclusion": {
+    "verdict": "PASS",
+    "rate_limit_enforced": true,
+    "first_429_matches_code": true,
+    "recovery_within_window": true,
+    "xff_bypass_possible": true,
+    "perf_endpoints_measured": 4,
+    "perf_endpoints_error_free": 4,
+    "problems": [
+      "安全发现：伪造 X-Forwarded-For 可绕过限流（换桶）"
+    ],
+    "note": "性能只做基线记录，未设 SLO 阈值；限流判定以源码阈值为准（本次已解析源码）",
+    "login_limit": 5,
+    "window_ms": 60000
+  },
+  "log": [
+    "限流：首次 429 于第 6 次（代码预期第 6 次）",
+    "questions_list：p50=84.11ms p95=113.01ms p99=113.5ms rps=55.32 错误率=0.0",
+    "question_detail：p50=21.83ms p95=44.12ms p99=46.89ms rps=178.33 错误率=0.0",
+    "me_stats：p50=43.01ms p95=61.86ms p99=62.64ms rps=104.53 错误率=0.0",
+    "ai_ask：p50=4134.64ms p95=4169.73ms p99=4407.74ms rps=0.72 错误率=0.0"
+  ]
+}

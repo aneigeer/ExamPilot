@@ -113,5 +113,8 @@ ai-service/eval/reports/
 training/output/
 training/.hf_cache/
 
+# 数据库备份导出（含个人数据与口令哈希，禁止入库；演练记录见同目录 md/json）
+项目规划/**/evidence/*.sql
+
 # AI 模型权重（由 ai-service/install-model.bat 下载，不入库）
 ai-service/models/

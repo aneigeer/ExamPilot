@@ -2,6 +2,7 @@ package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.examprep.common.BizException;
+import com.examprep.common.FileTypeGuard;
 import com.examprep.common.ResultCode;
 import com.examprep.config.StorageProperties;
 import com.examprep.entity.FileRecord;
@@ -132,6 +133,14 @@ public class FileStorageService {
         if (file.getSize() > 50L * 1024 * 1024) {
             throw new BizException(ResultCode.FILE_TOO_LARGE, "音频不能超过 50MB");
         }
+        // P0-2：音频此前完全没有魔数校验，任意字节（含 HTML/脚本）都能伪装成 .mp3
+        // 并被 /files/audio/{id} 以客户端声明的 Content-Type 回显，构成同源存储型 XSS。
+        byte[] head = readHeadBytes(file);
+        if (!FileTypeGuard.looksLikeAudio(head)) {
+            log.warn("音频魔数校验失败 name={} head={}", file.getOriginalFilename(),
+                    HexFormat.of().formatHex(head).toUpperCase(Locale.ROOT));
+            throw new BizException("音频文件格式非法");
+        }
         return store(file, uploaderId, "audios");
     }
 
@@ -155,6 +164,12 @@ public class FileStorageService {
             throw new BizException(ResultCode.FILE_TOO_LARGE, "单个文件不能超过 200MB");
         }
         verifyMagicNumber(file, ext); // 仅对 pdf 校验，zip/doc 等暂不校验，见 MAGIC_CHECKED_TYPES 注释
+        // P0-2 兜底：白名单扩展名挡不住"文本里塞 HTML/SVG"，而 .txt 之类一旦被内联渲染
+        // 就是同源脚本执行。这里按头部特征直接拒绝标记语言内容。
+        if (FileTypeGuard.looksLikeMarkup(readHeadBytes(file))) {
+            log.warn("文档内容疑似标记语言，拒绝 name={}", file.getOriginalFilename());
+            throw new BizException("文件内容与类型不符");
+        }
         return store(file, uploaderId, "documents");
     }
 
@@ -190,6 +205,24 @@ public class FileStorageService {
     }
 
     /**
+     * 读取文件头部字节（用于魔数 / 类型特征识别）。
+     *
+     * <p>只读 {@link FileTypeGuard#HEAD_BYTES} 字节，不把整个文件读进内存，
+     * 因此对 200MB 文档也是常数级开销。{@code MultipartFile#getInputStream()}
+     * 可重复获取（Tomcat 实现每次都返回新的流），故与 {@link #verifyMagicNumber} 并存无冲突。
+     *
+     * @param file 上传文件
+     * @return 头部字节（文件不足则返回实际长度，可能为 0 长度数组）
+     */
+    private byte[] readHeadBytes(MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            return is.readNBytes(FileTypeGuard.HEAD_BYTES);
+        } catch (IOException e) {
+            throw new BizException("读取上传文件失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 双轨存储（T10）：<b>MinIO 为主 + 本地磁盘兜底</b>
      *
      * <p><b>铁律：上传永远不能失败。</b>执行顺序：
@@ -216,6 +249,11 @@ public class FileStorageService {
         }
         String md5 = DigestUtils.md5DigestAsHex(bytes);
 
+        // P0-2：MIME 一律由服务端按扩展名决定，绝不信任客户端提交的 Content-Type
+        //（历史实现 record.setMimeType(file.getContentType()) 会让 .mp3 落库为 text/html，
+        //  再被 /files/audio/{id} 原样写回响应头 → 同源存储型 XSS）
+        String mimeType = FileTypeGuard.canonicalMime(ext);
+
         // 按日期分目录，避免单目录文件过多
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String fileName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
@@ -230,7 +268,7 @@ public class FileStorageService {
         String storedPath = relative;
         if (minioUsable) {
             try (InputStream is = new ByteArrayInputStream(bytes)) {
-                if (minioStorageService.putObject(relative, is, bytes.length, file.getContentType())) {
+                if (minioStorageService.putObject(relative, is, bytes.length, mimeType)) {
                     storedPath = storageProperties.toStoredPath(relative);
                 }
             } catch (IOException e) {
@@ -264,7 +302,7 @@ public class FileStorageService {
         record.setStoredPath(storedPath);
         record.setMd5(md5);
         record.setFileSize(file.getSize());
-        record.setMimeType(file.getContentType());
+        record.setMimeType(mimeType);
         record.setExt(ext);
         record.setUploaderId(uploaderId);
         fileRecordMapper.insert(record);

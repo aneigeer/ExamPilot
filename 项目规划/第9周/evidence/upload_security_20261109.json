@@ -1,0 +1,868 @@
+{
+  "meta": {
+    "task": "第9周 P0 · 文件上传安全审查与取证",
+    "date": "2026-11-09",
+    "mode": "review-and-evidence-only（不改码）",
+    "reviewer": "software-engineer-upload",
+    "scope": [
+      "backend/src/main/java/com/examprep/controller/FileController.java",
+      "backend/src/main/java/com/examprep/controller/ResourceController.java",
+      "backend/src/main/java/com/examprep/service/FileStorageService.java",
+      "backend/src/main/java/com/examprep/service/MinioStorageService.java",
+      "backend/src/main/java/com/examprep/service/ResourceService.java",
+      "backend/src/main/java/com/examprep/config/SecurityConfig.java",
+      "backend/src/main/java/com/examprep/common/GlobalExceptionHandler.java",
+      "backend/src/main/resources/application.yml",
+      "backend/pom.xml",
+      "nginx.conf",
+      "admin-web/index.html"
+    ],
+    "report": "项目规划/第9周/05_文件上传安全_2026-11-09.md",
+    "summary": {
+      "cases_total": 46,
+      "cases_pass": 38,
+      "cases_fail": 7,
+      "cases_na": 1,
+      "findings_p0": 2,
+      "findings_p1": 4,
+      "findings_p2": 5,
+      "findings_info": 2,
+      "p0_status": {
+        "F01": "FIXED_VERIFIED",
+        "F02": "FIXED_VERIFIED"
+      },
+      "note": "cases_* 由脚本按 cases[] 自动统计；U34 因证据纠错由 fail 改判 pass（本人读本人对照）"
+    },
+    "post_fix_verification": {
+      "verified_by": "team-lead（新构建编译/打包/重启后实测）+ 本机复验（仅 GET 与会被拒绝的 POST）",
+      "date": "2026-11-09",
+      "build": "mvn -B test 全量 364 用例 / 363 通过；唯一失败 HybridRetrieverTest.refusalRateOnProductionPath = 第7周已登记 F-11（在线拒答守卫 6/10），与本改动无关",
+      "new_unit_test": "com.examprep.common.FileTypeGuardTest 14/14 通过",
+      "owner_check": [
+        {
+          "case": "GET /files/audio/6 [2021001, uid=3=属主]",
+          "http": 200,
+          "content_type": "audio/wav",
+          "bytes": 8044
+        },
+        {
+          "case": "GET /files/audio/6 [admin]",
+          "http": 200,
+          "content_type": "audio/wav",
+          "bytes": 8044
+        },
+        {
+          "case": "GET /files/audio/6 [另一个学生账号（临时注册）]",
+          "http": 404
+        },
+        {
+          "case": "GET /files/audio/22 [另一个学生账号（临时注册）]",
+          "http": 404
+        },
+        {
+          "case": "GET /files/audio/15 [2021001 非属主，uploader_id=1，文件存在]",
+          "http": 404
+        },
+        {
+          "case": "GET /files/audio/15 [admin]",
+          "http": 200,
+          "content_type": "application/octet-stream",
+          "bytes": 193
+        }
+      ],
+      "mime_echo": [
+        {
+          "case": "GET /files/audio/22 [存量 mime_type=text/html]",
+          "http": 200,
+          "content_type": "audio/mpeg;charset=UTF-8",
+          "x_content_type_options": "nosniff",
+          "conclusion": "XSS 通道封死，存量脏数据无需清洗（库值未改）"
+        }
+      ],
+      "upload_blocking": [
+        {
+          "case": "POST /files/audio HTML 伪装 .mp3 (CT=text/html)",
+          "http": 400,
+          "message": "音频文件格式非法"
+        },
+        {
+          "case": "POST /files/document HTML 伪装 .txt (CT=text/plain)",
+          "http": 400,
+          "message": "文件内容与类型不符"
+        },
+        {
+          "case": "POST /files/audio 合法 ID3 头 .mp3",
+          "http": 200,
+          "fileId": "23（team-lead）/ 24（本机复验）"
+        }
+      ],
+      "evidence_correction": "初版 U34 记为「2021001 读 uploader_id=3 的文件（非本人）」有误：2021001 的 user id 即 3，实为本人读本人。已改为属主对照用例，并新增 U34b/U34c 作为真正的非属主对照；修复前的越权结论明确限定为依据代码路径，未取得非属主实测样本。"
+    }
+  },
+  "environment": {
+    "backend": {
+      "port": 8080,
+      "base_url": "http://localhost:8080/api",
+      "framework": "Spring Boot 3.5.3",
+      "jdk": "Temurin 21.0.10+7 LTS",
+      "start_cmd": "D:/bigplan/tools/jdk21/bin/java.exe -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar --server.port=8080",
+      "jvm_xmx": "未显式设置（默认 1/4 物理内存）",
+      "health": "GET /api/actuator/health -> 200 {\"status\":\"UP\"}",
+      "context_path": "/api",
+      "profile": "local"
+    },
+    "ai_service": {
+      "port": 8000,
+      "probe": "GET http://localhost:8000/docs -> 200（本次未使用）"
+    },
+    "mysql": {
+      "port": 3306,
+      "database": "exam_prep",
+      "access": "只读查询（mysql -uroot -N -e ...）"
+    },
+    "minio": {
+      "state": "未启动/未配置，上传全部落本地磁盘（file_record.stored_path 无 minio:// 前缀）"
+    },
+    "nginx": {
+      "state": "未在本机运行；仅静态核对配置（nginx.conf:5 client_max_body_size 210m）"
+    },
+    "deps": {
+      "pdfbox": "3.0.7",
+      "minio": "8.5.9",
+      "mybatis-plus": "3.5.7"
+    },
+    "accounts": {
+      "student": "2021001",
+      "admin": "admin"
+    },
+    "limits": {
+      "multipart_max_file_size": "200MB",
+      "multipart_max_request_size": "210MB",
+      "image_max_size": "10485760",
+      "audio_max_size": "50MB",
+      "document_max_size": "200MB",
+      "guest_preview_pages": 3
+    }
+  },
+  "cases": [
+    {
+      "id": "U01",
+      "item": 1,
+      "request": "POST /api/files/image [student] filename=a.JPG content=JPEG 头(52B) ct=image/jpeg",
+      "expected": "接受（扩展名大小写归一化）",
+      "actual": "200 {\"code\":200,\"message\":\"成功\",\"data\":{\"fileName\":\"a.JPG\",\"fileId\":13,...}}；落库 ext=jpg",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U02",
+      "item": 1,
+      "request": "POST /api/files/image [student] filename=shell.jsp content=纯文本 ct=image/jpeg",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":3004,\"message\":\"仅支持图片格式：gif / png / webp / jpeg / jpg\"}",
+      "http": 200,
+      "verdict": "pass",
+      "note": "拒绝但 HTTP 状态仍为 200（见 F07）"
+    },
+    {
+      "id": "U03",
+      "item": 1,
+      "request": "POST /api/files/image [student] filename=shell.php content=纯文本",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":3004,\"message\":\"仅支持图片格式：...\"}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U04",
+      "item": 1,
+      "request": "POST /api/files/image [student] filename=shell.jspx content=纯文本",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":3004,\"message\":\"仅支持图片格式：...\"}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U05",
+      "item": 1,
+      "request": "POST /api/files/image [student] filename=x.svg content=纯文本 ct=image/svg+xml",
+      "expected": "拒绝（SVG 可承载脚本）",
+      "actual": "200 {\"code\":3004,\"message\":\"仅支持图片格式：...\"}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U06",
+      "item": 2,
+      "request": "POST /api/files/image [student] filename=real.jpg content=JPEG 头 ct=image/jpeg",
+      "expected": "接受（正样本基线）",
+      "actual": "200 {\"code\":200,...,\"fileId\":14}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U07",
+      "item": 2,
+      "request": "POST /api/files/image [student] filename=fake.jpg content=纯文本 ct=image/jpeg",
+      "expected": "400 拒绝（魔数不符）",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与扩展名不符\"}",
+      "http": 400,
+      "verdict": "pass"
+    },
+    {
+      "id": "U08",
+      "item": 2,
+      "request": "POST /api/files/image [student] filename=fake.JPG content=纯文本 ct=image/jpeg",
+      "expected": "400 拒绝（大写不能绕过魔数）",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与扩展名不符\"}",
+      "http": 400,
+      "verdict": "pass"
+    },
+    {
+      "id": "U09",
+      "item": 2,
+      "request": "POST /api/files/document [student] filename=fake.pdf content=PNG 头+文本 ct=application/pdf",
+      "expected": "400 拒绝",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与扩展名不符\"}",
+      "http": 400,
+      "verdict": "pass"
+    },
+    {
+      "id": "U10",
+      "item": 2,
+      "request": "POST /api/files/document [admin] filename=ok.pdf content=193B 最小合法 PDF",
+      "expected": "接受（正样本基线）",
+      "actual": "200 {\"code\":200,...,\"fileId\":15,\"size\":193}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U11",
+      "item": 3,
+      "request": "POST /api/files/image [student] filename=mime.jpg content=纯文本 ct=image/jpeg（MIME 欺骗）",
+      "expected": "拒绝",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与扩展名不符\"}",
+      "http": 400,
+      "verdict": "pass",
+      "note": "上传侧被魔数兜住；问题在回显侧（U23）"
+    },
+    {
+      "id": "U12",
+      "item": 2,
+      "request": "POST /api/files/document [student] filename=notes.zip content=纯文本 ct=application/zip",
+      "expected": "拒绝（内容与扩展名不符）",
+      "actual": "200 {\"code\":200,...,\"fileId\":16}（zip 无魔数校验，纯文本被接受）",
+      "http": 200,
+      "verdict": "fail",
+      "finding": "F04"
+    },
+    {
+      "id": "U13",
+      "item": 2,
+      "request": "POST /api/files/document [student] filename=doc.docx content=纯文本 ct=application/vnd.openxmlformats-...wordprocessingml.document",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":200,...,\"fileId\":17}（docx 无魔数校验）",
+      "http": 200,
+      "verdict": "fail",
+      "finding": "F04"
+    },
+    {
+      "id": "U14",
+      "item": 1,
+      "request": "POST /api/files/document [student] filename=page.html content=HTML ct=text/html",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":3004,\"message\":\"仅支持文档/音视频格式：zip / docx / ...\"}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U15",
+      "item": 5,
+      "request": "POST /api/files/image [student] filename=\"../../evil.jpg\" content=JPEG 头",
+      "expected": "接受但落盘路径被规范化到 uploads 内",
+      "actual": "200 fileId=18；file_record.stored_path=images/20261109/a4ee8208055b4a2a8ab7cbdd59697953.jpg",
+      "http": 200,
+      "verdict": "pass",
+      "note": "原始名仅存 original_name（展示字段），物理名由 UUID 生成"
+    },
+    {
+      "id": "U16",
+      "item": 5,
+      "request": "POST /api/files/image [student] filename=\"..\\\\..\\\\evil2.jpg\" content=JPEG 头",
+      "expected": "同上",
+      "actual": "200 fileId=19；stored_path=images/20261109/433f4a9c643140f7b4d2f1819f1c1e11.jpg",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U17",
+      "item": 5,
+      "request": "POST /api/files/image [student] filename=\"C:\\\\Windows\\\\evil3.jpg\" content=JPEG 头",
+      "expected": "同上",
+      "actual": "200 fileId=20；stored_path=images/20261109/a59ff24587fa4be28822c628faaf1b1c.jpg",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U18",
+      "item": 4,
+      "request": "POST /api/files/image [student] filename=empty.jpg content=0 字节",
+      "expected": "拒绝（上传文件为空）",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与扩展名不符\"}",
+      "http": 400,
+      "verdict": "pass",
+      "note": "空文件先被魔数校验拦下，未走到 UPLOAD_EMPTY(3003)，错误语义不准确（见 F07）"
+    },
+    {
+      "id": "U19",
+      "item": 4,
+      "request": "POST /api/files/image [student] filename=big.jpg content=11MB（JPEG 头+填充）",
+      "expected": "413 拒绝",
+      "actual": "413 {\"code\":413,\"message\":\"单张图片不能超过 10MB\"}",
+      "http": 413,
+      "verdict": "pass"
+    },
+    {
+      "id": "U20",
+      "item": 8,
+      "request": "POST /api/files/image [anonymous] 合法 JPEG 头",
+      "expected": "401",
+      "actual": "401 {\"code\":401,\"message\":\"未登录或登录已过期\"}",
+      "http": 401,
+      "verdict": "pass"
+    },
+    {
+      "id": "U21",
+      "item": 8,
+      "request": "POST /api/files/document [student] filename=stu-doc.zip content=纯文本",
+      "expected": "403（设计为管理端专用）",
+      "actual": "200 {\"code\":200,...,\"fileId\":21}（学生成功上传文档）",
+      "http": 200,
+      "verdict": "fail",
+      "finding": "F03"
+    },
+    {
+      "id": "U22",
+      "item": 3,
+      "request": "POST /api/files/audio [student] filename=probe.mp3 content=HTML ct=text/html",
+      "expected": "拒绝或至少不存储客户端 MIME",
+      "actual": "200 {\"code\":200,...,\"fileId\":22}；file_record.mime_type=text/html",
+      "http": 200,
+      "verdict": "fail",
+      "finding": "F02"
+    },
+    {
+      "id": "U23",
+      "item": 3,
+      "request": "GET /api/files/audio/22 [student]",
+      "expected": "以安全类型返回（audio/* 或 octet-stream）",
+      "actual": "200 Content-Type: text/html;charset=UTF-8；body=<html><body><script>fetch('/api/me')</script>XSS-PROBE</body></html>",
+      "http": 200,
+      "verdict": "fail",
+      "finding": "F02",
+      "resp_headers": {
+        "content-type": "text/html;charset=UTF-8",
+        "x-content-type-options": "nosniff"
+      }
+    },
+    {
+      "id": "U24",
+      "item": 8,
+      "request": "GET /api/files/audio/22 [anonymous]",
+      "expected": "401",
+      "actual": "401 {\"code\":401,\"message\":\"未登录或登录已过期\"}",
+      "http": 401,
+      "verdict": "pass"
+    },
+    {
+      "id": "U25",
+      "item": 10,
+      "request": "POST /api/files/image [student] filename=('a'*300)+'.jpg' content=JPEG 头",
+      "expected": "400（长度校验）或截断保存",
+      "actual": "500 {\"code\":500,\"message\":\"服务器内部错误\",\"traceId\":\"8ca21986c30d0a69\"}（original_name varchar(255) 落库失败）",
+      "http": 500,
+      "verdict": "fail",
+      "finding": "F08"
+    },
+    {
+      "id": "U26",
+      "item": 10,
+      "request": "POST /api/files/image [student] filename=longct.jpg ct=\"image/jpeg; \"+150*'x'",
+      "expected": "400 或截断",
+      "actual": "500 {\"code\":500,\"message\":\"服务器内部错误\",\"traceId\":\"247f34dedc621c73\"}（mime_type varchar(100) 落库失败）",
+      "http": 500,
+      "verdict": "fail",
+      "finding": "F08"
+    },
+    {
+      "id": "U27",
+      "item": 6,
+      "request": "GET /api/files/download/1?token=1:99999999999999:deadbeef [anonymous]",
+      "expected": "403（签名校验失败）",
+      "actual": "403 {\"code\":403,\"message\":\"下载链接无效或已过期，请重新获取\"}",
+      "http": 403,
+      "verdict": "pass"
+    },
+    {
+      "id": "U28",
+      "item": 6,
+      "request": "GET /api/files/download/1 [anonymous]",
+      "expected": "400（缺必填参数）",
+      "actual": "400 {\"code\":400,\"message\":\"缺少必要参数：token\"}",
+      "http": 400,
+      "verdict": "pass"
+    },
+    {
+      "id": "U29",
+      "item": 6,
+      "request": "GET /api/files/preview/13 [anonymous]（APPROVED 资源，image_path=preview/8/page-1.jpg）",
+      "expected": "200 预览图",
+      "actual": "404 {\"timestamp\":\"2026-11-09 21:03:16\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/files/preview/13\"}；磁盘无 backend/uploads/preview/8 目录",
+      "http": 404,
+      "verdict": "na",
+      "finding": "F10",
+      "note": "记录与文件不一致，非鉴权问题"
+    },
+    {
+      "id": "U30",
+      "item": 6,
+      "request": "GET /api/files/preview/4 [anonymous]（资源 APPEALING）",
+      "expected": "404（不泄露存在性）",
+      "actual": "404 {\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/files/preview/4\"}",
+      "http": 404,
+      "verdict": "pass"
+    },
+    {
+      "id": "U31",
+      "item": 6,
+      "request": "GET /api/files/preview/4 [admin]",
+      "expected": "200（ADMIN 可看未过审）",
+      "actual": "200 Content-Type: image/jpeg;charset=UTF-8，返回水印后 JPEG 字节流",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U32",
+      "item": 6,
+      "request": "GET /api/files/preview/999999 [anonymous]",
+      "expected": "404",
+      "actual": "404 {\"code\":404,\"message\":\"预览图不存在\"}",
+      "http": 404,
+      "verdict": "pass"
+    },
+    {
+      "id": "U33",
+      "item": 6,
+      "request": "GET /api/files/preview/{1,3,5,12} [anonymous]（均 APPROVED）",
+      "expected": "200（按设计对游客开放已过审预览）",
+      "actual": "200 image/jpeg；4 个 pageId 均 200（size=633）",
+      "http": 200,
+      "verdict": "pass",
+      "note": "多页资源不存在，guest-pages=3 的页数门限未能实测"
+    },
+    {
+      "id": "U34",
+      "item": 6,
+      "request": "GET /api/files/audio/6 [student 2021001，user id=3]（file_record.id=6 的 uploader_id=3）",
+      "expected": "200（属主本人，作对照）",
+      "actual": "200 Content-Type: audio/wav size=8044（属主读自己的文件）",
+      "http": 200,
+      "verdict": "pass",
+      "note": "【证据纠错】初版误记为「非本人跨用户读取」。核对 user 表后确认 2021001 的 user id 就是 3，故本条实为本人读本人，只能作属主正样本对照，不能作为越权实测。修复前的越权结论依据代码路径（FileController.audio() 无任何 uploaderId 比较），修复前未取得非属主实测样本。"
+    },
+    {
+      "id": "U34b",
+      "item": 6,
+      "request": "GET /api/files/audio/15 [student 2021001，uid=3；file_record.id=15 的 uploader_id=1，文件存在]",
+      "expected": "404（非属主；非属主才是真正的越权对照）",
+      "actual": "404（修复后）；同一请求以 admin 令牌 → 200 Content-Type: application/octet-stream size=193（特权放行）",
+      "http": 404,
+      "verdict": "pass",
+      "finding": "F01",
+      "note": "本机复验；修复后的非属主 404 是有效越权对照证据（修复前同一代码路径无归属校验）"
+    },
+    {
+      "id": "U34c",
+      "item": 6,
+      "request": "GET /api/files/audio/{6,22} [另一个学生账号（临时注册）]",
+      "expected": "404",
+      "actual": "404（两个 fileId 均 404）",
+      "http": 404,
+      "verdict": "pass",
+      "finding": "F01",
+      "note": "team-lead 在新构建上的复验结果"
+    },
+    {
+      "id": "U35",
+      "item": 6,
+      "request": "POST /api/resources/4/download [student]（资源 APPEALING）",
+      "expected": "拒绝",
+      "actual": "200 {\"code\":3002,\"message\":\"资料未通过审核\"}",
+      "http": 200,
+      "verdict": "pass",
+      "note": "业务码 3002 未同步 HTTP 状态（同类问题见 F07）"
+    },
+    {
+      "id": "U36",
+      "item": 6,
+      "request": "POST /api/resources/3/download [student]（资源 APPROVED）",
+      "expected": "200 + 短时效签名 URL",
+      "actual": "200 {\"code\":200,\"data\":{\"url\":\"/files/download/3?token=3:1794230053361:3b38e74...\",\"expiresIn\":600}}",
+      "http": 200,
+      "verdict": "pass"
+    },
+    {
+      "id": "U37",
+      "item": 6,
+      "request": "POST /api/resources/3/download [anonymous]",
+      "expected": "401",
+      "actual": "401",
+      "http": 401,
+      "verdict": "pass"
+    },
+    {
+      "id": "U38",
+      "item": 6,
+      "request": "GET /api/{documents,uploads/documents,images}/20261109/<已上传文件> [anonymous]",
+      "expected": "本地存储不被静态暴露",
+      "actual": "三条均 401（未登录）；全项目无 addResourceHandlers 注册，路由本身不存在",
+      "http": 401,
+      "verdict": "pass"
+    },
+    {
+      "id": "U39",
+      "item": 6,
+      "request": "GET /api/files/audio/9999 [student]",
+      "expected": "404",
+      "actual": "404 {\"code\":404,\"message\":\"文件不存在\"}",
+      "http": 404,
+      "verdict": "pass",
+      "note": "仅判存在性、不判归属（修复前代码路径），与 U34b/U34c 共同印证 F01"
+    },
+    {
+      "id": "U40",
+      "item": "post-fix",
+      "request": "POST /api/files/audio [student] filename=x.mp3 content=<html><script>alert(1)</script> ct=text/html",
+      "expected": "400（音频魔数校验拦截）",
+      "actual": "400 {\"code\":400,\"message\":\"音频文件格式非法\"}",
+      "http": 400,
+      "verdict": "pass",
+      "finding": "F02",
+      "note": "修复后实测（P0-2 上传侧）"
+    },
+    {
+      "id": "U41",
+      "item": "post-fix",
+      "request": "POST /api/files/document [student] filename=x.txt content=<html><script>alert(1)</script> ct=text/plain",
+      "expected": "400（标记语言内容拦截）",
+      "actual": "400 {\"code\":400,\"message\":\"文件内容与类型不符\"}",
+      "http": 400,
+      "verdict": "pass",
+      "finding": "F02",
+      "note": "修复后实测（storeDocument 的 looksLikeMarkup 兜底）"
+    },
+    {
+      "id": "U42",
+      "item": "post-fix",
+      "request": "POST /api/files/audio [student] filename=ok.mp3 content=ID3 头（10B）",
+      "expected": "200（合法音频不得误杀）",
+      "actual": "200 {\"code\":200,\"data\":{\"fileName\":\"ok.mp3\",\"size\":10,\"fileId\":24}}",
+      "http": 200,
+      "verdict": "pass",
+      "note": "本机复验 fileId=24；team-lead 复验为 fileId=23"
+    },
+    {
+      "id": "U43",
+      "item": "post-fix",
+      "request": "GET /api/files/audio/22 [student]（库中 mime_type 仍为 text/html 的存量脏数据）",
+      "expected": "200 且 Content-Type 为 audio/mpeg、带 nosniff",
+      "actual": "200 Content-Type: audio/mpeg;charset=UTF-8；X-Content-Type-Options: nosniff；size=69",
+      "http": 200,
+      "verdict": "pass",
+      "finding": "F02",
+      "resp_headers": {
+        "content-type": "audio/mpeg;charset=UTF-8",
+        "x-content-type-options": "nosniff"
+      },
+      "note": "XSS 通道已封死，存量脏数据无需清洗（库值未改）"
+    },
+    {
+      "id": "U44",
+      "item": "post-fix",
+      "request": "GET /api/files/audio/6 [student 2021001 属主] 与 [admin]",
+      "expected": "两者均 200",
+      "actual": "student 200 audio/wav size=8044；admin 200 audio/wav size=8044",
+      "http": 200,
+      "verdict": "pass",
+      "finding": "F01",
+      "note": "修复后属主/特权放行正样本（不得误杀）"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F01",
+      "level": "P0",
+      "title": "/files/audio/{id} 缺少归属校验，任意登录用户可按 fileId 枚举读取他人音频",
+      "desc": "audio() 仅 getFile(fileId) 判存在性，随后直接 Files.copy 输出；无 uploaderId/角色判断，fileId 为自增整数，可顺序遍历。【证据纠错】初版把 fileId=6 记为「他人文件」，但 2021001 的 user id 即 3，实为本人读本人；修复前的越权结论依据代码路径，修复前未取得非属主实测样本。修复后实测：非属主读 fileId=15 → 404，另一个学生读 fileId=6/22 → 404，属主与 admin → 200。",
+      "status": "FIXED_VERIFIED",
+      "fixed_by": [
+        "backend/src/main/java/com/examprep/controller/FileController.java:96-125"
+      ],
+      "file_line": [
+        "backend/src/main/java/com/examprep/controller/FileController.java:96-108",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:139-145",
+        "backend/src/main/java/com/examprep/config/SecurityConfig.java:215"
+      ],
+      "evidence": [
+        "U34b",
+        "U34c",
+        "U44",
+        "U39",
+        "U34"
+      ]
+    },
+    {
+      "id": "F02",
+      "level": "P0",
+      "title": "响应 Content-Type 取自客户端声明，可托管同源 text/html → 存储型 XSS（管理端 token 在 localStorage）",
+      "desc": "store() 把 file.getContentType() 原样落库（mime_type），audio() 又把它原样写回响应头；音频类扩展名无魔数校验，故 .mp3 + Content-Type: text/html + HTML 正文即可在 /api 同源下托管任意脚本。nosniff 已开启但类型本身即为 text/html，白名单无效。管理端 admin-web/index.html:1380 将 token 存 localStorage，攻击者可劫持管理员会话。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/controller/FileController.java:121-123",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:255",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:305",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:136-146",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:169",
+        "backend/src/main/java/com/examprep/common/FileTypeGuard.java",
+        "admin-web/index.html:1380"
+      ],
+      "status": "FIXED_VERIFIED",
+      "fixed_by": [
+        "backend/src/main/java/com/examprep/controller/FileController.java:121-123",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:136-146",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:169",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:255",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:305",
+        "backend/src/main/java/com/examprep/common/FileTypeGuard.java"
+      ],
+      "evidence": [
+        "U40",
+        "U41",
+        "U42",
+        "U43",
+        "U22",
+        "U23"
+      ]
+    },
+    {
+      "id": "F03",
+      "level": "P1",
+      "title": "文档/音频上传只要求 AUTH，未限制为管理员/审核员",
+      "desc": "FileController 全类无 @PreAuthorize，SecurityConfig 未对 /files/document、/files/audio 做角色约束，学生令牌可上传 docx/zip/mp4 等（与 @Operation 描述「供管理端 Web 使用」不符）。实测学生上传 .zip 成功。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/controller/FileController.java:68-93",
+        "backend/src/main/java/com/examprep/config/SecurityConfig.java:184-215"
+      ],
+      "evidence": [
+        "U21",
+        "U22"
+      ]
+    },
+    {
+      "id": "F04",
+      "level": "P1",
+      "title": "14 类扩展名无魔数校验，任意字节可伪装（zip/docx/xls/ppt/txt/mp4/mov/avi/webm/mp3/wav/m4a/aac/ogg）",
+      "desc": "MAGIC_CHECKED_TYPES 仅含 jpg/jpeg/png/gif/webp/pdf；storeDocument/storeAudio 对未收录类型直接放行。实测纯文本 .zip、.docx、HTML .mp3 全部 200 接受。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:79",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:165-169",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:126-136",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:148-159"
+      ],
+      "evidence": [
+        "U12",
+        "U13",
+        "U22"
+      ]
+    },
+    {
+      "id": "F05",
+      "level": "P1",
+      "title": "PDF 预览渲染无页数/尺寸/超时上限，且在 submit 事务内同步执行（资源耗尽）",
+      "desc": "pdfToPages 遍历 document.getNumberOfPages() 全部页，逐页 96 DPI 渲染落盘；PDFBox 3.0.7 默认不限页数/尺寸/内存；buildPreviewPages 在 @Transactional submit（及 resubmit）内同步调用。单次上传 200MB 以内的畸形/超多页 PDF 即可长时间占用 HTTP 线程与 CPU、写满磁盘。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:384-408",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:388-405",
+        "backend/src/main/java/com/examprep/service/ResourceService.java:301",
+        "backend/src/main/java/com/examprep/service/ResourceService.java:341",
+        "backend/pom.xml:26"
+      ],
+      "evidence": [
+        "code-only（未压测，原因见 constraints）"
+      ]
+    },
+    {
+      "id": "F06",
+      "level": "P1",
+      "title": "上传全量读入堆内存（readAllBytes），200MB×并发存在 OOM 风险",
+      "desc": "store() 先 is.readAllBytes() 取全量字节，再算 MD5、再写盘/写 MinIO；无流式、无并发闸门；进程未设 -Xmx（默认 1/4 物理内存）。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:211-217",
+        "backend/src/main/resources/application.yml:60",
+        "backend/src/main/resources/application.yml:104"
+      ],
+      "evidence": [
+        "code-only（未实测，避免影响运行中服务）"
+      ]
+    },
+    {
+      "id": "F07",
+      "level": "P2",
+      "title": "拒绝语义不一致：类型被拒返回 HTTP 200 + code 3004；空文件报「内容与扩展名不符」",
+      "desc": "ResultCode 3003/3004 不在 400-599 区间，GlobalExceptionHandler.setStatusIfHttpRange 不同步 HTTP 状态，网关/客户端/风控无法按状态码识别上传被拒；空文件先命中魔数校验（400），未走 UPLOAD_EMPTY(3003)。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/common/ResultCode.java:20",
+        "backend/src/main/java/com/examprep/common/ResultCode.java:42-43",
+        "backend/src/main/java/com/examprep/common/GlobalExceptionHandler.java:199-204",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:204-206"
+      ],
+      "evidence": [
+        "U02",
+        "U05",
+        "U18",
+        "U35"
+      ]
+    },
+    {
+      "id": "F08",
+      "level": "P2",
+      "title": "缺少输入长度校验：超长 original_name / mime_type 直接 500",
+      "desc": "original_name varchar(255)、mime_type varchar(100)，服务端未截断也未做 @Size 校验，落库失败抛未预期异常 → 500（响应含 traceId，暴露实现细节并污染告警）。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:263-268",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:207-208"
+      ],
+      "evidence": [
+        "U25",
+        "U26"
+      ]
+    },
+    {
+      "id": "F09",
+      "level": "P2",
+      "title": "submit/resubmit 未校验 fileId 归属，可挂他人文件并为他人文件生成预览",
+      "desc": "submit 仅 fileRecordMapper.selectById(req.getFileId())，无 uploaderId 比较（同文件内 resubmit:323、预览鉴权 FileController:131 均有归属比较）。攻击者可把他人 fileId 挂到自己资料上，触发 buildPreviewPages 为该文件生成预览，再以「上传者」身份读取未过审预览页，构成跨用户文件内容泄露。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/ResourceService.java:276-279",
+        "backend/src/main/java/com/examprep/service/ResourceService.java:301",
+        "backend/src/main/java/com/examprep/service/ResourceService.java:336-341",
+        "backend/src/main/java/com/examprep/controller/FileController.java:127-137"
+      ],
+      "evidence": [
+        "code-only（验证需写入 resource 业务表，超出只读取证授权）"
+      ]
+    },
+    {
+      "id": "F10",
+      "level": "P2",
+      "title": "预览页记录与物理文件不一致（孤立记录）",
+      "desc": "resource_page.id=13 指向 preview/8/page-1.jpg，但 uploads/preview/8 目录不存在，匿名与管理员访问均 404；预览写盘失败被 catch 后仍保留记录，无对账机制。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:374-377",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:392-404",
+        "backend/src/main/java/com/examprep/controller/FileController.java:150-154"
+      ],
+      "evidence": [
+        "U29"
+      ]
+    },
+    {
+      "id": "F11",
+      "level": "P2",
+      "title": "无内容探测/病毒扫描/图片重编码",
+      "desc": "未接入 Apache Tika 或 ClamAV；图片不做二次编码，魔数匹配后仍可携带尾部附加数据（polyglot）。当前因本地目录未被静态暴露而风险受限，但一旦引入 CDN/对象存储直链即会放大。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:165-190",
+        "backend/src/main/java/com/examprep/service/MinioStorageService.java:196-218"
+      ],
+      "evidence": [
+        "code-only"
+      ]
+    },
+    {
+      "id": "F12",
+      "level": "Info",
+      "title": "路径穿越已防护（正向结论）",
+      "desc": "落盘名由 UUID 生成，原始文件名不参与路径拼接；写入与读取两侧均 resolve().normalize() + startsWith(uploadRoot) 校验；实测 ../../、..\\..\\、绝对路径三种文件名均落到 UUID 路径。",
+      "file_line": [
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:221-222",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:246-249",
+        "backend/src/main/java/com/examprep/service/FileStorageService.java:293-294"
+      ],
+      "evidence": [
+        "U15",
+        "U16",
+        "U17"
+      ]
+    },
+    {
+      "id": "F13",
+      "level": "Info",
+      "title": "本地 uploads 未被静态目录暴露（正向结论）",
+      "desc": "全项目无 addResourceHandlers/WebMvcConfigurer 注册 uploads 目录，nginx 仅 proxy_pass 到 8080；实测 /api/documents/...、/api/uploads/...、/api/images/... 均 401 且无对应路由。",
+      "file_line": [
+        "nginx.conf:5-14",
+        "backend/src/main/java/com/examprep/config/SecurityConfig.java:215"
+      ],
+      "evidence": [
+        "U38"
+      ]
+    }
+  ],
+  "constraints": {
+    "not_done": [
+      "未修改任何源码 / 配置 / SQL 数据（只读查询）",
+      "未重启或停止 8080 / 8000 服务",
+      "未执行 mvn / 打包 / 部署",
+      "未上传任何 webshell、可执行文件或真实恶意样本（仅用纯文本字节伪造扩展名与 Content-Type）",
+      "未删除任何既有数据",
+      "未做 200MB 真传与 PDF 炸弹压测（避免影响运行中服务）",
+      "未做高并发大文件上传（OOM 风险）"
+    ],
+    "untested": [
+      {
+        "item": "200MB multipart 上限实际行为",
+        "reason": "真实传输 200MB 影响运行中服务；改用 11MB 样本验证限额生效路径 + 代码判定（application.yml:60-61、GlobalExceptionHandler:77-81）"
+      },
+      {
+        "item": "PDF 超大页数/畸形 PDF 压测（检查项 7）",
+        "reason": "破坏性压测，会长时间占满后端 CPU 并写爆磁盘；按任务要求只做代码判定"
+      },
+      {
+        "item": "submit 挂他人 fileId 的越权读取验证（F09）",
+        "reason": "需向 resource 表写业务记录，超出只读取证授权"
+      },
+      {
+        "item": "游客 guest-pages=3 页数门限",
+        "reason": "库中预览资源均为 1 页，构造多页需真实提交资料"
+      },
+      {
+        "item": "文件名含 NUL 字节",
+        "reason": "curl/Python urllib 无法可靠发送 NUL 字节"
+      },
+      {
+        "item": "MinIO 通道下的同类用例",
+        "reason": "当前环境 MinIO 未启动，全部落本地磁盘"
+      }
+    ],
+    "test_residue": {
+      "db_rows": "file_record id=13..24（uploader_id=3 即 2021001，其中 id=15 为 admin 令牌上传；id=23 为 team-lead 复验、id=24 为本机复验生成的合法 ID3 样本；均为无害小样本，未新建 resource 记录）",
+      "files": [
+        "backend/uploads/images/20261109/*",
+        "backend/uploads/documents/20261109/*",
+        "backend/uploads/audios/20261109/*"
+      ],
+      "cleanup_sql_suggestion": "DELETE FROM file_record WHERE id BETWEEN 13 AND 24; -- 未执行",
+      "advice": "建议验收后清理上述测试记录与 backend/uploads/**/20261109/ 样本，本次未清理"
+    }
+  }
+}

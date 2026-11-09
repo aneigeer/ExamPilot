@@ -1,5 +1,6 @@
 package com.examprep.controller;
 
+import com.examprep.common.FileTypeGuard;
 import com.examprep.common.Result;
 import com.examprep.entity.FileRecord;
 import com.examprep.entity.Resource;
@@ -92,17 +93,33 @@ public class FileController {
         ));
     }
 
-    @Operation(summary = "访问听力音频", description = "**访问级别：AUTH**。返回音频流，播放器直接播放。")
+    @Operation(summary = "访问听力音频",
+            description = "**访问级别：AUTH（本人 / ADMIN / AUDITOR）**。返回音频流，播放器直接播放。"
+                    + "非本人且非审核员一律返回 404（不提示文件是否存在，避免 fileId 枚举探测）。")
     @GetMapping("/files/audio/{fileId}")
     public void audio(@Parameter(description = "音频文件 ID") @PathVariable Long fileId,
                       HttpServletResponse response) throws IOException {
         FileRecord file = fileStorageService.getFile(fileId);
+
+        // ---- P0-1 归属校验：此前任何登录用户凭自增 fileId 即可顺序读取他人音频 ----
+        // 用 404 而非 403：403 会暴露「该 id 确实存在」，等于把 fileId 枚举变成存在性探测。
+        Long currentUserId = SecurityUtils.currentUserIdOrNull();
+        boolean owner = currentUserId != null && currentUserId.equals(file.getUploaderId());
+        if (!owner && !SecurityUtils.isAuditorOrAdmin()) {
+            log.info("[audio] denied fileId={} uploaderId={} visitor={}",
+                    fileId, file.getUploaderId(), currentUserId == null ? "anonymous" : currentUserId);
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "音频缺失");
+            return;
+        }
+
         Path path = fileStorageService.getUploadRoot().resolve(file.getStoredPath()).normalize();
         if (!Files.exists(path)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "音频缺失");
             return;
         }
-        response.setContentType(file.getMimeType() == null ? "application/octet-stream" : file.getMimeType());
+        // ---- P0-2 响应类型安全：按扩展名取服务端权威 MIME，不回显客户端声明的 Content-Type ----
+        response.setContentType(FileTypeGuard.canonicalAudioMime(file.getExt()));
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Accept-Ranges", "bytes");
         Files.copy(path, response.getOutputStream());
     }

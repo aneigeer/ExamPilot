@@ -1,0 +1,8 @@
+2026-11-09 21:17:30,409 [INFO] [-] [ai_service] [启动] AI 微服务已初始化 {'app': 'examprep-ai-service v1.0.0', 'listen': '127.0.0.1:8000', 'embedding': {'model_id': 'bge-small-zh-v1.5', 'dim': 512, 'model_dir': 'D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\bge-small-zh-v1.5', 'auto_download': False}, 'qdrant': {'url': 'local:./data/qdrant', 'collection': 'exam_chunks', 'api_key_set': False}, 'llm': {'model': 'qwen2.5-7b-instruct-baseline', 'base_url': 'http://127.0.0.1:11434/v1', 'api_key_set': True}, 'ocr': {'enabled': True, 'lang': 'ch', 'model_dir': 'D:\\大学生多考试备考知识库与题库系统\\ai-service\\models\\paddle'}, 'agent': {'enabled': True, 'java_base_url': 'http://127.0.0.1:8080/api', 'internal_token_set': True, 'allow_anonymous': False, 'max_steps': 6, 'max_tool_calls': 4, 'max_prompt_chars': 8000, 'subagent_enabled': False, 'subagent_max_questions': 3}, 'jobs': {'worker_enabled': False, 'eval_worker_enabled': False, 'wiki_worker_enabled': False, 'redis_url': 'redis://127.0.0.1:6379/0', 'stream': 'exam:jobs', 'eval_stream': 'exam:eval', 'wiki_stream': 'exam:wiki', 'group': 'expert-workers'}, 'wiki': {'enabled': True, 'collection': 'wiki_pages', 'distill_max_pages': 20}}
+2026-11-09 21:17:30,410 [INFO] [-] [ai_service] [启动] 提示：embedding / OCR 均为懒加载，模型在首次调用对应接口时才加载
+INFO:     Started server process [6328]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+2026-11-09 21:17:32,206 [INFO] [808b036374e9498f] [app.routers.health] [Health] status=degraded embedding=True qdrant=False ocr=True llm=True
+2026-11-09 21:17:34,577 [INFO] [b3b6a91d8daa40d6] [app.routers.health] [Health] status=degraded embedding=True qdrant=False ocr=True llm=True

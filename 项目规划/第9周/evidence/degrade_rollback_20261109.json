@@ -1,0 +1,533 @@
+{
+  "meta": {
+    "drill": "第9周 P0 降级与回滚演练",
+    "date": "2026-11-09",
+    "operator": "software-engineer-degrade",
+    "project": "D:/大学生多考试备考知识库与题库系统",
+    "environment": {
+      "backend": "http://127.0.0.1:8080 (java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar --server.port=8080)",
+      "ai_service": "http://127.0.0.1:8000 (python -m uvicorn app.main:app)",
+      "mysql": "127.0.0.1:3306",
+      "ollama": "127.0.0.1:11434",
+      "os": "Windows (PowerShell 5.1 / Git Bash)"
+    },
+    "account": "2021001",
+    "question_in_domain": "进程和线程有什么区别",
+    "question_out_of_domain": "红烧肉怎么做",
+    "hard_constraints": [
+      "不停 8080 / MySQL 3306 / Ollama 11434",
+      "不改源码、不 mvn",
+      "不删除任何数据",
+      "8000 停服窗口尽量短，结束必须恢复 200"
+    ],
+    "verdict": "PASS_WITH_FINDINGS",
+    "verdict_note": "降级与回滚能力均通过实测；监督脚本 R1（P0）已于收口阶段修复并在 8001 隔离复验（自愈 3.62s）；剩余缺口为发布回滚文档缺失（P1）、熔断状态不可观测（P1）、文档引用不存在字段（P1）。",
+    "raw_evidence_dir": "项目规划/第9周/evidence/raw_20261109/"
+  },
+  "baseline": {
+    "at": "2026-11-09 21:01:5x",
+    "ai_health": {
+      "http": 200,
+      "status": "ok",
+      "embedding_ready": true,
+      "qdrant_ready": true,
+      "llm_ready": true,
+      "version": "1.0.0"
+    },
+    "ask": {
+      "http": 200,
+      "elapsed_ms": 52,
+      "cost_millis": 44,
+      "generator": "wiki",
+      "engine": "WIKI",
+      "degraded": false,
+      "refused": false,
+      "sources": 1,
+      "retrieval_mode": "WIKI_NGRAM",
+      "answer_len": 343,
+      "note": "冷启动首测为 490ms（cost 469ms），本值为预热后复测"
+    },
+    "ask_out_of_domain": {
+      "http": 200,
+      "elapsed_ms": 187,
+      "generator": "none",
+      "refused": true,
+      "sources": 0,
+      "answer": "未找到相关资料"
+    }
+  },
+  "capability_before": {
+    "at": "2026-11-09 21:01:5x",
+    "http": 200,
+    "available": true,
+    "aiServiceStatus": "ok",
+    "vectorEnabled": true,
+    "vectorIndexReady": true,
+    "vectorChannelAvailable": true,
+    "generator": "ollama",
+    "degraded": false,
+    "circuitOpen": false,
+    "circuitRemainingMillis": 0,
+    "extractiveMode": false,
+    "chunkCount": 12648
+  },
+  "ai_down": {
+    "stop": {
+      "at": "2026-11-09 21:02:23.595",
+      "method": "PowerShell Stop-Process -Id 19320 -Force",
+      "pid": 19320,
+      "port_8000_after": false,
+      "port_8080_after": true,
+      "port_11434_after": true,
+      "port_3306_after": true
+    },
+    "probe_immediate": {
+      "at": "2026-11-09 21:02:34",
+      "t_offset_seconds": 10,
+      "ask": {
+        "http": 200,
+        "elapsed_ms": 75,
+        "generator": "wiki",
+        "engine": "WIKI",
+        "degraded": false,
+        "refused": false,
+        "sources": 1,
+        "cost_millis": 22,
+        "retrieval_mode": "WIKI_NGRAM",
+        "answer_len": 343
+      },
+      "capability": {
+        "http": 200,
+        "elapsed_ms": 537,
+        "aiServiceStatus": "UNREACHABLE",
+        "vectorChannelAvailable": false,
+        "vectorIndexReady": false,
+        "generator": "ollama",
+        "degraded": true,
+        "circuitOpen": false,
+        "circuitRemainingMillis": 0,
+        "chunkCount": 12648,
+        "extractiveMode": false
+      }
+    },
+    "probe_out_of_domain": {
+      "at": "2026-11-09 21:02:39",
+      "t_offset_seconds": 16,
+      "ask": {
+        "http": 200,
+        "elapsed_ms": 34,
+        "generator": "none",
+        "engine": "RAG",
+        "fallbackFromWiki": true,
+        "degraded": false,
+        "refused": true,
+        "sources": 0,
+        "answer": "未找到相关资料"
+      }
+    },
+    "probe_after_30s": {
+      "at": "2026-11-09 21:03:13",
+      "t_offset_seconds": 50,
+      "note": "计划为 +30s，实际因探测脚本两次请求串行耗时，真实偏移 50s",
+      "ask": {
+        "http": 200,
+        "elapsed_ms": 48,
+        "generator": "wiki",
+        "degraded": false,
+        "refused": false,
+        "sources": 1,
+        "cost_millis": 26,
+        "retrieval_mode": "WIKI_NGRAM"
+      },
+      "capability": {
+        "http": 200,
+        "elapsed_ms": 335,
+        "aiServiceStatus": "UNREACHABLE",
+        "vectorChannelAvailable": false,
+        "vectorIndexReady": false,
+        "degraded": true,
+        "circuitOpen": false,
+        "circuitRemainingMillis": 0
+      }
+    },
+    "probe_after_90s": {
+      "at": "2026-11-09 21:03:34",
+      "t_offset_seconds": 71,
+      "ask": {
+        "http": 200,
+        "elapsed_ms": 70,
+        "generator": "wiki",
+        "degraded": false,
+        "refused": false,
+        "sources": 1,
+        "cost_millis": 42
+      },
+      "capability": {
+        "http": 200,
+        "elapsed_ms": 557,
+        "aiServiceStatus": "UNREACHABLE",
+        "vectorChannelAvailable": false,
+        "degraded": true,
+        "circuitOpen": false,
+        "circuitRemainingMillis": 0
+      }
+    },
+    "backend_log_evidence": [
+      "2026-11-09 21:02:34.121 [http-nio-8080-exec-1] WARN [b80fae1d06965b63] c.examprep.service.ai.CircuitBreaker - [AI] 熔断器 fastapi 第 1/3 次失败：I/O error on GET request for \"http://127.0.0.1:8000/v1/health\": Connection refused: getsockopt",
+      "2026-11-09 21:02:34.647 [http-nio-8080-exec-3] WARN [96b7e1a69920116e] c.examprep.service.ai.CircuitBreaker - [AI] 熔断器 fastapi 第 2/3 次失败：I/O error on GET request for \"http://127.0.0.1:8000/v1/health\": Connection refused: getsockopt",
+      "2026-11-09 21:02:34.663 [http-nio-8080-exec-3] WARN [96b7e1a69920116e] c.examprep.service.ai.CircuitBreaker - [AI] 熔断器 fastapi 连续失败 3 次，开启熔断 60000 ms（原因：I/O error on GET request for \"http://127.0.0.1:8000/v1/health\": Connection refused: getsockopt），期间自动降级为抽取式",
+      "2026-11-09 21:02:39.712 [http-nio-8080-exec-2] INFO [22ba9c82d4da6818] c.e.service.ai.HybridRetriever - [AI] 向量通道不可用（未开启/熔断/健康检查未通过），静默降级到 ngram 通道"
+    ],
+    "log_source": "项目规划/第9周/evidence/backend_w9_final_20261109.log",
+    "observations": [
+      "全部降级探测均返回 HTTP 200，无 5xx，满足判据",
+      "域内问题由 wiki 通道接管，答案与基线逐字一致（answer_len=343）",
+      "域外问题 refused=true，未因服务缺失而放大作答（无幻觉）",
+      "熔断器日志显示 21:02:34.663 已开启 60000ms 熔断，但 /api/ai/capability 全程 circuitOpen=false，二者矛盾（可观测缺口）",
+      "ask.degraded 在 AI 服务不可达时为 false，与 capability.degraded=true 不一致"
+    ],
+    "breaker": {
+      "verdict": "PARTIAL",
+      "triggered": true,
+      "evidence_source": "backend_log_only",
+      "log_lines": [
+        ":121 第1/3次失败",
+        ":647 第2/3次失败",
+        ":663 连续失败3次，开启熔断 60000ms"
+      ],
+      "capability_circuit_open": false,
+      "note": "熔断确已触发（日志三处可证），但 /api/ai/capability 三次探测均返回 circuitOpen=false，运维无法通过接口观测熔断状态（见 R2），故判 PARTIAL"
+    }
+  },
+  "capability_after": {
+    "at": "2026-11-09 21:06:47",
+    "http": 200,
+    "available": true,
+    "aiServiceStatus": "ok",
+    "vectorIndexReady": true,
+    "vectorChannelAvailable": true,
+    "generator": "ollama",
+    "degraded": false,
+    "circuitOpen": false,
+    "circuitRemainingMillis": 0,
+    "extractiveMode": false,
+    "chunkCount": 12648,
+    "matches_baseline": true
+  },
+  "recovery": {
+    "attempt_1_watchdog": {
+      "at": "2026-11-09 21:04:04.573",
+      "script": "ai-service/run_watchdog_v2.ps1",
+      "result": "FAILED",
+      "exit_at": "2026-11-09 21:04:04.599",
+      "lifetime_ms": 26,
+      "error": "Start-Process : 已添加项。字典中的关键字:\"Path\"所添加的关键字:\"PATH\" （run_watchdog_v2.ps1:148，Start-Process -FilePath $Python -RedirectStandardOutput ...）",
+      "impact": "看门狗不可用，AI 服务失去自愈能力，恢复退化为人工操作"
+    },
+    "attempt_2_direct_uvicorn": {
+      "method": "..\\.venv-ai\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 (cwd=ai-service)",
+      "process_start_at": "2026-11-09 21:06:19.258",
+      "first_health_200_at": "2026-11-09 21:06:34",
+      "result": "OK"
+    },
+    "seconds": 250.4,
+    "seconds_detail": "stop 21:02:23.595 → 首次 /v1/health 200 于 21:06:34，共 250.4s（4m10s，含看门狗失败排查）",
+    "health": {
+      "http": 200,
+      "at": "2026-11-09 21:06:34",
+      "restored_version": "1.0.0"
+    },
+    "ask": {
+      "at": "2026-11-09 21:06:47",
+      "http": 200,
+      "elapsed_ms": 355,
+      "cost_millis": 332,
+      "generator": "wiki",
+      "degraded": false,
+      "refused": false,
+      "sources": 1,
+      "retrieval_mode": "WIKI_NGRAM",
+      "answer_len": 343
+    },
+    "unplanned_second_outage": {
+      "detected_at": "2026-11-09 21:09:03",
+      "cause": "恢复用的 uvicorn 由会话托管的后台任务拉起，任务被回收后子进程一并终止（任务状态 failed，存活 2m3s）",
+      "duration_seconds_approx": 100,
+      "final_fix": "改用 WMI Win32_Process.Create 创建脱离会话的独立进程（cwd=ai-service），14s 内 /v1/health 恢复 200",
+      "final_state_at": "2026-11-09 21:11:36",
+      "final_health_http": 200,
+      "final_capability_ok": true
+    },
+    "final_verification": {
+      "at": "2026-11-09 21:11:36",
+      "ai_8000_health": 200,
+      "backend_8080_health": 200,
+      "ask": {
+        "http": 200,
+        "elapsed_ms": 289,
+        "generator": "wiki",
+        "degraded": false,
+        "refused": false,
+        "sources": 1
+      },
+      "capability": {
+        "aiServiceStatus": "ok",
+        "vectorChannelAvailable": true,
+        "degraded": false
+      }
+    },
+    "trigger": "manual_restart",
+    "trigger_note": "恢复由人工重启 uvicorn 触发，不是熔断自愈"
+  },
+  "rollback_drill": {
+    "isolation_port": 8081,
+    "bad_start": {
+      "at": "2026-11-09 21:06:56.353",
+      "command": "java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar --server.port=8081 --spring.datasource.url=jdbc:mysql://127.0.0.1:3307/nonexistent?useSSL=false&characterEncoding=utf8",
+      "scenario": "错误数据库配置（指向不存在的 3307）",
+      "failed": true,
+      "ended_at": "2026-11-09 21:07:10.025",
+      "duration_seconds": 13.7,
+      "key_error_lines": [
+        "2026-11-09 21:07:06.209 [main] INFO  [] o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path '/api'",
+        "Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.",
+        "### Cause: org.springframework.jdbc.CannotGetJdbcConnectionException: Failed to obtain JDBC Connection",
+        "Caused by: com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure",
+        "Caused by: java.net.ConnectException: Connection refused: getsockopt"
+      ],
+      "note": "进程先绑定 8081 再因数据源自检失败而退出，因此“端口已监听”不能作为发布成功判据"
+    },
+    "exit_code": 1,
+    "stable_start": {
+      "at": "2026-11-09 21:07:33.357",
+      "command": "java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar --server.port=8081",
+      "scenario": "回退到稳定配置（同 8080 版本/配置，仅改端口）",
+      "tomcat_started_at": "2026-11-09 21:07:42.221",
+      "startup_seconds": 9.329
+    },
+    "health": {
+      "url": "http://127.0.0.1:8081/api/actuator/health",
+      "first_200_at": "2026-11-09 21:07:43",
+      "status": "UP",
+      "groups": [
+        "liveness",
+        "readiness"
+      ],
+      "login_smoke": {
+        "http": 200,
+        "account": "2021001",
+        "message": "登录成功"
+      }
+    },
+    "start_to_healthy_seconds": 8,
+    "isolation_verified": {
+      "8080_health_during_8081_drill": 200,
+      "ai_8000_health_during_8081_drill": 200,
+      "mysql_3306_listening": true,
+      "ollama_11434_listening": true
+    },
+    "stopped_8081": true,
+    "stopped_at": "2026-11-09 21:08:5x",
+    "after_stop": {
+      "8081_listening": false,
+      "8080_listening": true,
+      "8000_listening": true,
+      "11434_listening": true,
+      "3306_listening": true
+    },
+    "side_effects": [
+      "第二实例启动时执行 UPDATE async_task SET status='FAILED', error='服务重启，任务中断' WHERE status='RUNNING'（本次 Updates=0，未造成数据影响）",
+      "启动时 AiIndexStartupChecker 告警：索引落后于业务数据（2026-11-08T18:53:11 < 2026-11-09T21:04:13），提示需 POST /api/admin/ai/reindex"
+    ]
+  },
+  "watchdog_fix": {
+    "status": "FIXED_AND_VERIFIED",
+    "script": "ai-service/run_watchdog_v2.ps1",
+    "port": 8001,
+    "restart_seconds": 3.62,
+    "root_cause": "宿主环境同时存在 Path / PATH / path 三份同名环境变量（Windows 环境块区分大小写存储，Start-Process 构造 ProcessStartInfo.EnvironmentVariables 时用大小写不敏感 StringDictionary，第二次 Add 抛 ArgumentException 导致脚本 26ms 秒退）",
+    "root_cause_measurement": {
+      "path_keys": [
+        "Path",
+        "PATH",
+        "path"
+      ],
+      "count": 3,
+      "path_len": 2527,
+      "PATH_len": 2368,
+      "path_len_lower": 2527
+    },
+    "fix_approach": "方案A为主+方案B兜底：新增 Repair-ProcessPath 将多份同名键按 ';' 拆分去重后合并为单一 Path 并写回进程环境；Start-Process 用 try/catch 包裹，失败时回退到 System.Diagnostics.ProcessStartInfo(UseShellExecute=false, CreateNoWindow=true)；新增 -Port 参数（默认8000），互斥量按端口区分",
+    "changed_lines": {
+      "param_port": 39,
+      "Repair-ProcessPath_function": "118-134",
+      "mutex_per_port": 138,
+      "env_normalize_call": "159-162",
+      "startprocess_try_catch_fallback": "187-206",
+      "doc_header_v21": "18-33"
+    },
+    "syntax_check": "PowerShell Parser.ParseFile -> 0 errors, 269 lines",
+    "evidence": {
+      "verify_dir": "项目规划/第9周/evidence/raw_20261109/wd8001/",
+      "watchdog_log": "项目规划/第9周/evidence/raw_20261109/wd8001/ai_service_watchdog_v2.log",
+      "timeline": [
+        "21:17:29.808 ENV_NORMALIZED duplicate_path_keys=3 -> merged into single 'Path'",
+        "21:17:29.825 START watchdog pid=5136 port=8001",
+        "21:17:29.857 STARTED pid=2140 restart_no=0",
+        "21:17:32.212 PORT_READY pid=2140 ready_ms=1053 health200=True",
+        "21:17:34 客户端探测 8001 /v1/health = 200",
+        "21:17:45.656 外部 Stop-Process 杀掉 8001 监听进程 PID 6328（模拟崩溃）",
+        "21:17:45.721 EXIT pid=2140 uptime_s=15.9（崩溃检测 65ms）",
+        "21:17:45.855 STARTED pid=21036 restart_no=1",
+        "21:17:48.639 PORT_READY pid=21036 ready_ms=1046 health200=True",
+        "21:17:49.276 8001 再次 200（自愈 3.62s；脚本内部口径 杀进程→端口就绪 2.98s）",
+        "21:17:55.640 STOP stop-file detected, terminating pid=21036",
+        "21:17:55.907 WATCHDOG_EXIT",
+        "21:18:01 8001=000（端口已释放）、8000=200"
+      ],
+      "isolation_checks": {
+        "8000_before": 200,
+        "8000_during_8001_drill": 200,
+        "8000_after_watchdog_stop": 200,
+        "8001_before": 0,
+        "8001_after_stop": 0,
+        "watchdog_uptime_seconds": 32,
+        "stop_file_auto_removed": true
+      }
+    },
+    "residual_risk": "Repair-ProcessPath 只修复 watchdog 自身进程的环境副本，未修复宿主（WorkBuddy/IDE）注入三份 Path 的根因；其他使用 Start-Process 的脚本仍会踩同一坑，建议在宿主或全局启动脚本统一去重",
+    "runtime_note": "当前 8000 仍由 WMI 拉起的独立进程（PPID 20040）承载，尚未交给看门狗监督；切换需先停 8000 再由 watchdog 接管（本次未执行，避免二次停服）"
+  },
+  "doc_gap": {
+    "checked_files": [
+      {
+        "path": "docs/部署文档.md",
+        "lines": 104,
+        "has_release_rollback_section": false,
+        "note": "仅有 §3 数据库备份恢复与 §5 常见运维问题，“端口 8080 被占用”一条最接近，但不是发布回滚"
+      },
+      {
+        "path": "README.md",
+        "lines": 616,
+        "has_release_rollback_section": false,
+        "note": "仅在状态表提到存在“降级演练手册”，无回滚步骤"
+      },
+      {
+        "path": "docs/功能大纲.md",
+        "lines": 257,
+        "has_release_rollback_section": false,
+        "note": "仅“发布签名缺省回退 debug 签名”，属构建回退，非发布回滚"
+      },
+      {
+        "path": "docs/AI降级演练手册.md",
+        "lines": 416,
+        "has_release_rollback_section": false,
+        "note": "有 AI 场景“④ 回滚”（重启 Qdrant/MinIO/网卡），但无发布件（jar/配置）回滚流程"
+      }
+    ],
+    "severity": "P1",
+    "conclusion": "全项目无任何“发布失败如何回滚”的可执行章节，现有文档无法支撑一次真实回滚。",
+    "required_additions": [
+      "1. 发布前置留档：备份上一版 jar 与 application-local.yml（文件名带版本号+时间戳，保留最近 3 份）",
+      "2. 发布门禁（硬信号）：/api/actuator/health 必须 200、进程不得非 0 退出、登录+一次 ask+一次上传预览全绿；仅凭“端口已监听”判成功属误判（本次实测错误配置会先 Tomcat started 再退出）",
+      "3. 回滚判定阈值：新版本 120s 内未返回 health 200，或关键接口出现 5xx，即判定失败并回滚",
+      "4. 回滚操作（可复制命令）：停新进程 → 用上一版 jar/上一份配置启动 → 健康检查 → 冒烟三项 → 记录 traceId",
+      "5. 隔离演练规范：回滚预演固定使用 --server.port=8081，禁止在 8080 上直接试错（本次即按此执行，零影响）",
+      "6. 数据库变更纪律：只允许向前兼容迁移，禁止破坏性 DDL；不可回滚的变更须先联机备份",
+      "7. 验收指标：错误配置启动失败耗时 13.7s、稳定版本启动到 health 200 为 8s，可作为回滚 RTO 参考基线"
+    ]
+  },
+  "risks_and_findings": [
+    {
+      "id": "R1",
+      "priority": "P0",
+      "status": "FIXED",
+      "title": "run_watchdog_v2.ps1 在本机不可用，AI 服务无自愈能力",
+      "evidence": "21:04:04.573 启动 → 21:04:04.599 WATCHDOG_EXIT，耗时 26ms；错误 Start-Process : 已添加项。字典中的关键字:\"Path\"所添加的关键字:\"PATH\"（run_watchdog_v2.ps1:148）",
+      "impact": "AI 服务异常后无法自动拉起，本次恢复全靠人工，停服 250s；生产等同无监督",
+      "suggestion": "已于 2026-11-09 收口修复：新增 Repair-ProcessPath 合并 Path/PATH/path 三份重复键，Start-Process 失败时回退 ProcessStartInfo，并新增 -Port 参数；8001 隔离实测自愈 3.62s，详见 watchdog_fix 字段"
+    },
+    {
+      "id": "R2",
+      "priority": "P1",
+      "title": "/api/ai/capability 的 circuitOpen / circuitRemainingMillis 与真实熔断器不一致",
+      "evidence": "后端日志 21:02:34.663 明确“开启熔断 60000 ms”，capability 在 21:02:34 / 21:03:13 / 21:03:34 三次探测均为 circuitOpen=false、circuitRemainingMillis=0",
+      "impact": "运维无法从接口判断是否处于熔断，排障只能翻日志",
+      "suggestion": "capability 直接读 fastapi 熔断器实例状态，或补 degradedReason（含剩余毫秒）"
+    },
+    {
+      "id": "R3",
+      "priority": "P1",
+      "title": "文档引用的 capability.degradedReason 字段在响应中不存在",
+      "evidence": "docs/AI降级演练手册.md §8 速查表与 §11.2 判据要求看 capability.degradedReason；实测 capability 返回字段为 available/generator/degraded/circuitOpen/circuitRemainingMillis/extractiveMode/chunkCount/vectorChannelAvailable 等，无 degradedReason",
+      "impact": "按手册排障会卡空，属于文档-实现不一致",
+      "suggestion": "要么补字段，要么修订手册为实际字段（circuitOpen + circuitRemainingMillis）"
+    },
+    {
+      "id": "R4",
+      "priority": "P2",
+      "title": "ask.degraded 与 capability.degraded 语义不一致",
+      "evidence": "AI 服务不可达期间 ask 返回 degraded=false（wiki 通道命中），而 capability 返回 degraded=true",
+      "impact": "前端/验收若以 ask.degraded 判断降级会漏判",
+      "suggestion": "统一 degraded 语义（整体是否处于降级运行），或新增 degradedChannels 数组区分检索/生成通道"
+    },
+    {
+      "id": "R5",
+      "priority": "P2",
+      "title": "错误配置发布会短暂占用端口，健康判据易误判",
+      "evidence": "错误配置启动日志先出现 Tomcat started on port 8081，8s 后才因数据源失败退出（总耗时 13.7s，exit=1）",
+      "impact": "若发布脚本以“端口监听”判成功，会把失败发布当成功",
+      "suggestion": "发布门禁统一用 /api/actuator/health 200 且进程存活，并加 120s 观察窗"
+    },
+    {
+      "id": "R6",
+      "priority": "P2",
+      "title": "双实例共享同一数据库会误伤运行中的异步任务",
+      "evidence": "8081 稳定实例启动时执行 UPDATE async_task SET status='FAILED', error='服务重启，任务中断'（本次 Updates=0）",
+      "impact": "灰度/回滚双实例并存时，若有 RUNNING 的异步任务会被标记失败",
+      "suggestion": "回滚窗口选择无长任务时段，或为第二实例加 --app.async-task.recover-on-start=false 开关"
+    },
+    {
+      "id": "R7",
+      "priority": "P2",
+      "title": "降级期间 retrievalMode 实际为 WIKI_NGRAM，与手册预期 FULLTEXT_OR/LIKE 不符",
+      "evidence": "降级期三次探测 retrievalMode 均为 WIKI_NGRAM（engine=WIKI）",
+      "impact": "手册验收判据与实际不符，会导致复测判定失败",
+      "suggestion": "更新手册，把 WIKI_NGRAM 列为合法降级模式"
+    }
+  ],
+  "out_of_scope_observations": [
+    {
+      "at": "2026-11-09 21:03:16",
+      "item": "后端日志 ERROR [POST /api/files/image]：Data truncation: Data too long for column 'mime_type' at row 1",
+      "note": "属文件上传链路，非本演练范围，建议同步给上传负责人"
+    },
+    {
+      "at": "2026-11-09 21:07:42",
+      "item": "AiIndexStartupChecker 告警：索引落后于业务数据（2026-11-08T18:53:11 < 2026-11-09T21:04:13），需 POST /api/admin/ai/reindex",
+      "note": "系统按设计不自动重建，需运维确认是否重建"
+    }
+  ],
+  "artifacts": {
+    "report": "项目规划/第9周/07_降级与回滚演练_2026-11-09.md",
+    "evidence_json": "项目规划/第9周/evidence/degrade_rollback_20261109.json",
+    "raw": [
+      "raw_20261109/probe.py",
+      "raw_20261109/cap_before.json",
+      "raw_20261109/ask_baseline.json",
+      "raw_20261109/ask_baseline_ood.json",
+      "raw_20261109/probe_down_immediate.json",
+      "raw_20261109/probe_down_ood.json",
+      "raw_20261109/probe_down_after30s.json",
+      "raw_20261109/probe_down_after90s.json",
+      "raw_20261109/probe_recovery.json",
+      "raw_20261109/probe_recovery_final.json",
+      "raw_20261109/health_after.json",
+      "raw_20261109/rollback_bad_stdout.log",
+      "raw_20261109/rollback_bad_stdout.utf8.log",
+      "raw_20261109/timeline.txt",
+      "raw_20261109/start_ai.bat",
+      "ai_service_watchdog_v2.log"
+    ]
+  }
+}

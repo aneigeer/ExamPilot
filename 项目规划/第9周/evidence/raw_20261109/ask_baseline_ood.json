@@ -1,0 +1,1 @@
+{"code":200,"message":"成功","data":{"question":"红烧肉怎么做","answer":"未找到相关资料","generator":"none","engine":"RAG","fallbackFromWiki":true,"degraded":false,"refused":true,"costMillis":179,"retrievalMillis":179,"retrievalMode":"NONE","recallCount":50,"sources":[],"contexts":[]},"traceId":"6771a5a68dfc9b70"}
