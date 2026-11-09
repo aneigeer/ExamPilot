@@ -1,5 +1,6 @@
 package com.examprep.service.ai;
 
+import com.examprep.config.ObservabilityProperties;
 import com.examprep.dto.ai.AskRequest;
 import com.examprep.dto.ai.AskVO;
 import com.examprep.service.wiki.WikiQueryService;
@@ -58,7 +59,7 @@ class AiQaRefusalInvariantTest {
         service = new AiQaService(retriever, route,
                 mock(KnowledgeProfileService.class), extractive, processor,
                 new PromptBuilder(properties), mock(ChunkSyncService.class), properties,
-                wiki, mock(VectorChannel.class), List.of());
+                wiki, mock(VectorChannel.class), List.of(), new ObservabilityProperties());
     }
 
     private static AskRequest request() {

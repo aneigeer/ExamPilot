@@ -120,6 +120,18 @@ app:
       initial-delay-millis: 60000      # 启动后 1 分钟首次重算
       refresh-millis: 3600000          # 之后每小时重算一次
 
+  # ========== 可观测性与数据最小化（阶段三）==========
+  # 与 app.ai.* 分开：这组是「合规边界」，不是 AI 能力参数。
+  #   log-question   默认 false —— 问题原文属 UGC，可能含个人信息，默认不进日志；
+  #                  关闭时日志只输出 qLen=<长度>, qHash=<sha256 前 8 位>，仍可按哈希聚合排查。
+  #   retention-*    ai_agent_run（问题+回答+完整轨迹）的保留期，超期物理删除。
+  #                  batch 分批是为了避免一条大 DELETE 长时间持锁，把在线 SSE 收尾写入拖死。
+  observability:
+    log-question: false
+    retention-days: 90
+    retention-batch: 500
+    retention-cron: "0 10 4 * * ?"
+
   # ========== AI 导学（RAG 检索增强 + 抽取式兜底 + 学情画像）==========
   # 全部参数化，使用时可现场改一个数看效果。
   # 密钥类配置默认值留空（对齐 app.jwt.secret 的安全规范），空值不报错、走降级链路。
@@ -231,13 +243,16 @@ app:
       # ★ 语义拒答线（top1 余弦）：**向量通道就绪时才生效**，且只在「字面通道也没证据」时否决
       # 它是当前拒答能力的唯一语义防线——「区块链智能合约怎么写」这类
       # 「实体在语料里存在、但没有一段文字在回答它」的问题，只有它拦得住。
-      # 标定（语料 11300 块，逐条 /v1/search 实测）：
-      #   域内 12 条 top1 余弦最低 0.6328（函数传参），域外 10 条最高 0.6115
-      #   → 取 0.62，域内余量 0.013（偏薄）
+      # 标定（2026-11-07 复测，语料已扩容）：
+      #   域内 s02 top1 余弦 0.6145（正确 chunk），域外 11 条最高 0.5606（r02 0.8066 除外）
+      #   → 取 0.60；旧值 0.62 会把 0.6145 的域内正确块拒掉
+      #   ⚠️ 全量 214 条重标后若域内最低值跌破 0.60，应重标而不是继续放宽
       # ⚠️ 语料扩容（11300 → 11999 → 12900）后**必须重新标定**：余弦分布随语料整体漂移，
       #    调参时只改这里即可，无需改代码；若域内最低值跌破本阈值，说明该重标而非放宽。
+      # ★ 2026-11-08 全量 214 条实测 0.58：误拒 9.4%（19/203）、拒答 9/11、召回 MISS 无新增，
+      #   故由临时值 0.58 转为保留（决策记录见 项目规划/第7周/19_058实测与决策_2026-11-08.md）。
       # ★ 代码默认值必须与本值一致（见 AiConfigConsistencyTest 护栏）。
-      semantic-reject-score: 0.62
+      semantic-reject-score: 0.58
       # ---- 五因子重排权重（finalScore = Σ 因子 × 权重）----
       fulltext-weight: 1.0
       title-weight: 0.30
@@ -359,7 +374,10 @@ app:
   wiki:
     enabled: ${AI_WIKI_ENABLED:true}
     # 热层命中阈值（页面摘要向量余弦相似度）
-    hit-threshold: 0.55
+    # 2026-11-08 实测（F-10）：跨学科误命中最高 0.572（Prompting/DeepSpeed 页），
+    # 相关页最低 0.6984（进程/线程、数组/指针），0.60 落在空隙内；
+    # 原 0.55 会把「函数专题」答成 Prompting 页面。
+    hit-threshold: 0.60
     # 向量召回候选数
     vector-limit: 10
     # ngram 字面通道最低原始相关度 + 归一化尺度（ft_score 非 0-1）
@@ -412,6 +430,6 @@ logging:
     com.examprep: debug
     org.springframework.security: info
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
 
 

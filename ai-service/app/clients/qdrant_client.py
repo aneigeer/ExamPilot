@@ -527,19 +527,20 @@ class QdrantClientWrapper:
         from qdrant_client import models as qmodels  # type: ignore[import-not-found]  # noqa: PLC0415
 
         client = self._ensure_client()
-        try:
-            if not client.collection_exists(collection_name=self.settings.collection):
+        with self._op_lock:
+            try:
+                if not client.collection_exists(collection_name=self.settings.collection):
+                    return None
+                points = client.retrieve(
+                    collection_name=self.settings.collection, ids=[_META_POINT_ID], with_payload=True
+                )
+                for point in points:
+                    payload = dict(point.payload or {})
+                    if payload.get("__meta__"):
+                        return payload
                 return None
-            points = client.retrieve(
-                collection_name=self.settings.collection, ids=[_META_POINT_ID], with_payload=True
-            )
-            for point in points:
-                payload = dict(point.payload or {})
-                if payload.get("__meta__"):
-                    return payload
-            return None
-        except Exception:  # noqa: BLE001
-            return None
+            except Exception:  # noqa: BLE001
+                return None
 
     def assert_model_matches(self, model_id: str) -> None:
         """校验集合内模型标识与当前配置一致。

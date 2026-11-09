@@ -70,10 +70,18 @@ public class WikiInternalController {
         }
         Long subjectId = longOrNull(body.get("subjectId"));
         int topK = clamp(intOr(body.get("topK"), 3), 1, 10);
+        // ★ F-10 相关性闸门：search() 本身不应用阈值（热层 query 才用），
+        //   Agent 工具若不拦，请求无 subjectId 时低分跨学科页面会直接进 contexts。
+        //   ngram 通道的分数已被抬到阈值之上，这里拦的主要是低分向量命中。
+        double threshold = wikiQueryService.hitThreshold();
         List<WikiHitVO> hits = new ArrayList<>();
         for (WikiQueryService.WikiHit hit : wikiQueryService.search(question, subjectId, topK)) {
+            if (hit.score() < threshold) {
+                continue;
+            }
             hits.add(wikiQueryService.toVO(hit));
         }
+        log.debug("[Wiki] Agent 检索「{}」阈值 {}，保留 {} 条命中", question, threshold, hits.size());
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("engine", "WIKI");
         data.put("hits", hits);

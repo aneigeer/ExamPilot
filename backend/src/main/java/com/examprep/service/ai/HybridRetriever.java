@@ -157,8 +157,11 @@ public class HybridRetriever {
             log.debug("[AI] 语义闸门使用过滤后 top1 余弦 {}（未过滤上界 {}）",
                     String.format("%.4f", vectorBest), String.format("%.4f", vectorBestUnfiltered));
         }
+        boolean lexicalHasEvidence = !ngram.contexts().isEmpty()
+                && ngram.bestScore() >= properties.getRetrieval().getRejectThreshold();
         boolean semanticReject = applyGate
                 && properties.getVector().isEnabled()
+                && !lexicalHasEvidence
                 && vectorBest > 0
                 && vectorBest < properties.getRetrieval().getSemanticRejectScore();
         if (semanticReject) {

@@ -2,7 +2,7 @@
 
 > 面向高校学生的**资料治理 + 智能备考**平台。Android 学生端 + Web 管理端 + Spring Boot 后端三端架构，覆盖「资料上传—审核—预览—下载—举报—下架」治理闭环与「刷题—判分—错题—模考」学习闭环，内置**中南林业科技大学真实教学计划数据**。
 >
-> **AI 导学**为独立 FastAPI 微服务：本地 **Qwen2.5-7B（Ollama，GPU 推理 52 tok/s，无需联网与 API Key）** + bge-small-zh 向量检索 + **Router/Skill 架构**（9 个技能，三闸门判定）+ 抽取式五层降级。语料 **11,300 块**（行测真题 2,398 + 课件 8,867 + 知识点/资料 35），课件来自 497 份文档（含 6 章操作系统 PPT 一页一块、12 篇纯图片课件的 OCR 结果），回答**强制带 `[n]` 引用并回传页码**。
+> **AI 导学**为独立 FastAPI 微服务：本地 **Qwen2.5-7B（Ollama，GPU 推理 52 tok/s，无需联网与 API Key）** + bge-small-zh 向量检索 + **Router/Skill 架构**（9 个技能，三闸门判定）+ 抽取式五层降级。语料 **13,306 块（ACTIVE 12,647）**（题库块 3,057（ACTIVE 2,398）+ 课件 10,214 + 知识点/资料 35），课件来自 497 份文档（含 6 章操作系统 PPT 一页一块、12 篇纯图片课件的 OCR 结果），回答**强制带 `[n]` 引用并回传页码**。
 >
 > **AI 模拟面试**：按主题从真实面试语料出题 → 逐题作答 → 要点级评分（命中/遗漏/参考答案）→ 同题追问 → 生成复盘报告；出题只用检索到的资料改写，不凭空编题。
 >
@@ -12,11 +12,11 @@
 
 ## 一、项目状态（数据均为实测，非估算）
 
-| 模块 | 状态 | 关键指标（2026-10 实测） |
+| 模块 | 状态 | 关键指标（2026-11-08 口径；单测为 2026-11-02 全量） |
 |---|---|---|
-| 后端 | ✅ 完成 | Spring Boot 3.5.3 + JDK 21，**197 个接口 / 33 个 Controller**，单测 **154/154** 通过（2026-10-29 实测，`mvn -B test` BUILD SUCCESS） |
-| 数据库 | ✅ 完成 | MySQL 8，**54 张表**，schema + data + 增量迁移均可重复执行 |
-| Android 学生端 | ✅ 完成 | Java + XML 原生，**35 个页面**，`release/备考知识库学生端-v1.9.1-真机版.apk` 可直接安装（正式签名） |
+| 后端 | ✅ 完成 | Spring Boot 3.5.3 + JDK 21，**196 个对外接口（全量 210 个 operation，含 14 个 internal）/ 33 个 Controller**，单测 **339 个全绿**（2026-11-02 全量 `mvn -B test`；今日仅局部 7/7 `GlobalExceptionHandlerTest`，2026-11-08 15:11） |
+| 数据库 | ✅ 完成 | MySQL 8，**56 张表**（schema.sql 基线 34 + 迁移 20 + 无脚本建表 2），schema + data + 增量迁移均可重复执行 |
+| Android 学生端 | ✅ 完成 | Java + XML 原生，**36 个页面（32 Activity + 4 Fragment）**，`release/备考知识库学生端-v1.9.1-真机版.apk` 可直接安装（正式签名） |
 | Web 管理端 | ✅ 完成 | Vue3 + Element Plus 单页（CDN 本地化），由后端同源托管，零构建零跨域 |
 | **AI 导学** | ✅ 完成 | **本地大模型**：Qwen2.5-7B（q3_k_m）经 Ollama 部署，**GPU 推理 52 tok/s**、显存 4.0 GB、热态首字 0.03–0.2 s、`keep_alive` 防卸载；**不依赖云端 API 与网络**；<br>**Router/Skill 架构**：bge 句向量意图分类（**平均 4–20 ms**，不是让大模型判断意图），**9 个技能** + 三闸门（相似度 / 间隔 / 检索验证），事实类问题**检索无命中即拒答**；<br>**检索隔离**：课程题（QUESTION/KNOWLEDGE）与课件（COURSEWARE）按 `source_type` 硬分流，互不挤占 top-K；<br>**质量（实测）**：生产链路拒答 **9/10 = 90%**、Recall@5 **11/12 = 91.7%**；纯词法降级档 8/10、83.3%（两档分开守，不混口径）；<br>**降级**：本地模型不可用时 **0.095 s** 落到抽取式，接口不中断 |
 | **AI 问答页（App）** | ✅ 完成 | 首页「问 AI」→ `/api/ai/ask`：回答正文 + `[n]` 上标引用 + 来源卡片（题目/课件/Wiki/资料，可跳转）；`refused` 明示「资料里没有」；`degraded` 按 `generator` 分支提示（模型答案裁来源 ≠ 本地抽取）；单次实测 44s，客户端读超时 90s |
@@ -34,13 +34,13 @@
   剩余约 94 份正在按 1100px 降采样批量跑（实测 13–20s/页，断点续跑）。
   **未完成之前不按"已入库"陈述**
 - ⚠️ **多品类仍是骨架**：考研已补 1 类别 + 6 科目（0 题），四六级/考研题目入库依赖
-  「解析器重做 + OCR 建题接入」；当前 3085 道题中 3038 道是单选、只有 9 门科目有题
+  「解析器重做 + OCR 建题接入」；当前 **3,080 道题（2,500 可作答）**中 3,038 道是单选、只有 9 门科目有题
 - ⚠️ **真机回归未做**：AI 面试页、历史记录页只做了编译与 aapt2 校验，
   还没在真机上跑 TalkBack 与全流程
 - ⚠️ **HTTPS 只验到证书层**：证书链与 IP SAN 通过（`Verify return code: 0`），但本机无 nginx，
   `nginx -t`、80→301、真机握手**未实跑**；首次部署请先验配置
 
-- ✅ **AI 语料已扩到 10,506 个 chunk**：国考《行测》真题 2016–2026 经清洗后 **2,398 道可作答客观题**
+- ✅ **AI 语料已扩到 13,306 个 chunk（ACTIVE 12,647）**：国考《行测》真题 2016–2026 经清洗后 **2,398 道可作答客观题**
   （题干+四选项+答案+解析）+ 30 个知识点 + 5 份资料；来源为 `D:\题库` 真题 PDF，经文字层解析入库（图形推理等图片题无法从文字层还原，已自动跳过）。
   入库脚本 `sql/data-guokao.sql` + 清洗脚本 `sql/migration-guokao-clean.sql`（均已应用，可重复执行）；
   扩充/重建只需调 `POST /api/admin/ai/reindex`，**不需改任何 Java 代码**
@@ -61,7 +61,7 @@
 
 ```
 大学生多考试备考知识库与题库系统/
-├── backend/            后端服务（Java 21 + Spring Boot 3.5.3，195 个接口，内嵌管理端页面）
+├── backend/            后端服务（Java 21 + Spring Boot 3.5.3，196 个对外接口（全量 210），内嵌管理端页面）
 ├── admin-web/          管理端 Web 源码（Vue3 + Element Plus 单页应用）
 ├── student-app/        学生端 App（Android 原生：Java + XML，Gradle 工程）
 ├── ai-service/         AI 微服务（FastAPI：向量检索 / 本地 7B 代理 / OCR / Router+Skill）
@@ -184,7 +184,7 @@ flowchart TB
 > 📌 **向量库是派生存储，不是数据源**：删掉整个 Qdrant volume，
 > 跑一次 `POST /api/admin/ai/reindex` 即可从 MySQL `ai_chunk` 完全恢复。
 
-> ⚠️ **阈值标定说明（诚实声明）**：语料已扩到 3092 块，相关问题的向量余弦分本轮实测约
+> ⚠️ **阈值标定说明（诚实声明）**：语料已扩到 3,092 块（历史规模，当前 13,306 块 / ACTIVE 12,647），相关问题的向量余弦分本轮实测约
 > 0.60~0.72（高于 `min-vector-score` 0.55）。但**阈值余量仍需按新语料重跑一遍标定**——
 > 无关问题的分布会随语料规模变化；相对阈值（`0.8×最高分`）是为此预留的保险层。
 
@@ -240,7 +240,7 @@ flowchart TB
 | 学生端 | Android 原生：Java + XML + ViewBinding + Retrofit/OkHttp/Gson + Glide + RecyclerView + Material 3（compileSdk 34 / minSdk 26，Gradle 8.7 + AGP 8.5.2） |
 | 管理端 | Vue3 + Element Plus（CDN 本地化单页应用，后端同源托管） |
 | 后端 | JDK 21 + Spring Boot 3.5.3 + Spring Security 6 + JWT（jjwt 0.12.6）+ MyBatis-Plus 3.5.7 + springdoc-openapi 2.8.6 + PDFBox 3.0.7 |
-| 数据库 | MySQL 8.0（49 张表；主观题/复杂题答案以 MySQL JSON 承载） |
+| 数据库 | MySQL 8.0（56 张表；schema.sql 基线 34 + 迁移 20 + 无脚本建表 2；主观题/复杂题答案以 MySQL JSON 承载） |
 | 构建 | Maven（后端）/ Gradle 8.7 + AGP 8.5.2（学生端） |
 
 ---
@@ -393,7 +393,7 @@ java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar \
 HTML 报告：`ai-service/eval/reports/`。
 
 **⚠️ 本轮评估暴露的已知问题（必须说明）**
-- `app.ai.retrieval.min-vector-score=0.55` 是按 **42 块**小语料标定的；语料扩到 **2535 块**后实测：相关查询 top1 仅 **0.4706–0.4866**，无关查询 **0.4454–0.4534**，0.55 会把大量可用向量直接拦掉。本轮检索评估使用 `applyGate=false`（原始向量召回 + 关闭 ngram 覆盖率闸门）测**纯召回**；生产阈值需要重新标定，本次未擅自改动。
+- `app.ai.retrieval.min-vector-score=0.55` 是按 **42 块**小语料标定的；语料扩到 **2,535 块**（历史规模；当前 13,306 块 / ACTIVE 12,647）后实测：相关查询 top1 仅 **0.4706–0.4866**，无关查询 **0.4454–0.4534**，0.55 会把大量可用向量直接拦掉。本轮检索评估使用 `applyGate=false`（原始向量召回 + 关闭 ngram 覆盖率闸门）测**纯召回**；生产阈值需要重新标定，本次未擅自改动。
 - Agent 侧 **2/120** 失败：`常识判断`、`数量关系` 的最终答案未包含知识点全名，属于判定严格，不是工具失败。
 - 大模型 Key 当前不可用，Agent 走规则规划器；结构化答案由 `agent-rule` 生成，不伪造 LLM 结果。
 
@@ -510,12 +510,14 @@ java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar \
 | 密码安全 | BCrypt 存储；注册/改密强制 ≥8 位含字母数字；JWT 密钥未配置即拒绝启动 |
 | 数据一致性 | 科目题目数/资料数由 GROUP BY 实时统计，避免冗余字段失真；审核 CAS 乐观锁；唯一键冲突转 409 |
 | 稳定性 | 异步回调空上下文保护（真机闪退已修）、分片代码判分幂等、模考超时自动交卷 |
-| 测试 | 后端单测 **124/124**、AI 侧 **145/145**（`pytest --collect-only` 实测收集数）；端到端旅程实测（注册→刷题→交卷→错题→模考→上传→审核→通知→下载→改密）全通 |
+| 测试 | 后端单测 **339 个全绿**（2026-11-02 全量 `mvn -B test`；今日仅局部 7/7）、AI 侧 **145/145**（`pytest --collect-only` 实测收集数）；端到端旅程实测（注册→刷题→交卷→错题→模考→上传→审核→通知→下载→改密）全通 |
 | 文档 | 16 份工程文档，含需求/设计/数据库/API/测试/用户手册/部署/总结 + AI 设计 ×2 + 降级演练/环境清单/验收报告 |
 
 ---
 
-## 九、接口概览（154 个，按控制器实测分布）
+## 九、接口概览（196 个对外接口，按控制器历史抽样分布）
+
+> 注：下表为历史抽样分布（行和 154，未含 `AiOpsController`、`AgentInternalController`、`Wiki*`、`AiInterviewController`、`CoursewareController`、`AiAgentController` 等后加模块）；全量 210 个 operation（含 14 个 `/internal/**`），对外 196 个，以 Swagger UI 为准。
 
 | 控制器 | 接口数 | 控制器 | 接口数 |
 |---|---|---|---|
@@ -533,7 +535,7 @@ java -jar target/exam-prep-backend-1.0.0-SNAPSHOT.jar \
 |  |  | StorageAdminController | 2 |
 |  |  | SchoolController / HomeController / CodeRunController | 各 1 |
 
-按域整理的清单（含访问级别）见 **docs/API.md**；**完整 195 个接口以 Swagger UI 为准**（`/api/swagger-ui.html`，自动生成、不会失真）。
+按域整理的清单（含访问级别）见 **docs/API.md**；**完整 196 个对外接口（全量 210，含 14 个 internal）以 Swagger UI 为准**（`/api/swagger-ui.html`，自动生成、不会失真）。
 
 ---
 
@@ -569,8 +571,8 @@ cd ..\backend; java -jar target\exam-prep-backend-1.0.0-SNAPSHOT.jar --server.po
 | docs/需求规格说明书.md | 功能与非功能需求、验收标准 |
 | docs/概要设计说明书.md | 架构、模块划分、技术选型、关键决策 |
 | docs/详细设计说明书.md | 判分/审核状态机/预览水印/签名下载/限流/推荐排序实现细节 |
-| docs/数据库设计说明书.md | 43 表清单、ER 图、关键表结构、索引约束 |
-| docs/API.md | 按域整理的接口清单与访问级别（完整 154 个以 Swagger UI 为准） |
+| docs/数据库设计说明书.md | 历史清单 43 张（当前实测 56 张）、ER 图、关键表结构、索引约束 |
+| docs/API.md | 按域整理的接口清单与访问级别（完整 196 个对外接口以 Swagger UI 为准） |
 | docs/测试报告.md | 单元/端到端/权限/安全测试结果（性能数据待本机压测回填） |
 | docs/用户手册.md | 学生端与管理端使用说明（含隐私政策/版权/学术诚信声明） |
 | docs/部署文档.md | 本机运行与 Docker Compose 部署、备份恢复 |

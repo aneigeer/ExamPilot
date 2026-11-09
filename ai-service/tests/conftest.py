@@ -58,6 +58,15 @@ def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "QDRANT_COLLECTION",
         "OCR_ENABLED",
         "APP_NAME",
+        # ★ 安全相关：本机可能真配了令牌或开了匿名，会让「fail-closed 必须 401」
+        #   这类契约断言失真，因此测试默认按"未配置令牌 + 未开匿名"运行。
+        "AI_INTERNAL_TOKEN",
+        "AGENT_ALLOW_ANONYMOUS",
+        "AGENT_ENABLED",
+        "JAVA_BASE_URL",
+        # ★ 受控实验开关：本机若临时打开过，会让"关闭态与基线一致"的断言失真
+        "AGENT_SUBAGENT_ENABLED",
+        "AGENT_SUBAGENT_MAX_QUESTIONS",
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("LLM_API_KEY", "")

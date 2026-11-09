@@ -147,6 +147,68 @@ def test_search_top_k_out_of_range_returns_400(client: Any) -> None:
     assert client.post("/v1/search", json={"query": "x", "top_k": 101}).status_code == 400
 
 
+def _seed_chunks(client: Any, count: int) -> None:
+    """写入 ``count`` 条同主题语料，保证检索有足够候选。"""
+    client.post("/v1/index/rebuild", json={})
+    response = client.post(
+        "/v1/index/sync",
+        json={
+            "chunks": [
+                {"chunk_id": i, "content": f"检索样本内容 {i}"} for i in range(1, count + 1)
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["synced"] == count
+
+
+def test_search_top_k_is_strict_and_accepts_camel_case(client: Any) -> None:
+    """回归：``topK=5`` 必须只返回 5 条，``top_k`` / ``topK`` 两种写法都要生效。
+
+    冒烟报告里请求 ``{"topK": 5}`` 却返回 10 条，根因是 ``SearchRequest`` 只认
+    ``top_k``，驼峰字段被 pydantic 静默忽略后用了默认值 10。
+    """
+    _seed_chunks(client, 12)
+
+    for field in ("top_k", "topK"):
+        for top_k in (5, 10):
+            data = client.post(
+                "/v1/search", json={"query": "检索样本内容", field: top_k}
+            ).json()
+            assert len(data["hits"]) == top_k, (
+                f"{field}={top_k} 实际返回 {len(data['hits'])} 条"
+            )
+
+
+def test_search_top_k_defaults_to_10(client: Any) -> None:
+    """不传 topK 时保持原默认值 10。"""
+    _seed_chunks(client, 12)
+    data = client.post("/v1/search", json={"query": "检索样本内容"}).json()
+    assert len(data["hits"]) == 10
+
+
+def test_search_top_k_clamped_to_50(client: Any) -> None:
+    """超过 50 的 topK 收敛为 50（严格 ``min(max(1, topK), 50)``）。"""
+    _seed_chunks(client, 60)
+    data = client.post("/v1/search", json={"query": "检索样本内容", "topK": 100}).json()
+    assert len(data["hits"]) == 50
+
+
+def test_search_truncates_hits_even_if_backend_over_returns(
+    client: Any, fake_qdrant: Any, monkeypatch: Any
+) -> None:
+    """底层返回多于 topK 时，接口层仍必须截断（不依赖向量库是否守约）。"""
+    _seed_chunks(client, 12)
+    original = fake_qdrant.search
+
+    def _over_return(vector: Any, *, top_k: int = 10, query_filter: Any = None) -> Any:
+        return original(vector, top_k=10_000, query_filter=query_filter)
+
+    monkeypatch.setattr(fake_qdrant, "search", _over_return)
+    data = client.post("/v1/search", json={"query": "检索样本内容", "topK": 5}).json()
+    assert len(data["hits"]) == 5
+
+
 def test_search_returns_503_when_model_mismatch(client: Any, fake_qdrant: Any) -> None:
     """换模型未重建 → 5208（Java 侧触发 reindex），不是 500。"""
     client.post("/v1/index/sync", json={"chunks": [{"chunk_id": 1, "content": "内容"}]})

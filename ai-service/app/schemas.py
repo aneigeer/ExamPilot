@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 # --------------------------------------------------------------------------------------
 # 通用
@@ -72,6 +72,38 @@ class EmbeddingHealth(ComponentHealth):
     )
 
 
+class SecurityHealth(BaseModel):
+    """安全姿态（**只有布尔状态，绝不包含令牌值/长度/前缀**）。
+
+    字段名按契约 ``docs/Agent阶段三接口契约.md`` §3 A11 固定为 camelCase
+    （Java 侧 ``/ai/capability`` 按此解析），因此这里用 alias 而不是默认 snake_case。
+
+    Attributes:
+        internal_token_configured: ``AI_INTERNAL_TOKEN`` 是否非空。
+        agent_auth_required: 是否强制校验令牌
+            （``internal_token_configured && !anonymous_allowed``）。
+        anonymous_allowed: ``AGENT_ALLOW_ANONYMOUS`` 是否为真。
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    internal_token_configured: bool = Field(
+        default=False,
+        alias="internalTokenConfigured",
+        description="是否配置了 AI_INTERNAL_TOKEN（绝不返回令牌值本身）",
+    )
+    agent_auth_required: bool = Field(
+        default=False,
+        alias="agentAuthRequired",
+        description="是否强制校验内部令牌 = 已配置令牌 且 未开匿名放行",
+    )
+    anonymous_allowed: bool = Field(
+        default=False,
+        alias="anonymousAllowed",
+        description="是否显式关闭了 /v1/agent/* 鉴权（AGENT_ALLOW_ANONYMOUS）；true 仅限本地开发",
+    )
+
+
 class HealthResponse(BaseModel):
     """``GET /v1/health`` 响应。"""
 
@@ -81,6 +113,11 @@ class HealthResponse(BaseModel):
     ocr: ComponentHealth = Field(description="OCR 能力状态")
     llm: ComponentHealth = Field(description="大模型代理状态")
     version: str = Field(default="", description="服务版本号")
+    #: 带默认值：老调用方（只读四段能力）不会因新增字段而反序列化失败；
+    #: **不参与** all_ready / status 判定（安全姿态不是"能力不可用"）
+    security: SecurityHealth = Field(
+        default_factory=SecurityHealth, description="安全姿态（内部令牌是否配置等布尔状态）"
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -153,7 +190,13 @@ class SearchRequest(BaseModel):
     """``POST /v1/search`` 请求。"""
 
     query: str = Field(description="查询文本，内部自动加 bge 检索问句前缀")
-    top_k: int = Field(default=10, ge=1, le=100, description="返回条数，1-100")
+    top_k: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        validation_alias=AliasChoices("top_k", "topK"),
+        description="返回条数，1-100（接口实际返回上限 50；兼容 top_k / topK 两种写法）",
+    )
     filters: SearchFilters = Field(default_factory=SearchFilters, description="payload 过滤条件")
 
     @field_validator("query")
@@ -509,6 +552,15 @@ class AgentTurn(BaseModel):
     answer: str = Field(default="", description="助手答案（Java 已截断到 300 字）")
 
 
+#: ``maxSteps`` 允许范围（含端点，契约 §3 A8）。
+#:
+#: 下限 1：0 步的会话没有意义（harness 内部 ``max(1, ...)`` 会静默改语义）。
+#: 上限 ``MAX_STEPS_LIMIT=12``：每步都可能是一次真实 LLM 调用，放开了等于把
+#: "单次会话时长"交给调用方；12 步已覆盖最复杂的"检索→查题→复盘→作答"链路。
+MAX_STEPS_MIN: int = 1
+MAX_STEPS_LIMIT: int = 12
+
+
 class AgentRequest(BaseModel):
     """``POST /v1/agent/stream`` / ``/v1/agent/run`` 请求。"""
 
@@ -519,7 +571,14 @@ class AgentRequest(BaseModel):
     subject_id: Optional[int] = Field(default=None, alias="subjectId")
     exam_category_id: Optional[int] = Field(default=None, alias="examCategoryId")
     trace_id: Optional[str] = Field(default=None, alias="traceId")
-    max_steps: Optional[int] = Field(default=None, alias="maxSteps", description="覆盖最大步数")
+    max_steps: Optional[int] = Field(
+        default=None,
+        alias="maxSteps",
+        description=(
+            f"覆盖最大步数，允许 {MAX_STEPS_MIN}..{MAX_STEPS_LIMIT}；"
+            "不传则沿用 AGENT_MAX_STEPS（默认 6）"
+        ),
+    )
     profile: Optional[AgentProfile] = Field(default=None, description="离线评估用模拟画像")
     session_id: Optional[str] = Field(
         default=None, alias="sessionId", max_length=32, description="会话 ID（跨轮次记忆）"
@@ -545,6 +604,32 @@ class AgentRequest(BaseModel):
     def _history_limit(cls, value: List[AgentTurn]) -> List[AgentTurn]:
         if len(value) > 10:
             raise ValueError("history 单次最多 10 轮")
+        return value
+
+    @field_validator("max_steps")
+    @classmethod
+    def _max_steps_in_range(cls, value: Optional[int]) -> Optional[int]:
+        """约束 ``maxSteps`` 只接受 1..12；不传（``None``）表示"用配置默认值"。
+
+        **为什么校验放在 schema 而不是路由/``_harness``**：
+        ``/v1/agent/run`` 与 ``/v1/agent/stream`` 共用同一个请求模型，schema 校验由
+        FastAPI 在**进入路由函数之前**执行 —— 一处声明即可覆盖两条链路，且失败自动
+        走全局 ``RequestValidationError`` 处理器（400 + code=5200，统一错误体），
+        不需要在每个路由里重复写一遍校验分支。
+
+        **"未传" ≠ "传 0"**：``None`` 走默认值 6；``0`` 是非法值直接 400。
+
+        Raises:
+            ValueError: 越界（含 0 与负数）。pydantic 会转成 400/5200。
+        """
+        if value is None:
+            return None
+        if value < MAX_STEPS_MIN or value > MAX_STEPS_LIMIT:
+            # 文案只写后半句：handler 会拼成
+            # "参数错误：maxSteps 必须在 1..12 之间（当前 0）"
+            raise ValueError(
+                f"必须在 {MAX_STEPS_MIN}..{MAX_STEPS_LIMIT} 之间（当前 {value}）"
+            )
         return value
 
 

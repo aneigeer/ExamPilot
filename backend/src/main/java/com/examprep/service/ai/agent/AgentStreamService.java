@@ -2,6 +2,7 @@ package com.examprep.service.ai.agent;
 
 import com.examprep.common.BizException;
 import com.examprep.common.ResultCode;
+import com.examprep.common.TraceContext;
 import com.examprep.dto.ai.AgentStreamRequest;
 import com.examprep.dto.ai.AskVO;
 import com.examprep.dto.ai.SourceRefVO;
@@ -12,6 +13,7 @@ import com.examprep.service.ai.AiQaService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -71,6 +73,13 @@ public class AgentStreamService {
     private final Semaphore semaphore;
     private final HttpClient httpClient;
 
+    /** 步骤检查点（中断恢复用）；落库失败只 WARN，绝不影响会话 */
+    private final com.examprep.mapper.AiAgentCheckpointMapper checkpointMapper;
+
+    /** 哪些事件需要落检查点（final/done/meta 不需要：恢复只关心"走到第几步、干了什么"） */
+    private static final java.util.Set<String> CHECKPOINT_EVENTS =
+            java.util.Set.of("thought", "tool_call", "tool_result");
+
     public AgentStreamService(
             AgentRunService runService,
             AgentSessionService sessionService,
@@ -78,7 +87,8 @@ public class AgentStreamService {
             AiProperties properties,
             ObjectMapper objectMapper,
             @Qualifier("agentStreamExecutor") ThreadPoolTaskExecutor executor,
-            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler) {
+            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
+            com.examprep.mapper.AiAgentCheckpointMapper checkpointMapper) {
         this.runService = runService;
         this.sessionService = sessionService;
         this.aiQaService = aiQaService;
@@ -86,6 +96,7 @@ public class AgentStreamService {
         this.objectMapper = objectMapper;
         this.executor = executor;
         this.heartbeatScheduler = heartbeatScheduler;
+        this.checkpointMapper = checkpointMapper;
         this.semaphore = new Semaphore(
                 Math.max(1, properties.getAgent().getMaxConcurrent()), true);
         this.httpClient = HttpClient.newBuilder()
@@ -97,7 +108,27 @@ public class AgentStreamService {
     /**
      * 建立 SSE 会话（返回前完成并发闸门与 RUNNING 记录创建）
      */
-    public SseEmitter stream(AgentStreamRequest request, Long userId, String traceId) {
+    /**
+     * 一次会话的启动结果。
+     *
+     * @param emitter   已注册好回调的 SSE 连接
+     * @param runId     本轮 {@code ai_agent_run} 主键（恢复接口要把它回传给调用方）
+     * @param traceId   本轮链路 ID
+     * @param sessionId 会话 ID
+     */
+    public record StreamStart(SseEmitter emitter, Long runId, String traceId, String sessionId) {
+    }
+
+    /**
+     * 建立 SSE 会话，并把新 runId 一并返回（给「检查点恢复」用）。
+     *
+     * <p><b>为什么要有这个重载</b>：中断恢复必须能告诉调用方"新 run 是哪一条"，
+     * 而 SSE 的响应体被事件流占用，塞不进 JSON。所以新 runId 在<b>返回之前</b>
+     * （{@code runService.start} 已经落库）就取出来，由 controller 写进响应头。
+     *
+     * @throws BizException 能力未启用（503）或并发超限（429）
+     */
+    public StreamStart start(AgentStreamRequest request, Long userId, String traceId) {
         AiProperties.Agent cfg = properties.getAgent();
         if (!cfg.isEnabled()) {
             throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE,
@@ -135,7 +166,16 @@ public class AgentStreamService {
             throw new BizException(ResultCode.TOO_MANY_REQUESTS,
                     "AI 会话排队已满，请稍后再试");
         }
-        return emitter;
+        return new StreamStart(emitter, run.getId(), traceId, run.getSessionId());
+    }
+
+    /**
+     * 建立 SSE 会话（不需要 runId 的常规入口）。
+     *
+     * @see #start(AgentStreamRequest, Long, String)
+     */
+    public SseEmitter stream(AgentStreamRequest request, Long userId, String traceId) {
+        return start(request, userId, traceId).emitter();
     }
 
     // ==================================================================
@@ -146,6 +186,8 @@ public class AgentStreamService {
     void relay(SseEmitter emitter, AiAgentRun run, AgentStreamRequest request,
                Runnable releaseOnce) {
         RelayState state = new RelayState();
+        state.runId = run.getId();
+        state.sessionId = run.getSessionId();
         List<Map<String, Object>> events = Collections.synchronizedList(new ArrayList<>());
         AtomicReference<CompletableFuture<HttpResponse<Stream<String>>>> futureRef =
                 new AtomicReference<>();
@@ -175,6 +217,10 @@ public class AgentStreamService {
         }, 15, 15, TimeUnit.SECONDS));
 
         long started = System.currentTimeMillis();
+        // ★ 转发任务跑在 agentStreamExecutor 上，MDC 不会从请求线程继承：
+        //   任务入口显式写入，finally 中清理（线程池复用防串号）。
+        //   放在 try 内首行，保证「写入 ⇔ 清理」严格配对（心跳任务不写 MDC）。
+        MDC.put(TraceContext.MDC_KEY, run.getTraceId());
         try {
             callPython(emitter, run, request, state, events, futureRef);
         } catch (Exception e) {
@@ -235,6 +281,9 @@ public class AgentStreamService {
             } catch (Exception ignored) {
                 // 客户端已断开
             }
+
+            // ★ 与任务入口的 MDC.put 配对：线程池复用防串号
+            TraceContext.clear();
         }
     }
 
@@ -252,14 +301,19 @@ public class AgentStreamService {
         body.put("examCategoryId", request.getExamCategoryId());
         body.put("traceId", run.getTraceId());
         body.put("sessionId", run.getSessionId());
-        // 分层记忆：滚动摘要 + 最近 6 轮问答，由 Python Context Manager 做预算与压缩
-        body.put("memorySummary", sessionService.summary(run.getSessionId()));
+        // 分层记忆：滚动摘要 + 最近 6 轮问答 + 学生长期记忆，由 Python Context Manager 做预算与压缩
+        body.put("memorySummary", sessionService.summary(run.getSessionId(), run.getUserId()));
         body.put("history", sessionService.history(run.getSessionId(), run.getUserId(), 6));
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
                 .header("Accept", "text/event-stream");
+        // ★ 链路追踪：头与 body.traceId 必须同值（Python 侧以头为准，body 字段仅保留兼容）。
+        //   一次会话/一轮 run 只用一个 traceId，断连与超时都不重新生成。
+        String traceHeader = run.getTraceId();
+        builder.header(TraceContext.HEADER,
+                traceHeader != null && !traceHeader.isBlank() ? traceHeader : TraceContext.generate());
         // ★ Python 侧 /v1/agent/* 现在校验内部令牌（缺失/错误 → 401）。
         // 未配置时不发该头，保持「本地零配置也能跑」；配置后 Java↔Python 才对得上。
         String internalToken = properties.getInternalToken();
@@ -324,6 +378,7 @@ public class AgentStreamService {
         item.put("event", name);
         item.put("data", parseJson(payload));
         events.add(item);
+        recordCheckpoint(state, name, item.get("data"));
 
         boolean isFinal = "final".equals(name);
         JsonNode finalNode = null;
@@ -410,6 +465,7 @@ public class AgentStreamService {
         item.put("event", name);
         item.put("data", data);
         events.add(item);
+        recordCheckpoint(state, name, data);
         try {
             emitter.send(SseEmitter.event().name(name)
                     .data(payload, MediaType.TEXT_PLAIN));
@@ -458,7 +514,68 @@ public class AgentStreamService {
     }
 
     /** 转发过程中累积的状态 */
+    /**
+     * 落一条步骤检查点（thought / tool_call / tool_result）。
+     *
+     * <p><b>payload 不含用户原文</b>：只记事件名、工具名、参数<b>键名</b>。
+     * 把问题原文或工具返回原文写进 checkpoint，等于在库里复制一份对话内容，
+     * 还会绕过 {@code ai_agent_run} 的保留期清理（checkpoint 有自己的生命周期）。
+     *
+     * <p>失败只 WARN：检查点是"锦上添花"的能力，不能因为它把正常会话搞失败。
+     */
+    private void recordCheckpoint(RelayState state, String eventName, Object data) {
+        if (state.runId == null || !CHECKPOINT_EVENTS.contains(eventName)) {
+            return;
+        }
+        int step = state.checkpointStep.incrementAndGet();
+        try {
+            checkpointMapper.insertCheckpoint(state.runId, state.sessionId, step,
+                    checkpointSummary(eventName, data));
+        } catch (Exception e) {
+            log.warn("[Agent] 检查点落库失败 run={} step={} event={}：{}",
+                    state.runId, step, eventName, e.getMessage());
+        }
+    }
+
+    /**
+     * 步骤摘要 JSON：事件名 + 工具名 + 参数键名（无任何取值）。
+     *
+     * <p>入参可能是 {@link JsonNode}（Python 流解析出来的）或 {@code Map}（本地降级路径构造的），
+     * 统一转成 JsonNode 再取，避免两条链路的行为不一致——这种"只在一半路径生效"的差异
+     * 极难发现（降级时检查点就突然没内容了）。
+     */
+    private String checkpointSummary(String eventName, Object data) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("event", eventName);
+        try {
+            JsonNode node = data instanceof JsonNode jsonNode
+                    ? jsonNode
+                    : objectMapper.valueToTree(data);
+            if (node != null && node.isObject()) {
+                String tool = node.path("tool").asText(null);
+                if (tool != null && !tool.isBlank()) {
+                    summary.put("tool", tool);
+                }
+                // 工具参数键名：Python 侧字段是 arguments（历史代码也有 args，两个都认）
+                JsonNode args = node.has("arguments") ? node.get("arguments") : node.get("args");
+                if (args != null && args.isObject()) {
+                    List<String> keys = new ArrayList<>();
+                    args.fieldNames().forEachRemaining(keys::add);
+                    summary.put("argKeys", keys);
+                }
+            }
+            return objectMapper.writeValueAsString(summary);
+        } catch (Exception e) {
+            return "{\"event\":\"" + eventName + "\"}";
+        }
+    }
+
     private static final class RelayState {
+        /** 检查点写入需要知道属于哪个 run（不改 dispatch 签名，避免大范围改动） */
+        volatile Long runId;
+        volatile String sessionId;
+        final java.util.concurrent.atomic.AtomicInteger checkpointStep =
+                new java.util.concurrent.atomic.AtomicInteger(0);
         final AtomicBoolean finalSent = new AtomicBoolean(false);
         final AtomicBoolean timeoutFlag = new AtomicBoolean(false);
         final AtomicBoolean errorFlag = new AtomicBoolean(false);

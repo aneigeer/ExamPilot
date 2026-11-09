@@ -35,6 +35,9 @@ _WEIGHT_TITLE_HIT = 0.15
 _WEIGHT_HOT = 0.05
 _WEIGHT_DIFFICULTY_PENALTY = 0.02
 
+#: 最终返回条数上限（重排在进程内做，条数过多只会拖慢响应，且 Java 侧只用 Top-5）
+_MAX_TOP_K = 50
+
 
 @router.post(
     "/v1/search",
@@ -73,9 +76,12 @@ def search(request: SearchRequest) -> SearchResponse:
     query_vector = embedding_client.encode_query(request.query)
 
     # ③ Qdrant 检索
+    # ★ topK 必须是「最终返回条数」的硬上限：请求可能来自 topK 驼峰写法（
+    #   SearchRequest 已做别名兼容），也可能被上层桩/实现多返回，这里统一收敛。
+    top_k = min(max(1, request.top_k), _MAX_TOP_K)
     query_filter = request.filters.to_qdrant_filter()
     raw_hits: List[Dict[str, Any]] = qdrant_client.search(
-        query_vector, top_k=request.top_k, query_filter=query_filter
+        query_vector, top_k=top_k, query_filter=query_filter
     )
 
     # ④ 轻量重排（不覆盖 score 字段语义，只在 payload 里补 rerank_score）
@@ -85,7 +91,7 @@ def search(request: SearchRequest) -> SearchResponse:
     ranked.sort(key=lambda item: item[0], reverse=True)
 
     hits: List[SearchHit] = []
-    for rerank_score, hit in ranked:
+    for rerank_score, hit in ranked[:top_k]:
         payload = dict(hit["payload"])
         payload["rerank_score"] = round(rerank_score, 6)
         hits.append(
@@ -95,7 +101,7 @@ def search(request: SearchRequest) -> SearchResponse:
     took_ms = int((time.perf_counter() - started) * 1000)
     logger.info(
         "[Search] top_k=%d hits=%d took_ms=%d filter=%s",
-        request.top_k, len(hits), took_ms, bool(query_filter),
+        top_k, len(hits), took_ms, bool(query_filter),
     )
     return SearchResponse(hits=hits, took_ms=took_ms, dim=len(query_vector))
 

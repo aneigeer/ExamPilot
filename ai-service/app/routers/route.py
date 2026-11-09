@@ -44,7 +44,7 @@ from pydantic import BaseModel, Field
 from ..router.schemas import SkillName
 from ..router.router import get_router
 from ..skills.registry import get_skill
-from .agent import require_internal_token
+from .agent import require_internal_token_if_configured
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ def _fallback(reason: str, confidence: float = 0.0, margin: float = 0.0) -> Rout
 @router.post(
     "/v1/route",
     response_model=RouteResponse,
-    dependencies=[Depends(require_internal_token)],
+    dependencies=[Depends(require_internal_token_if_configured)],
     summary="意图路由（检索前一次性判定 skill 与来源白名单）",
     description=(
         "只做判定不做检索；P95 目标 ≤ 50ms。"

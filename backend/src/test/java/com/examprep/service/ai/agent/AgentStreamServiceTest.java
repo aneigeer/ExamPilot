@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,17 +61,87 @@ class AgentStreamServiceTest {
         }
     }
 
+    @Test
+    @DisplayName("★ 检查点：thought/tool_call/tool_result 逐步落库，payload 不含问题原文与参数取值")
+    void recordsCheckpointPerStepWithoutPii() throws Exception {
+        // SSE 帧用文本块写（空行 = 事件边界），标题行与 data 行成对出现
+        String body = """
+                event: meta
+                data: {"traceId":"t"}
+
+                event: thought
+                data: {"step":1,"text":"先检索 C语言int占几个字节"}
+
+                event: tool_call
+                data: {"step":1,"tool":"search_knowledge","arguments":{"query":"C语言int占几个字节","topK":5}}
+
+                event: tool_result
+                data: {"step":1,"tool":"search_knowledge","content":"C语言int占几个字节的隐私原文"}
+
+                event: final
+                data: {"answer":"A","generator":"extractive","degraded":true,"refused":false,"step_count":2,"tool_calls":1}
+
+                """;
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/agent/stream", exchange -> {
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        try {
+            com.examprep.mapper.AiAgentCheckpointMapper checkpointMapper =
+                    mock(com.examprep.mapper.AiAgentCheckpointMapper.class);
+            AgentStreamService service = service(
+                    "http://127.0.0.1:" + server.getAddress().getPort(),
+                    mock(AgentRunService.class), mock(AiQaService.class),
+                    "", checkpointMapper);
+
+            service.relay(new CapturingEmitter(0), run(), request(), () -> {
+            });
+
+            org.mockito.ArgumentCaptor<String> payload =
+                    org.mockito.ArgumentCaptor.forClass(String.class);
+            org.mockito.ArgumentCaptor<Integer> step =
+                    org.mockito.ArgumentCaptor.forClass(Integer.class);
+            verify(checkpointMapper, times(3))
+                    .insertCheckpoint(eq(99L), eq("s-1"), step.capture(), payload.capture());
+
+            assertEquals(java.util.List.of(1, 2, 3), step.getAllValues(), "step 必须从 1 起连续递增");
+            for (String json : payload.getAllValues()) {
+                assertFalse(json.contains("C语言int占几个字节"), "payload 不得含问题/工具原文：" + json);
+                assertFalse(json.contains("隐私原文"), "payload 不得含工具返回原文：" + json);
+            }
+            assertTrue(payload.getAllValues().get(1).contains("search_knowledge"), "要留工具名便于排查");
+            assertTrue(payload.getAllValues().get(1).contains("query"), "要留参数键名");
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private AgentStreamService service(String baseUrl,
                                        AgentRunService runService,
                                        AiQaService aiQaService) {
-        return service(baseUrl, runService, aiQaService, null);
+        return service(baseUrl, runService, aiQaService, null,
+                mock(com.examprep.mapper.AiAgentCheckpointMapper.class));
+    }
+
+    private AgentStreamService service(String baseUrl,
+                                       AgentRunService runService,
+                                       AiQaService aiQaService,
+                                       String internalToken) {
+        return service(baseUrl, runService, aiQaService, internalToken,
+                mock(com.examprep.mapper.AiAgentCheckpointMapper.class));
     }
 
     /** 带内部令牌的工厂（null/空 = 不发送该头） */
     private AgentStreamService service(String baseUrl,
                                        AgentRunService runService,
                                        AiQaService aiQaService,
-                                       String internalToken) {
+                                       String internalToken,
+                                       com.examprep.mapper.AiAgentCheckpointMapper checkpointMapper) {
         AiProperties properties = new AiProperties();
         properties.getAgent().setEnabled(true);
         properties.getAgent().setStreamTimeoutMillis(5000L);
@@ -86,7 +158,7 @@ class AgentStreamServiceTest {
         when(sessionService.summary("s-1")).thenReturn("");
         when(sessionService.history(eq("s-1"), any(), anyInt())).thenReturn(List.of());
         return new AgentStreamService(runService, sessionService, aiQaService, properties,
-                new ObjectMapper(), executor, scheduler);
+                new ObjectMapper(), executor, scheduler, checkpointMapper);
     }
 
     private AgentStreamRequest request() {

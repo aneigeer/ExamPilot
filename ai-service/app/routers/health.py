@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -21,20 +22,45 @@ from ..clients.llm_client import get_llm_client
 from ..clients.qdrant_client import get_qdrant_client
 from ..config import get_settings
 from ..ocr.paddle_ocr_engine import get_ocr_engine
-from ..schemas import ComponentHealth, EmbeddingHealth, HealthResponse
+from ..schemas import (
+    ComponentHealth,
+    EmbeddingHealth,
+    HealthResponse,
+    SecurityHealth,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
 
+def _security_health(settings: Any) -> SecurityHealth:
+    """由配置推导安全姿态三键（**只暴露布尔，不碰令牌值**）。
+
+    Args:
+        settings: 全局配置（``Settings``）。
+
+    Returns:
+        :class:`SecurityHealth`，``agentAuthRequired = 已配置令牌 && !匿名放行``。
+    """
+    token_configured = bool(settings.agent.internal_token)
+    anonymous_allowed = bool(settings.agent.allow_anonymous)
+    return SecurityHealth(
+        internal_token_configured=token_configured,
+        agent_auth_required=token_configured and not anonymous_allowed,
+        anonymous_allowed=anonymous_allowed,
+    )
+
+
 @router.get(
     "/v1/health",
     response_model=HealthResponse,
-    summary="健康检查（各能力就绪状态）",
+    summary="健康检查（各能力就绪状态 + 安全姿态）",
     description=(
         "返回 embedding / qdrant / ocr / llm 四项能力的就绪状态。"
         "status=ok 表示全部就绪，degraded 表示至少一项不可用（系统仍可运行，Java 侧自动降级）。"
+        "另含 security 段：internal_token_set / agent_anonymous_allowed / agent_enabled，"
+        "**只暴露布尔状态，绝不返回令牌值**。"
         "**本接口恒返回 HTTP 200**。"
     ),
 )
@@ -42,7 +68,7 @@ def health() -> HealthResponse:
     """汇总各能力健康状态。
 
     Returns:
-        :class:`HealthResponse`，含四项能力的 ``ready`` 标记。
+        :class:`HealthResponse`，含四项能力 ``ready`` 标记 + 安全姿态布尔量。
     """
     settings = get_settings()
 
@@ -90,4 +116,10 @@ def health() -> HealthResponse:
         ocr=ocr_health,
         llm=llm_health,
         version=settings.version,
+        # —— 安全姿态：只给布尔量（契约 §3 A11）。运维/QA 据此确认
+        #    "/v1/agent/* 是否真的受保护"，而不需要读 .env
+        #    （读 .env 必然要看到明文令牌，那才是真正的泄露面）。
+        #    agentAuthRequired = 已配置令牌 且 未开匿名放行；
+        #    **不参与** status / all_ready 判定（鉴权不是"能力不可用"）。
+        security=_security_health(settings),
     )

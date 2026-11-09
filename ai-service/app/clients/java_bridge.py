@@ -2,6 +2,11 @@
 
 所有调用统一携带 ``X-Internal-Token``；失败一律收敛为 ``JavaBridgeError``，
 由调用方决定降级，不把异常透传给 HTTP 层。
+
+**TraceId 透传**（契约 §1 第 8 条）：当前上下文有 trace 时带 ``X-Trace-Id``，
+**没有就不带** —— 由 Java ``TraceIdFilter`` 生成兜底。这里刻意不自造一个：
+若两侧各自生成，Java 侧的响应头/meta/DB 会用它的值，而工具调用带的是另一个，
+"按 traceId grep 全链路"就会断成两截，且看起来像"日志丢了"。
 """
 
 from __future__ import annotations
@@ -10,6 +15,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from ..config import AgentSettings
+from ..observability.trace import TRACE_ID_HEADER, get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +33,30 @@ class JavaBridge:
         self.settings = settings
 
     def _headers(self) -> Dict[str, str]:
-        return {INTERNAL_TOKEN_HEADER: self.settings.internal_token}
+        """构造内部调用请求头：内部令牌 + （有则）TraceId。
+
+        Returns:
+            ``{X-Internal-Token}``，上下文里有 trace 时再附 ``X-Trace-Id``。
+        """
+        headers: Dict[str, str] = {
+            INTERNAL_TOKEN_HEADER: self.settings.internal_token,
+        }
+        trace_id = get_trace_id()
+        if trace_id:
+            # 缺失时不带：Java Filter 会生成一个并在响应头/日志/MDC 统一使用
+            headers[TRACE_ID_HEADER] = trace_id
+        return headers
+
+    @staticmethod
+    def _log_failure(method: str, path: str, reason: str) -> None:
+        """记录一次内部调用失败（带 traceId，便于按 traceId grep 全链路）。
+
+        ⚠️ 只记方法/路径/失败原因，**不记令牌与请求体**（可能含用户隐私）。
+        """
+        logger.warning(
+            "[JavaBridge] %s %s 失败 reason=%s trace=%s",
+            method, path, reason, get_trace_id() or "-",
+        )
 
     async def _post(self, path: str, payload: Any, timeout: float) -> Any:
         try:
@@ -41,10 +70,12 @@ class JavaBridge:
             ) as client:
                 resp = await client.post(url, json=payload, headers=self._headers())
         except Exception as exc:  # noqa: BLE001
+            self._log_failure("POST", path, type(exc).__name__)
             raise JavaBridgeError(
                 f"调用 Java 内部接口失败：{type(exc).__name__}"
             ) from exc
         if resp.status_code >= 400:
+            self._log_failure("POST", path, f"HTTP {resp.status_code}")
             raise JavaBridgeError(
                 f"Java 内部接口返回 {resp.status_code}：{resp.text[:200]}"
             )
@@ -71,10 +102,12 @@ class JavaBridge:
             ) as client:
                 resp = await client.get(url, params=params, headers=self._headers())
         except Exception as exc:  # noqa: BLE001
+            self._log_failure("GET", path, type(exc).__name__)
             raise JavaBridgeError(
                 f"调用 Java 内部接口失败：{type(exc).__name__}"
             ) from exc
         if resp.status_code >= 400:
+            self._log_failure("GET", path, f"HTTP {resp.status_code}")
             raise JavaBridgeError(
                 f"Java 内部接口返回 {resp.status_code}：{resp.text[:200]}"
             )

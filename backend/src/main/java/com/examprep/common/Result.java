@@ -3,8 +3,6 @@ package com.examprep.common;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
-import java.util.UUID;
-
 /**
  * 统一响应结构：{ code, message, data, traceId }
  *
@@ -30,7 +28,8 @@ public class Result<T> {
         this.code = code;
         this.message = message;
         this.data = data;
-        this.traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        // ★ 与响应头 X-Trace-Id、日志 MDC 同源（口径见 docs/Agent阶段三接口契约.md §1）
+        this.traceId = TraceContext.current();
     }
 
     public static <T> Result<T> success() {

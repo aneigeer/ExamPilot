@@ -60,6 +60,29 @@ class ToolResult:
     contexts: List[Dict[str, Any]] = field(default_factory=list)
 
 
+class ArgumentError(Exception):
+    """工具参数非法：统一映射为「参数错误」，且不访问 Java。"""
+
+
+def _validate_arguments(name: str, args: Any) -> Dict[str, Any]:
+    """执行前校验必填/类型；可选数值参数由各工具自行 clamp。"""
+    if not isinstance(args, dict):
+        raise ArgumentError("arguments 必须是对象")
+    if name in ("search_knowledge", "search_wiki"):
+        query = args.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ArgumentError("query 必须是非空字符串")
+    elif name == "get_wiki_page":
+        page_id = args.get("pageId")
+        if not isinstance(page_id, int) or isinstance(page_id, bool) or page_id <= 0:
+            raise ArgumentError("pageId 必须是正整数")
+    elif name == "get_question":
+        question_id = args.get("questionId")
+        if not isinstance(question_id, int) or isinstance(question_id, bool) or question_id <= 0:
+            raise ArgumentError("questionId 必须是正整数")
+    return args
+
+
 #: 工具目录（写进提示词，顺序即推荐优先级）
 TOOL_SPECS: List[Dict[str, Any]] = [
     {
@@ -122,6 +145,10 @@ class ToolRegistry:
         self.bridge = bridge
 
     async def execute(self, name: str, arguments: Dict[str, Any], ctx: AgentContext) -> ToolResult:
+        try:
+            arguments = _validate_arguments(name, arguments)
+        except ArgumentError as exc:
+            return ToolResult(ok=False, summary=f"参数错误：{exc}")
         try:
             if name == "search_knowledge":
                 return await self._search(arguments, ctx)

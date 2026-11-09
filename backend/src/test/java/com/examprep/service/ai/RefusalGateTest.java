@@ -85,13 +85,28 @@ class RefusalGateTest {
                 3, 12L, 1.1, 0.75);
     }
 
+    /**
+     * ngram 无任何证据：语义闸门生效的前提
+     *
+     * <p>P1 规则「字面通道有证据则跳过语义拒答」上线后，{@link #passedNgram()}
+     * （bestScore=1.1 ≥ rejectThreshold）会直接绕过语义闸门，不能再用来构造语义拒答场景。
+     */
+    private RetrievalService.RetrievalResult emptyNgram() {
+        return new RetrievalService.RetrievalResult(List.of(), false, "NONE", 0, 12L, 0.0, 0.0);
+    }
+
     private HybridRetriever build(VectorChannel.Scan scan) {
+        return build(scan, passedNgram());
+    }
+
+    private HybridRetriever build(VectorChannel.Scan scan,
+                                  RetrievalService.RetrievalResult ngram) {
         RetrievalService retrieval = mock(RetrievalService.class);
         // HybridRetriever 现在走 6 参重载（config + sourceTypes），把 stub 打在这个签名上，
         // 否则 mock 返回 null，测试会以 NPE 的形式"假失败"（本次就踩到了）
         when(retrieval.retrieve(anyString(), any(), any(), any(),
                 any(RetrievalService.RetrievalConfig.class), any()))
-                .thenReturn(passedNgram());
+                .thenReturn(ngram);
         VectorChannel vector = mock(VectorChannel.class);
         when(vector.isEnabled()).thenReturn(true);
         when(vector.isReady()).thenReturn(true);
@@ -103,9 +118,9 @@ class RefusalGateTest {
     }
 
     @Test
-    @DisplayName("整库都不像（top1 余弦 0.50 < 0.62）→ 语义拒答，且 contexts 清空")
+    @DisplayName("整库都不像（top1 余弦 0.50 < 0.58，且字面通道无证据）→ 语义拒答，且 contexts 清空")
     void semanticRejectWhenLibraryIsUnrelated() {
-        HybridRetriever retriever = build(new VectorChannel.Scan(List.of(), 0.50));
+        HybridRetriever retriever = build(new VectorChannel.Scan(List.of(), 0.50), emptyNgram());
 
         HybridRetriever.Outcome outcome = retriever.retrieve(
                 "区块链智能合约怎么写", null, null, Set.of());

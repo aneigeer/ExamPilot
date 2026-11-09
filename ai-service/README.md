@@ -168,6 +168,12 @@ cd D:\大学生多考试备考知识库与题库系统\ai-service
 
 浏览器打开 <http://localhost:8000/docs> —— Swagger 交互文档，**使用加分项**。
 
+> **启动时会做一次鉴权自检并在日志里打印姿态**：
+> * `internal_token_set=true` → 正常；
+> * `AI_INTERNAL_TOKEN 未配置` + WARNING → 服务照常起，但 `/v1/agent/*`、`/v1/route`
+>   **一律 401**（Agent 工具链不可用，AI 问答不受影响）；`run.bat` 也会在启动前打印醒目提示；
+> * `AGENT_ALLOW_ANONYMOUS=true` + **ERROR** → 鉴权被关闭，仅限本地开发。
+
 ### 步骤 5（可选）：安装 OCR 依赖
 
 ```powershell
@@ -201,12 +207,40 @@ OCR 与 LLM 走真实降级路径（本来就该是 503）。装完 `requirement
   "qdrant":    { "ready": true,  "detail": "collection=exam_chunks url=http://127.0.0.1:6333" },
   "ocr":       { "ready": true,  "detail": "未加载（懒加载，首次调用 /v1/ocr 时加载）" },
   "llm":       { "ready": false, "detail": "未配置 LLM_API_KEY，/v1/llm 将返回 503，Java 侧走抽取式" },
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "security": {
+    "internal_token_set": true,
+    "agent_anonymous_allowed": false,
+    "agent_enabled": true
+  }
 }
 ```
 
 > **恒返回 HTTP 200。** "服务活着但 OCR 没装"不是错误，是**已知的降级态**，
 > 就绪与否看 `ready` 字段。异常也会返回 503（说明 FastAPI 进程本身有问题）。
+
+> **`security` 段只给布尔量，绝不回显令牌值。** `internal_token_set=false` 且
+> `agent_anonymous_allowed=false` 意味着 `/v1/agent/*` 与 `/v1/route` **一律 401**
+> （见下节），此时 Agent 工具链不可用，但 AI 问答不受影响。
+
+### ★ `/v1/agent/*` 与 `/v1/route` 的内部令牌（**fail-closed**）
+
+阶段三起与 Java `InternalTokenFilter` 的语义对齐：**未配置即拒绝**。
+
+| `AI_INTERNAL_TOKEN` | `AGENT_ALLOW_ANONYMOUS` | 行为 |
+|---|---|---|
+| 已配置 | 忽略 | 必须带 `X-Internal-Token` 且**逐字节相等**，否则 `401 UNAUTHORIZED` |
+| 空 | 未开（默认） | **一律 401**（不再"未配置就放行"） |
+| 空 | `1` / `true` | 放行，但**启动打 ERROR**、每次放行打 WARNING（**仅限本地开发**） |
+
+* 401 响应体沿用统一错误体 `{"code":5200,"message":"UNAUTHORIZED","degraded":false}`，
+  **不区分**"没带令牌 / 令牌错 / 服务端没配令牌"——不给爆破者提供区分信息。
+* `X-Trace-Id` 会随每次 Python → Java 的内部调用透传（按 traceId 可 grep 全链路日志）；
+  入站请求未带时由中间件生成 16 位十六进制串。
+* 失败时**先鉴权后校验参数**（未鉴权方拿不到任何参数校验细节）。
+
+> 排障：`/v1/agent/*` 全部 401 时先看 `/v1/health` 的 `security.internal_token_set`；
+> 为 `false` 就配令牌（两侧同值）后重启，别再靠"重启试试"。
 
 ### ★ `ready` 与 `loaded` 的语义区分（**容易误读，必须分清**）
 
@@ -467,12 +501,103 @@ set PORT=8001
 | `LLM_API_KEY` | 空 | ★ 安全默认值：空 = 走抽取式，开箱即用不误扣费 |
 | `LLM_MODEL` | `glm-4-flash` | 有免费额度，适合使用 |
 | `LLM_TEMPERATURE` | `0.3` | 低温度 = 更稳，不易编造 |
+| `AI_INTERNAL_TOKEN` | 空 | ★ **必须与 Java `app.ai.internal-token` 同值**；空 → `/v1/agent/*`、`/v1/route` 一律 401 |
+| `AGENT_ALLOW_ANONYMOUS` | `0` | 逃生舱：`1` 放行匿名 `/v1/agent/*`（启动打 ERROR，**仅限本地开发**） |
+| `JAVA_BASE_URL` | `http://127.0.0.1:8080/api` | Python → Java 内部调用地址（含 context-path） |
+| `AGENT_MAX_STEPS` | `6` | 会话默认步数上限；请求体 `maxSteps` 可覆盖，范围 1–12 |
+| `AGENT_SUBAGENT_ENABLED` | `false` | ★ **受控实验开关，默认关**。开启后才走"拆解 → 子问题 → 汇总"，关闭时与单 Agent 逐字节一致；见下文 Subagent 小节 |
+| `AGENT_SUBAGENT_MAX_QUESTIONS` | `3` | 拆解子问题个数上限；**硬上限 3**，越界启动时 clamp + WARNING |
 | `OCR_ENABLED` | `true` | `false` 时 `/v1/ocr` 直接 503，连 import 都不做 |
 | `OCR_STEM_CONFIDENCE_THRESHOLD` | `0.75` | 题干低于此值 → 判"需人工重录" |
 | `OCR_FIELD_CONFIDENCE_THRESHOLD` | `0.90` | 字段低于此值 → 留空并高亮，强制人工补全 |
 
 > `.env` 含密钥，**已在 `.gitignore` 中排除**。启动日志只打印"是否已配置"，
 > 绝不回显 Key 内容（`Settings.safe_dump()` 保证，有单测覆盖）。
+
+---
+
+## Subagent 受控实验（`AGENT_SUBAGENT_ENABLED`，**默认关**）
+
+阶段四的出口条件是"要么有数据证明收益，要么保持默认关"。本节就是那份数据 ——
+**结论：不建议启用，保持默认关**（依据见下方"收益评审"）。
+
+### 执行路径（开启时）
+
+```
+meta{subagent:true} → thought[subagent] 拆解 → thought[subagent] 子问题 1/N →
+    (thought / tool_call / tool_result …) × N 个子问题 →
+thought[subagent] 汇总 → final{subagent:true} → done
+```
+
+1. **拆解**：一次 LLM 调用，要求严格 JSON `{"sub_questions":["..."]}`（`app/agent/subagent.py`）。
+2. **逐个子问题**：复用同一套 `planner / tools / context_manager`，`question` 换成子问题，
+   画像 / 历史 / 记忆原样保留。
+3. **汇总**：所有子答案 + 原始问题交给**一次** Java 定稿（L3 校验 / 生成）。
+4. **预算全局共享**（关键，两条都是会话级）：
+   * 工具调用 `max_tool_calls`（默认 4）由所有子问题共享 —— 3 个子问题**不是** 3×4 = 12 次；
+   * 步数 `max_steps`（默认 6）同样共享，按"剩余步数 / 剩余子问题数"公平分配 ——
+     **不是** 3×6 = 18 步。
+   > 不共享会怎样：单次会话的最坏延迟变成 3 倍，且直接违反契约里
+   > "单次会话最多 `max_steps` 步 / `max_tool_calls` 次工具"这条硬约束。
+
+### SSE 契约（Java 侧**零改动**）
+
+| 事件 | 变化 |
+|---|---|
+| `meta` | 新增 `subagent: true/false`；开启时另带 `subagentMaxQuestions` |
+| `thought` | 子步骤**沿用** `thought`，文本前缀 `[subagent] `（不新增事件类型） |
+| `final` | 开启时带 `subagent` 与 `subQuestions`；**降级时**带 `subagent:false` + `degradedReason` |
+| 其他 | 无变化 |
+
+关闭时（默认）：事件序列、字段、延迟与单 Agent 完全一致，**不新增任何事件**（有单测逐条比对）。
+
+### 失败回退（绝不 500）
+
+拆解调用失败 / JSON 解析失败 / 缺字段 / 子问题为空 / 任意意外异常
+→ 立即回退单 Agent 原路径（**预算重新给满**），`final.degraded=true` +
+`final.degradedReason` 写明原因。HTTP 仍是 200 / SSE 仍走正常事件流。
+
+### 收益评审（`eval/subagent_compare.py`）
+
+同一任务集（`eval/agent_tasks.jsonl`，120 条）跑两遍，**判定规则完全复用**
+`eval/agent_eval.py`（工具序列 / 禁止工具 / 工具成功 / 必需内容 / 步数上限，未放宽任何一条），
+两个 arm 唯一的差异就是 `AGENT_SUBAGENT_ENABLED`。
+
+```
+cd ai-service
+..\.venv-ai\Scripts\python.exe -m eval.subagent_compare --planner both
+# 产出：eval/reports/subagent_compare_<YYYYMMDD_HHMM>.html / .json
+```
+
+**本机实测（2026-10-31，Java 后端未启动 → 离线确定性桩桥；无 `LLM_API_KEY` → 规则模式）**
+
+报告原件：`eval/reports/subagent_compare_20261031_2257.html` / `.json`
+
+| 实验组 | 通过率 | 平均步数 | 工具调用/任务 | P95 延迟 | 降级率 |
+|---|---|---|---|---|---|
+| 规则 · 关闭 | 100.0% | 2.25 | 1.25 | <0.5 ms\* | 0% |
+| 规则 · 开启 | 100.0% | 2.25 | 1.25 | <0.5 ms\* | **100%** |
+| 模型模拟 · 关闭 | 100.0% | 2.25 | 1.25 | <0.5 ms\* | 0% |
+| 模型模拟 · 开启 | **0.0%** | **4.50** | 2.25 | <0.5 ms\* | 0% |
+
+\* 桩桥无网络、无模型，延迟数字**没有参考价值**（实测在 0.1–0.4 ms 之间抖动）；
+真实延迟必须在 Java + `LLM_API_KEY` 环境重跑，不能引用这一列。
+
+- **规则模式，不代表模型效果**：没有真实模型调用，开启后 120/120 条任务都在拆解处降级，
+  等价于"多花一次失败的 LLM 调用，然后退回原路径"——**收益 0，成本 > 0**。
+- **模型模拟组**（脚本化规划器，仅用来观察拆解路径的结构开销）：会话步数 2.25 → 4.50（**+100%**），
+  120/120 条任务因**步数超限**判定失败（任务级预算 3–4 步，子问题串行必然翻倍），
+  另有 30 条因拆出的第二个子问题触发了 `forbidden_tools` 里的 `search_knowledge`。
+- 离线桩桥的工具成功率恒为 100%、定稿文本包含原始问题，因此
+  "工具调用失败"与"答案必需内容"两个维度在本报告里不具区分度；延迟数字是桩桥耗时，
+  **不可外推**到真实链路。
+
+**结论：不建议启用（保持默认关）。** 依据是阶段四出口条件本身：
+通过率提升 `+0.0pp < 5pp`。若将来要重新评估，必须在 **Java 后端连通 + 配置 `LLM_API_KEY`**
+的环境里重跑上表，且只允许写"在 N 条任务上更优，需更大样本复核"，不得写成"已验证更优"。
+
+**改这条结论的前提**：先让子问题共享的步数/工具预算在评测里不再必然超限
+（例如任务级 `max_steps` 按子问题数放宽、或改成"单子问题"模式），再用真实模型重跑。
 
 ---
 

@@ -20,6 +20,8 @@
  5208  向量索引不同步（model_id 不匹配）                 503   5015 AI_VECTOR_INDEX_STALE
  5209  大模型不可用（未配置 Key / 上游失败/超时）         503   5003 AI_LLM_UNAVAILABLE
  5210  对象存储不可用（**预留**，本服务不直连 MinIO）       503   5017 AI_STORAGE_UNAVAILABLE
+ 5230  Agent 能力未启用（AGENT_ENABLED=false）          503   —（Java 侧直接降级问答）
+ 5231  内部接口未授权（X-Internal-Token 缺失/无效）        401   —（Java 侧不重试，回退问答）
  5299  服务内部错误                                   500   —（兜底，正常不应出现）
 ======  ==========================================  ====  =========================================
 
@@ -72,6 +74,12 @@ class ErrorCode:
     VECTOR_INDEX_STALE = 5208
     LLM_UNAVAILABLE = 5209
     STORAGE_UNAVAILABLE = 5210
+    #: Agent 能力未启用（``AGENT_ENABLED=false``）；此前 ``agent.py`` 已在用但未声明
+    AGENT_DISABLED = 5230
+    #: 内部接口未授权（``X-Internal-Token`` 缺失或无效），HTTP 401
+    #: 契约见 ``docs/Agent阶段三接口契约.md`` §3 A1：**不得**用 StarletteHTTPException
+    #: （会被全局 handler 反向映射成 5200 参数错误，Java 侧就无法区分"没授权"和"参数错"）
+    UNAUTHORIZED = 5231
     INTERNAL_ERROR = 5299
 
 

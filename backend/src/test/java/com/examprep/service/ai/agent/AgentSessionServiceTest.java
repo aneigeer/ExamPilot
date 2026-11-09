@@ -33,13 +33,16 @@ class AgentSessionServiceTest {
 
     private AiAgentSessionMapper sessionMapper;
     private AiAgentRunMapper runMapper;
+    private AgentMemoryService memoryService;
     private AgentSessionService service;
 
     @BeforeEach
     void setUp() {
         sessionMapper = mock(AiAgentSessionMapper.class);
         runMapper = mock(AiAgentRunMapper.class);
-        service = new AgentSessionService(sessionMapper, runMapper);
+        memoryService = mock(AgentMemoryService.class);
+        when(memoryService.longTermBlock(any())).thenReturn("");
+        service = new AgentSessionService(sessionMapper, runMapper, memoryService);
     }
 
     private AiAgentSession session(String sessionId, Long userId, String summary) {

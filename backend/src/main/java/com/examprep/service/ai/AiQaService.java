@@ -4,6 +4,8 @@ import com.examprep.dto.ai.AskRequest;
 import com.examprep.dto.ai.AskVO;
 import com.examprep.dto.ai.CapabilityVO;
 import com.examprep.dto.ai.SourceRefVO;
+import com.examprep.common.LogMask;
+import com.examprep.config.ObservabilityProperties;
 import com.examprep.entity.AiChunk;
 import com.examprep.entity.WikiPage;
 import com.examprep.service.wiki.WikiQueryService;
@@ -88,6 +90,15 @@ public class AiQaService {
     private final List<LlmClient> llmClients;
 
     /**
+     * 可观测性 / 数据最小化开关
+     *
+     * <p>只有一个用途：决定日志里能不能出现<b>问题原文</b>（{@code app.observability.log-question}，
+     * 默认 false → 只记 {@code qLen}/{@code qHash}，见 {@link LogMask}）。
+     * 放在构造器末尾是为了不打扰既有的手工装配顺序。
+     */
+    private final ObservabilityProperties observability;
+
+    /**
      * AI 问答主入口
      *
      * @param req    请求参数
@@ -102,7 +113,9 @@ public class AiQaService {
                 ? Set.of()
                 : profileService.weakKnowledgeIds(userId, 5);
         if (userId == null) {
-            log.info("[AI] 游客调用问答（不建画像加权）: {}", question);
+            // ★ 数据最小化：默认只记长度 + 哈希（app.observability.log-question=true 才输出原文）
+            log.info("[AI] 游客调用问答（不建画像加权）: {}",
+                    LogMask.question(observability.isLogQuestion(), question));
         }
 
         // ---------- 双引擎第一层：Wiki 热层（预编译主题页，命中即返回）----------
@@ -176,7 +189,8 @@ public class AiQaService {
         if (contexts.isEmpty() || best < threshold || outcome.refused()) {
             log.info("[AI] 拒答：最高分 {}（阈值 {}，语义拒答={} {}），召回 {} 块，模式 {}，问题「{}」",
                     String.format("%.4f", best), threshold, outcome.refused(),
-                    outcome.refuseReason(), outcome.recallCount(), mode, question);
+                    outcome.refuseReason(), outcome.recallCount(), mode,
+                    LogMask.question(observability.isLogQuestion(), question));
             vo.setAnswer(PromptBuilder.REFUSAL_TEXT);
             vo.setGenerator(PromptBuilder.GENERATOR_NONE);
             vo.setRefused(Boolean.TRUE);

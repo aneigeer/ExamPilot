@@ -275,6 +275,8 @@ def test_agent_run_e2e_keeps_memory_in_prompt_and_meta(
 
     monkeypatch.setattr(_PlannerBridge, "llm_complete", _fake_llm_complete)
     monkeypatch.setattr(_PlannerBridge, "full_answer", _fake_full_answer)
+    # 阶段三起 /v1/agent/* 是 fail-closed：走真实路由必须带令牌
+    _enable_token(monkeypatch, "s3cret")
 
     summary = "用户此前问过进程调度，答错优先级调度"
     response = client.post("/v1/agent/run", json={
@@ -286,7 +288,7 @@ def test_agent_run_e2e_keeps_memory_in_prompt_and_meta(
             {"question": "第一轮问题", "answer": "第一轮回答"},
             {"question": "第二轮问题", "answer": "第二轮回答"},
         ],
-    })
+    }, headers={"X-Internal-Token": "s3cret"})
     assert response.status_code == 200, response.text
     body = response.json()
 
@@ -331,8 +333,8 @@ def test_agent_requires_token_when_configured(client: Any,
         resp = client.post(path, json=_AGENT_BODY)
         assert resp.status_code == 401, f"{path} 应 401，实际 {resp.status_code}"
         body = resp.json()
-        # 不泄露"是缺了还是错了"，统一 UNAUTHORIZED；且仍走统一错误体
-        assert body["message"] == "UNAUTHORIZED"
+        # 契约 §3：统一 5231，不区分"缺了还是错了"；错误体恰 3 字段
+        assert body["message"] == "内部接口未授权：X-Internal-Token 缺失或无效"
         assert "code" in body and "degraded" in body
 
 
@@ -343,7 +345,7 @@ def test_agent_rejects_wrong_token(client: Any,
     resp = client.post("/v1/agent/run", json=_AGENT_BODY,
                        headers={"X-Internal-Token": "wrong"})
     assert resp.status_code == 401
-    assert resp.json()["message"] == "UNAUTHORIZED"
+    assert resp.json()["message"] == "内部接口未授权：X-Internal-Token 缺失或无效"
 
 
 def test_agent_accepts_correct_token(client: Any,
@@ -375,11 +377,46 @@ def test_agent_accepts_correct_token(client: Any,
     assert "event: meta" in stream_resp.text or "meta" in stream_resp.text
 
 
-def test_agent_allows_when_token_unconfigured(client: Any,
-                                              monkeypatch: pytest.MonkeyPatch) -> None:
-    """未配置令牌（本地开发/单测常态）：放行，但依赖要能正常跑通。"""
-    from app.routers.agent import require_internal_token
+def test_agent_rejects_when_token_unconfigured(
+    client: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """**fail-closed**（阶段三修正）：未配置令牌且未开匿名 → 401。
+
+    这条用例取代了阶段二的 ``test_agent_allows_when_token_unconfigured``。
+    旧语义（未配置即放行）的问题：实际部署的 ``.env`` 恰好缺 ``AI_INTERNAL_TOKEN``，
+    于是"忘了配令牌"= "任何人都能按 userId 查别人学情"，且日志只有一条容易被忽略的
+    WARNING。现在与 Java ``InternalTokenFilter`` 对齐：未配置一律拒。
+    """
+    from app.routers import agent as agent_router
 
     _enable_token(monkeypatch, "")
-    require_internal_token(x_internal_token="")  # 不抛即通过
-    assert client.post("/v1/agent/run", json=_AGENT_BODY).status_code != 401
+    monkeypatch.setattr(agent_router, "_allow_anonymous", lambda: False)
+
+    for path in ("/v1/agent/run", "/v1/agent/stream"):
+        resp = client.post(path, json=_AGENT_BODY)
+        assert resp.status_code == 401, f"{path} 未配置令牌时应 401，实际 {resp.status_code}"
+        body = resp.json()
+        assert body["message"] == "内部接口未授权：X-Internal-Token 缺失或无效"
+        assert body["code"] == 5231 and body["degraded"] is False
+        # 不泄露"是服务端没配令牌"还是"你的令牌错了"
+        assert "AI_INTERNAL_TOKEN" not in body["message"]
+
+
+def test_agent_allows_when_anonymous_explicitly_enabled(
+    client: Any, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """逃生舱：显式 ``AGENT_ALLOW_ANONYMOUS=1`` 且未配令牌 → 放行，且留 WARNING 痕。"""
+    import logging
+
+    from app.routers import agent as agent_router
+
+    _enable_token(monkeypatch, "")
+    monkeypatch.setattr(agent_router, "_allow_anonymous", lambda: True)
+
+    with caplog.at_level(logging.WARNING, logger="app.routers.agent"):
+        resp = client.post("/v1/agent/run", json=_AGENT_BODY)
+    assert resp.status_code == 200, resp.text
+    assert any(
+        "AGENT_ALLOW_ANONYMOUS" in record.getMessage() and record.levelno == logging.WARNING
+        for record in caplog.records
+    ), "匿名放行必须留下 WARNING 日志，否则等于静默裸奔"

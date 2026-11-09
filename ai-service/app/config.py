@@ -11,10 +11,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Mapping, Optional
+
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------------------
 # 服务基础路径
@@ -204,14 +207,19 @@ class AgentSettings:
     """Agent Harness 配置。
 
     Java 是 SSE 入口与工具数据提供方；本服务负责规划/工具循环。
+
+    **鉴权姿态（fail-closed）**：``internal_token`` 为空时 ``/v1/agent/*`` 一律返回 401，
+    唯一例外是显式打开 ``allow_anonymous``（``AGENT_ALLOW_ANONYMOUS=1``，仅限本地开发）。
     """
 
     #: 是否启用 Agent 路由（默认启用，Java 侧另有总开关）
     enabled: bool = True
     #: Java 后端地址（含 context-path /api）
     java_base_url: str = "http://127.0.0.1:8080/api"
-    #: 内部接口令牌（与 Java app.ai.internal-token 一致）
+    #: 内部接口令牌（与 Java app.ai.internal-token 一致）；为空即"未配置"→ /v1/agent/* 401
     internal_token: str = ""
+    #: 是否允许匿名访问 ``/v1/agent/*``（关闭鉴权的逃生舱，**仅限本地开发**，默认关闭）
+    allow_anonymous: bool = False
     #: 单次会话最大步数
     max_steps: int = 6
     #: 单次会话最大工具调用次数
@@ -221,7 +229,16 @@ class AgentSettings:
     #: 单次工具调用超时（秒）
     tool_timeout_seconds: float = 10.0
     #: 规划/生成 LLM 超时（秒）
-    llm_timeout_seconds: float = 30.0
+    llm_timeout_seconds: float = 15.0
+    #: 会话级 wall-clock deadline（秒）；必须小于 Java SSE 总超时 120s
+    session_timeout_seconds: float = 120.0
+    #: ★ 受控实验：subagent（拆解 → 逐个子问题 → 汇总）。
+    #:
+    #: **默认 False**。关闭时执行路径与事件序列跟"单 Agent"版本逐字节一致，
+    #: 不新增任何事件、不新增任何一次 LLM 调用、不新增任何可测量延迟。
+    subagent_enabled: bool = False
+    #: 拆解出的子问题个数上限（硬上限 :data:`SUBAGENT_MAX_QUESTIONS_LIMIT`，越界启动时 clamp）。
+    subagent_max_questions: int = 3
 
 
 @dataclass(frozen=True)
@@ -353,11 +370,15 @@ class Settings:
                     env, "JAVA_BASE_URL", "http://127.0.0.1:8080/api"
                 ).rstrip("/"),
                 internal_token=_get(env, "AI_INTERNAL_TOKEN", ""),
+                allow_anonymous=_get_bool(env, "AGENT_ALLOW_ANONYMOUS", False),
                 max_steps=_get_int(env, "AGENT_MAX_STEPS", 6),
                 max_tool_calls=_get_int(env, "AGENT_MAX_TOOL_CALLS", 4),
                 max_prompt_chars=_get_int(env, "AGENT_MAX_PROMPT_CHARS", 8000),
                 tool_timeout_seconds=_get_float(env, "AGENT_TOOL_TIMEOUT_SECONDS", 10.0),
-                llm_timeout_seconds=_get_float(env, "AGENT_LLM_TIMEOUT_SECONDS", 30.0),
+                llm_timeout_seconds=_get_float(env, "AGENT_LLM_TIMEOUT_SECONDS", 15.0),
+                session_timeout_seconds=_get_float(env, "AGENT_SESSION_TIMEOUT_SECONDS", 120.0),
+                subagent_enabled=_get_bool(env, "AGENT_SUBAGENT_ENABLED", False),
+                subagent_max_questions=_get_int(env, "AGENT_SUBAGENT_MAX_QUESTIONS", 3),
             ),
             jobs=JobsSettings(
                 worker_enabled=_get_bool(env, "JOB_WORKER_ENABLED", False),
@@ -419,9 +440,12 @@ class Settings:
                 "enabled": self.agent.enabled,
                 "java_base_url": self.agent.java_base_url,
                 "internal_token_set": bool(self.agent.internal_token),
+                "allow_anonymous": self.agent.allow_anonymous,
                 "max_steps": self.agent.max_steps,
                 "max_tool_calls": self.agent.max_tool_calls,
                 "max_prompt_chars": self.agent.max_prompt_chars,
+                "subagent_enabled": self.agent.subagent_enabled,
+                "subagent_max_questions": self.agent.subagent_max_questions,
             },
             "jobs": {
                 "worker_enabled": self.jobs.worker_enabled,
@@ -445,11 +469,141 @@ class Settings:
 _settings: Optional[Settings] = None
 
 
+def log_security_posture(settings: Settings) -> None:
+    """启动时打印鉴权姿态（**只打布尔状态，绝不打令牌值**）。
+
+    为什么要单独一条日志：``/v1/agent/*`` 的 fail-closed 一旦被
+    ``AGENT_ALLOW_ANONYMOUS=1`` 绕过，服务会"看起来正常但完全裸奔"。
+    因此匿名放行必须打 **ERROR**（人眼必然看到），而"未配置令牌"打 WARNING
+    并给出修复方法（此时 AI 问答仍可用，只是 Agent 工具链 401）。
+
+    Args:
+        settings: 已构建的配置单例。
+    """
+    agent = settings.agent
+    token_set = bool(agent.internal_token)
+    if agent.allow_anonymous:
+        logger.error(
+            "[安全] /v1/agent/* 鉴权已关闭（AGENT_ALLOW_ANONYMOUS=true，**生产禁止开启**，"
+            "仅限本地开发）：internal_token_set=%s allow_anonymous=true agent_enabled=%s",
+            str(token_set).lower(), str(agent.enabled).lower(),
+        )
+    elif not token_set:
+        logger.warning(
+            "[安全] AI_INTERNAL_TOKEN 未配置：/v1/agent/* 将一律返回 401（fail-closed）。"
+            "修复：在 ai-service/.env 写入 AI_INTERNAL_TOKEN 并与 Java "
+            "app.ai.internal-token 保持同值后重启；本地临时联调可设 AGENT_ALLOW_ANONYMOUS=1"
+        )
+    else:
+        logger.info(
+            "[安全] /v1/agent/* 需要内部令牌：internal_token_set=true "
+            "allow_anonymous=%s agent_enabled=%s",
+            str(agent.allow_anonymous).lower(), str(agent.enabled).lower(),
+        )
+    # 预算生效值：clamp 之后**实际**会用的数字（越界配置已在上一步被收敛并 WARNING）
+    logger.info(
+        "[启动] Agent 预算生效值：max_steps=%d max_tool_calls=%d（配置上限 %d）",
+        agent.max_steps, agent.max_tool_calls, MAX_TOOL_CALLS_LIMIT,
+    )
+    # Subagent 受控实验姿态：开启是"实验性行为变更"，必须让运维一眼看到；
+    # 关闭也必须打一条，证明"线上确实没开"，否则事后无法从日志判断。
+    if agent.subagent_enabled:
+        logger.warning(
+            "[启动] Subagent 受控实验**已开启**（AGENT_SUBAGENT_ENABLED=true）："
+            "max_questions=%d（硬上限 %d），工具预算仍为全局共享 %d 次；"
+            "拆解/子问题/汇总任一环节失败会自动回退单 Agent（meta.degraded_reason）",
+            agent.subagent_max_questions, SUBAGENT_MAX_QUESTIONS_LIMIT, agent.max_tool_calls,
+        )
+    else:
+        logger.info(
+            "[启动] Subagent 受控实验：enabled=false max_questions=%d"
+            "（默认关闭：执行路径与事件序列与单 Agent 一致）",
+            agent.subagent_max_questions,
+        )
+
+
+#: 单次会话工具调用次数的**配置级**上限（契约 §3 A8）。
+#:
+#: ``AGENT_MAX_TOOL_CALLS`` 不开放请求覆盖，只在启动时对越界配置 clamp + WARNING：
+#: 这是运维操作失误，不该让线上请求返回 400（用户看不懂"工具预算配置错"）。
+#: 上限 8 的依据：默认 4 已覆盖"检索→查题→复盘"，8 是翻倍的容错余量。
+MAX_TOOL_CALLS_LIMIT: int = 8
+
+
+def _clamp_tool_budget(settings: "Settings") -> "Settings":
+    """把越界的 ``max_tool_calls`` 收敛到 ``[1, MAX_TOOL_CALLS_LIMIT]`` 并告警。
+
+    Args:
+        settings: 刚由环境变量构建出的配置。
+
+    Returns:
+        可能被替换过 ``agent.max_tool_calls`` 的新配置（frozen dataclass，用 replace）。
+
+    Note:
+        "启动时 clamp + WARNING"而不是返回 400：预算上限属配置项，
+        压住它的目的是"别把单次会话拖成分钟级"，不是"让请求失败"。
+    """
+    configured = settings.agent.max_tool_calls
+    clamped = min(max(configured, 1), MAX_TOOL_CALLS_LIMIT)
+    if clamped == configured:
+        return settings
+    logger.warning(
+        "[安全] AGENT_MAX_TOOL_CALLS=%d 越界，已 clamp 为 %d（允许 1..%d）",
+        configured, clamped, MAX_TOOL_CALLS_LIMIT,
+    )
+    from dataclasses import replace
+
+    return replace(settings, agent=replace(settings.agent, max_tool_calls=clamped))
+
+
+#: 单次会话拆解出的子问题个数的**硬上限**（受控实验边界，不可通过配置突破）。
+#:
+#: 为什么是 3：
+#: * 子问题共享同一份 4 次工具预算，4 个子问题平均每个不到 1 次，已经失去意义；
+#: * 每个子问题都要跑一遍规划循环，子问题越多延迟越线性膨胀（P95 是本次评审的出口指标）。
+SUBAGENT_MAX_QUESTIONS_LIMIT: int = 3
+
+
+def _clamp_subagent_questions(settings: "Settings") -> "Settings":
+    """把越界的 ``subagent_max_questions`` 收敛到 ``[1, SUBAGENT_MAX_QUESTIONS_LIMIT]``。
+
+    Args:
+        settings: 刚由环境变量构建出的配置。
+
+    Returns:
+        可能被替换过 ``agent.subagent_max_questions`` 的新配置（frozen dataclass）。
+
+    Note:
+        与 ``AGENT_MAX_TOOL_CALLS`` 同理：这是配置写错，不是请求参数错，
+        所以启动时 clamp + WARNING，而不是让线上请求 400。
+    """
+    configured = settings.agent.subagent_max_questions
+    clamped = min(max(configured, 1), SUBAGENT_MAX_QUESTIONS_LIMIT)
+    if clamped == configured:
+        return settings
+    logger.warning(
+        "[安全] AGENT_SUBAGENT_MAX_QUESTIONS=%d 越界，已 clamp 为 %d（允许 1..%d）",
+        configured, clamped, SUBAGENT_MAX_QUESTIONS_LIMIT,
+    )
+    from dataclasses import replace
+
+    return replace(
+        settings, agent=replace(settings.agent, subagent_max_questions=clamped)
+    )
+
+
 def get_settings() -> Settings:
-    """获取全局配置单例（懒初始化，测试中可调用 ``reset_settings()`` 重置）。"""
+    """获取全局配置单例（懒初始化，测试中可调用 ``reset_settings()`` 重置）。
+
+    **首次构建时**做两件事（等价于启动自检）：
+    1. 对越界的配置级预算做 clamp（见 :func:`_clamp_tool_budget` 与
+       :func:`_clamp_subagent_questions`）；
+    2. 打印一条鉴权姿态日志（见 :func:`log_security_posture`）。
+    """
     global _settings
     if _settings is None:
-        _settings = Settings.from_env()
+        _settings = _clamp_subagent_questions(_clamp_tool_budget(Settings.from_env()))
+        log_security_posture(_settings)
     return _settings
 
 

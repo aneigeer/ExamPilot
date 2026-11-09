@@ -22,8 +22,14 @@ public class WikiProperties {
     /** 热层总开关；false 时问答完全走 RAG，行为与未引入 Wiki 时一致 */
     private boolean enabled = true;
 
-    /** 热层命中阈值（向量余弦相似度） */
-    private double hitThreshold = 0.55;
+    /**
+     * 热层命中阈值（向量余弦相似度）
+     *
+     * <p>2026-11-08 实测（F-10）：跨学科误命中最高 0.572（Prompting / DeepSpeed 页），
+     * 相关页最低 0.6984（进程/线程、数组/指针），取 0.60 落在空隙内。
+     * 原 0.55 会把「函数专题」答成 Prompting 页面（Agent 兜底走热层时复现）。
+     */
+    private double hitThreshold = 0.60;
 
     /** 问答返回的 Wiki 页数上限（当前只用 Top1，保留字段便于后续多页综合） */
     private int topK = 3;

@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Awaitable, Callable
 
@@ -30,6 +29,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .clients.java_bridge import JavaBridge
 from .config import get_settings
 from .errors import AiServiceError, ErrorCode
+from .observability.trace import (
+    TRACE_ID_HEADER,
+    TraceIdLogFilter,
+    get_trace_id,
+    new_trace_id,
+    normalize_trace_id,
+    set_trace_id,
+)
 from .routers import agent as agent_router
 from .routers import ask as ask_router
 from .routers import embed as embed_router
@@ -50,8 +57,13 @@ from .worker.job_worker import start_workers
 
 logger = logging.getLogger("ai_service")
 
-#: TraceId 头名（与 Java 侧 ``X-Trace-Id`` 一致）
-TRACE_ID_HEADER = "X-Trace-Id"
+#: TraceId 头名（契约 §1 要求以 ``main.TRACE_ID_HEADER`` 这个名字存在；
+#: 字符串本身定义在 ``app.observability.trace``，此处只是再导出，**不要新增副本**）
+__all__ = ["TRACE_ID_HEADER", "app", "create_app"]
+
+#: 日志格式：``[%(trace_id)s]`` 由 :class:`TraceIdLogFilter` 注入，
+#: 保证同一次请求的 Java 日志与本服务日志能按同一个 16 位 hex 对上。
+LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(trace_id)s] [%(name)s] %(message)s"
 
 DESCRIPTION = """
 **大学生多考试备考知识库与题库系统 —— AI 微服务**
@@ -73,12 +85,19 @@ Java 侧自动降级到 ngram 全文检索 + 本地抽取式，**系统功能零
 def configure_logging(level: str = "INFO") -> None:
     """配置根日志（幂等，可重复调用）。
 
+    关键点：handler 上挂 :class:`TraceIdLogFilter`，日志格式含 ``[%(trace_id)s]``。
+    没有这个 Filter 的话，任何一条记录只要缺 ``trace_id`` 属性就会触发
+    "--- Logging error ---"（格式占位符 Missing），比丢 trace 更糟。
+
     Args:
         level: 日志级别名，如 ``DEBUG`` / ``INFO``。
     """
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    handler.addFilter(TraceIdLogFilter())
     logging.basicConfig(
         level=getattr(logging, level, logging.INFO),
-        format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s",
+        handlers=[handler],
         force=True,
     )
 
@@ -186,22 +205,38 @@ def create_app() -> FastAPI:
 async def trace_id_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Any]]
 ) -> Any:
-    """TraceId 中间件：透传或生成 ``X-Trace-Id``，并记录耗时。
+    """TraceId 中间件：解析/生成 traceId → 写 contextvar → 回写响应头 + 耗时。
+
+    优先级（契约 §1）：**合法入站头 > 当前 contextvar > 新生成**。
+    入站值不匹配 ``^[0-9a-f]{16}$`` 时**丢弃并重新生成、不报错**（防日志注入：
+    否则调用方可以塞换行/伪造串污染每一条日志）。
+
+    traceId 写入 contextvar 而不是只放 ``request.state``：日志与出站请求
+    （``JavaBridge``）都需要它，而并发下 ``request.state`` 取不到"当前"请求。
 
     Args:
         request: 入站请求。
         call_next: 下一个中间件/路由。
 
     Returns:
-        带 ``X-Trace-Id`` 头的响应。
+        带 ``X-Trace-Id`` / ``X-Cost-Ms`` 头的响应。
     """
-    trace_id = request.headers.get(TRACE_ID_HEADER) or uuid.uuid4().hex[:16]
+    trace_id = (
+        normalize_trace_id(request.headers.get(TRACE_ID_HEADER))
+        or get_trace_id()
+        or new_trace_id()
+    )
+    set_trace_id(trace_id)
+    # request.state 保留仅为向后兼容（旧代码可能在读）；**日志与出站一律用 contextvar**
     request.state.trace_id = trace_id
     started = time.perf_counter()
     response = await call_next(request)
     cost_ms = int((time.perf_counter() - started) * 1000)
     response.headers[TRACE_ID_HEADER] = trace_id
     response.headers["X-Cost-Ms"] = str(cost_ms)
+    # 不在此 reset：SSE 的响应体在 call_next 返回之后才被消费，
+    # 提前 reset 会让流式阶段的日志丢掉 trace。每个请求跑在独立 task 里，
+    # 上下文随 task 结束销毁，不会串到下一个请求。
     return response
 
 

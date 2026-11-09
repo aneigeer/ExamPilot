@@ -4,13 +4,17 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -19,6 +23,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -124,6 +131,61 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<Void> handleAuth(AuthenticationException e) {
         return Result.fail(ResultCode.UNAUTHORIZED);
+    }
+
+    /** 无映射路由 / 缺失静态资源 → HTTP 404（Spring 6.1+ 资源处理器抛出，禁止落入兜底 500） */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResource(NoResourceFoundException e, HttpServletRequest req,
+                                         HttpServletResponse resp) {
+        String method = e.getHttpMethod() != null ? e.getHttpMethod().name() : req.getMethod();
+        log.warn("接口不存在 [{} {}]", method, req.getRequestURI());
+        setStatusIfHttpRange(resp, ResultCode.NOT_FOUND.getCode());
+        return Result.fail(ResultCode.NOT_FOUND.getCode(), "接口不存在：" + method + " " + req.getRequestURI());
+    }
+
+    /** 无匹配 handler（需 throwExceptionIfNoHandlerFound=true）→ HTTP 404 */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public Result<Void> handleNoHandler(NoHandlerFoundException e, HttpServletResponse resp) {
+        log.warn("接口不存在 [{} {}]", e.getHttpMethod(), e.getRequestURL());
+        setStatusIfHttpRange(resp, ResultCode.NOT_FOUND.getCode());
+        return Result.fail(ResultCode.NOT_FOUND.getCode(),
+                "接口不存在：" + e.getHttpMethod() + " " + e.getRequestURL());
+    }
+
+    /** 请求方法不支持 → HTTP 405，并回填 Allow 响应头 */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public Result<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e,
+                                                 HttpServletRequest req, HttpServletResponse resp) {
+        String[] supported = e.getSupportedMethods();
+        if (supported != null && supported.length > 0) {
+            resp.setHeader(HttpHeaders.ALLOW, String.join(", ", supported));
+        }
+        log.warn("请求方法不支持 [{} {}]，允许: {}", req.getMethod(), req.getRequestURI(),
+                supported == null ? "无" : String.join(",", supported));
+        setStatusIfHttpRange(resp, HttpStatus.METHOD_NOT_ALLOWED.value());
+        return Result.fail(HttpStatus.METHOD_NOT_ALLOWED.value(), "该接口不支持 " + req.getMethod() + " 请求");
+    }
+
+    /** 客户端 Accept 与可产出类型不匹配 → HTTP 406 */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public Result<Void> handleNotAcceptable(HttpMediaTypeNotAcceptableException e, HttpServletRequest req,
+                                            HttpServletResponse resp) {
+        log.warn("Accept 类型不匹配 [{} {}]", req.getMethod(), req.getRequestURI());
+        // 客户端 Accept 可能不含 json，预设 Content-Type 让错误体仍以统一结构写出（否则二次协商失败、body 为空）
+        resp.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        setStatusIfHttpRange(resp, HttpStatus.NOT_ACCEPTABLE.value());
+        return Result.fail(HttpStatus.NOT_ACCEPTABLE.value(), "不接受该 Accept 类型，请使用 application/json");
+    }
+
+    /** 自带状态码的异常（三方库/未来代码抛出）→ 按其自身 status，不再一律 500 */
+    @ExceptionHandler(ResponseStatusException.class)
+    public Result<Void> handleResponseStatus(ResponseStatusException e, HttpServletRequest req,
+                                             HttpServletResponse resp) {
+        int status = e.getStatusCode().value();
+        String reason = e.getReason();
+        log.warn("请求被拒绝 [{} {}] status={} reason={}", req.getMethod(), req.getRequestURI(), status, reason);
+        resp.setStatus(status);
+        return Result.fail(status, reason != null && !reason.isBlank() ? reason : "请求处理失败");
     }
 
     /** 兜底：未预期异常，必须打完整堆栈 → HTTP 500 */

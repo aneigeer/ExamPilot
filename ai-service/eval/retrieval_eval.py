@@ -113,6 +113,7 @@ async def run(
                     "rank": rank or "MISS",
                     "recall": "HIT" if rank else "MISS",
                     "mode": data.get("mode", ""),
+                    "gate_refused": bool(gated.get("refused")),
                     "_fail": rank == 0,
                 }
             )

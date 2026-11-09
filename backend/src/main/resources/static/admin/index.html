@@ -39,6 +39,23 @@
   .agent-body pre{margin:6px 0 0;padding:8px 10px;background:#f7f9fc;border:1px solid #e7ebf2;border-radius:8px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto}
   .agent-answer{white-space:pre-wrap;line-height:1.7}
   .agent-meta{margin-top:6px;font-size:11px;color:#8290a2}
+  /* 运行指标（只读）：复用 .stat-row/.dashboard-panels/.stat-card 体系，只补标题与口径区 */
+  .metrics-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .metrics-title{font-size:19px;letter-spacing:-.03em;margin:0;color:#19263a}
+  .metrics-sub{margin:5px 0 0;color:#697589;font-size:12px;line-height:1.6}
+  .metrics-scope{margin-top:12px;padding:10px 13px;background:#f7f9fc;border:1px solid var(--line);border-radius:10px}
+  .metrics-note{font-size:12px;color:#7a8190;line-height:1.75;padding:1px 0}
+  .metrics-empty{padding:26px 0}
+  .metrics-err{margin-bottom:14px}
+  /* 评估对比 / 保留期清理 */
+  .eval-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .eval-toolbar .tip{font-size:12px;color:#7a8190}
+  .delta-up{color:#1f7a4d;font-weight:650}
+  .delta-down{color:#c24145;font-weight:650}
+  .delta-flat{color:#5c6472}
+  .compare-metric{font-family:"JetBrains Mono",Consolas,Monaco,monospace;font-size:12px}
+  .purge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .purge-day{width:150px}
   /* 原生按钮：避免 Element Plus 按钮在部分快照/窄屏下不可见 */
   .btn-primary{appearance:none;border:0;border-radius:8px;background:var(--brand);color:#fff;
     font-size:13px;font-weight:600;padding:0 18px;height:38px;cursor:pointer;white-space:nowrap}
@@ -588,6 +605,9 @@
             </div>
           </el-card>
 
+          <!-- 「运行指标」区：只读，数据来源 ai_agent_run（契约 §2 管理端断言①） -->
+          <metrics-panel :metrics="metrics" @change-days="changeMetricsDays"></metrics-panel>
+
           <el-card shadow="never" style="margin-top:14px">
             <template #header>历史会话（点击回放）</template>
             <el-table :data="agent.runs" size="small" empty-text="暂无记录">
@@ -676,6 +696,85 @@
             <div class="pager"><el-pagination layout="prev, pager, next, total"
               :total="eval.total" :page-size="20" :current-page="eval.page"
               @current-change="p => { eval.page = p; loadEvalRuns(); }"/></div>
+          </el-card>
+
+          <!-- ===== 评估对比（同 layer 两次运行） ===== -->
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>评估对比（delta = target − base）</template>
+            <div class="eval-toolbar">
+              <el-select v-model="eval.compareBase" placeholder="选择基准运行（base）" size="small"
+                         filterable style="width:330px" :loading="eval.compareLoading"
+                         @change="loadEvalCompare">
+                <el-option v-for="r in eval.runs" :key="'b' + r.id" :value="r.id"
+                           :label="compareOptionLabel(r)"></el-option>
+              </el-select>
+              <span class="tip">→</span>
+              <el-select v-model="eval.compareTarget" placeholder="选择目标运行（target）" size="small"
+                         filterable style="width:330px" :loading="eval.compareLoading"
+                         @change="loadEvalCompare">
+                <el-option v-for="r in eval.runs" :key="'t' + r.id" :value="r.id"
+                           :label="compareOptionLabel(r)"></el-option>
+              </el-select>
+              <button type="button" class="btn-primary" :disabled="eval.compareLoading"
+                      @click="loadEvalCompare">对比</button>
+              <span class="tip" v-if="!eval.runs.length">当前页暂无运行记录，先跑一次评估</span>
+            </div>
+            <div class="metrics-note" style="margin-top:8px">
+              仅比较同 layer 的两次运行；delta = target − base（正数表示目标更好，负数表示变差）。
+            </div>
+
+            <el-alert v-if="eval.compareError" class="metrics-err" style="margin-top:12px"
+                      type="error" :title="eval.compareError" :closable="false" show-icon></el-alert>
+            <el-alert v-else-if="eval.compare && eval.compare.comparable === false"
+                      class="metrics-err" style="margin-top:12px" type="warning"
+                      :title="compareWarnText" :closable="false" show-icon></el-alert>
+
+            <div v-loading="eval.compareLoading" style="min-height:60px">
+              <el-empty v-if="!eval.compareError && !eval.compare" :image-size="70"
+                        description="选择两次运行后自动对比（同层比较才有效）"></el-empty>
+              <template v-else-if="eval.compare">
+                <el-table :data="compareOverviewRows" size="small" style="margin-top:4px">
+                  <el-table-column prop="field" label="项目" width="150"></el-table-column>
+                  <el-table-column label="基准（base）">
+                    <template #default="s">{{ s.row.base }}</template>
+                  </el-table-column>
+                  <el-table-column label="目标（target）">
+                    <template #default="s">{{ s.row.target }}</template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="metrics-note" style="margin-top:12px">逐指标差异</div>
+                <el-table :data="compareDeltaRows" size="small" empty-text="两次运行都没有可比较的指标">
+                  <el-table-column label="指标" min-width="220">
+                    <template #default="s"><span class="compare-metric">{{ s.row.key }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="delta" width="150" align="right">
+                    <template #default="s">
+                      <span :class="'delta-' + s.row.tone">{{ s.row.text }}</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </template>
+            </div>
+          </el-card>
+
+          <!-- ===== 保留期清理（ADMIN，不可恢复） ===== -->
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>运行轨迹保留期清理</template>
+            <div class="purge-row">
+              <span class="tip">保留天数</span>
+              <el-input-number v-model="eval.purge.days" :min="1" :max="3650" :step="10"
+                               size="small" class="purge-day" :disabled="eval.purge.running"></el-input-number>
+              <button type="button" class="btn-primary" :disabled="eval.purge.running"
+                      @click="purgeRetention">
+                {{ eval.purge.running ? '清理中…' : '清理早于该天数的运行轨迹' }}
+              </button>
+            </div>
+            <div class="metrics-note" style="margin-top:8px">
+              删除 ai_agent_run 中 created_at 早于 N 天的运行轨迹，不可恢复；仅 ADMIN。
+            </div>
+            <el-alert v-if="eval.purge.notice" style="margin-top:12px" :closable="false" show-icon
+                      :type="eval.purge.noticeType" :title="eval.purge.notice"></el-alert>
           </el-card>
 
           <el-dialog v-model="eval.detailDialog" title="评估详情" width="900px">
@@ -871,7 +970,12 @@ async function api(method, path, body) {
       throw new Error('登录已过期');
     }
     const json = await resp.json();
-    if (json.code !== 200) throw new Error(json.message || '请求失败');
+    if (json.code !== 200) {
+      // 附带 code：调用方需要按 403/400 给不同文案时不必再猜 HTTP 状态
+      const err = new Error(json.message || '请求失败');
+      err.code = Number(json.code) || resp.status;
+      throw err;
+    }
     return json.data;
   } catch (e) {
     // 统一错误提示：页面级裸 await 失败时也能看到具体原因，不再静默白屏
@@ -879,6 +983,248 @@ async function api(method, path, body) {
     throw e;
   }
 }
+
+/**
+ * 运行指标面板（只读），作为「AI 运行观测」页内的「运行指标」区（契约 §2 管理端断言①）。
+ *
+ * 数据契约（docs/Agent阶段三接口契约.md §2）：
+ *   GET /admin/ai/metrics?days=1|7|30 → data.{total,running,terminal,statusCounts,
+ *   successRate,refusedRate,failureRate,cancelRate,degradedCount,degradedDenominator,
+ *   degradedRate,latency{samples,avgMs,p95Ms,maxMs},generators[],errorTop5[]}
+ *   · 各比率分母一律是「终态数」terminal = total − running；分母为 0 时后端返回 null
+ *   · 空窗口（total=0）仍返回 200，各比率为 null、samples=0、两个数组为空
+ *   · days 非法（1..90 之外）后端直接 400，本面板只给 1/7/30，不做静默纠正
+ *
+ * 纯展示组件：状态与取数由根实例持有（data().metrics + loadMetrics()），
+ * 组件只负责派生与格式化，保证「进入观测页即加载」而不是只在切换时加载。
+ */
+const MetricsPanel = {
+  name: 'MetricsPanel',
+  props: {
+    /** {days, data, loading, error}，结构同根实例 data().metrics。 */
+    metrics: {type: Object, required: true}
+  },
+  emits: ['change-days'],
+  computed: {
+    /** 当前窗口天数（1/7/30）。 */
+    days() {
+      return Number(this.metrics.days) || 7;
+    },
+    loading() {
+      return this.metrics.loading === true;
+    },
+    error() {
+      return this.metrics.error || '';
+    },
+    /** 接口返回体；未加载成功时为 {}，模板可直接取值。 */
+    payload() {
+      return this.metrics.data || {};
+    },
+    /** 耗时统计子对象（samples/avgMs/p95Ms/maxMs 均可能为 null）。 */
+    latency() {
+      return this.payload.latency || {};
+    },
+    statusCounts() {
+      return this.payload.statusCounts || {};
+    },
+    /** 5 个状态恒定展示：无数据补 0，不省略。 */
+    statusRows() {
+      const defs = [
+        {code: 'SUCCESS', label: '成功', tag: 'success'},
+        {code: 'REFUSED', label: '拒答', tag: 'warning'},
+        {code: 'FAILED', label: '失败', tag: 'danger'},
+        {code: 'RUNNING', label: '进行中', tag: 'primary'},
+        {code: 'CANCELLED', label: '已取消', tag: 'info'}
+      ];
+      const total = this.num(this.payload.total);
+      return defs.map(d => {
+        const count = this.num(this.statusCounts[d.code]);
+        return {
+          code: d.code,
+          label: d.label,
+          tag: d.tag,
+          count: count,
+          ratio: total > 0 ? (count / total) : null
+        };
+      });
+    },
+    generators() {
+      return this.payload.generators || [];
+    },
+    errorTop5() {
+      return this.payload.errorTop5 || [];
+    },
+    /** 空窗口：接口成功返回且 total=0。请求出错时走顶部 alert，不算空窗口。 */
+    isEmpty() {
+      if (this.error) return false;
+      if (this.metrics.data === null || this.metrics.data === undefined) return false;
+      return this.num(this.payload.total) === 0;
+    }
+  },
+  methods: {
+    /** 安全转数字：非数字/空值一律按 0 处理（仅用于计数与占比，不用于比率展示）。 */
+    num(v) {
+      const n = Number(v);
+      return isFinite(n) ? n : 0;
+    },
+    /** 计数：千分位；null/undefined → 「—」。 */
+    fmtCount(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return n.toLocaleString('zh-CN');
+    },
+    /** 比率（入参为 0..1 小数）：百分比保留 1 位；null → 「—」（不是 0%）。 */
+    fmtPercent(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return (n * 100).toFixed(1) + '%';
+    },
+    /** 耗时（毫秒）：整数不带小数、非整数保留 1 位；null → 「—」。 */
+    fmtMs(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return Number(n.toFixed(1)).toLocaleString('zh-CN');
+    },
+    /** 成功率卡片配色：≥80% 正常、≥50% 警示、其余危险；null 不加色。 */
+    rateTone(v) {
+      if (v === null || v === undefined || v === '') return '';
+      const n = Number(v);
+      if (!isFinite(n)) return '';
+      if (n >= 0.8) return '';
+      if (n >= 0.5) return 'warning';
+      return 'danger';
+    },
+    /** 取某个状态的次数（缺省 0）。 */
+    countOf(code) {
+      return this.num(this.statusCounts[code]);
+    }
+  },
+  template: `
+  <div class="metrics-panel">
+    <div class="metrics-head">
+      <div>
+        <h2 class="metrics-title">Agent 运行指标</h2>
+        <p class="metrics-sub">
+          只读视图 · 来源 ai_agent_run · 窗口 {{ payload.from || '—' }} ~ {{ payload.to || '—' }}
+          （{{ payload.timezone || 'Asia/Shanghai' }}，近 {{ days }} 天）· 数据截至 {{ payload.generatedAt || '—' }}
+        </p>
+      </div>
+      <el-radio-group :model-value="days" size="small" @change="v => $emit('change-days', v)">
+        <el-radio-button :value="1">近 1 天</el-radio-button>
+        <el-radio-button :value="7">近 7 天</el-radio-button>
+        <el-radio-button :value="30">近 30 天</el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <el-alert v-if="error" class="metrics-err" type="warning"
+              :title="error" :closable="false" show-icon/>
+
+    <div v-loading="loading" element-loading-text="指标加载中…" style="min-height:80px">
+      <el-card v-if="isEmpty" shadow="never">
+        <el-empty class="metrics-empty" :image-size="80"
+                  :description="'该窗口无运行记录（近 ' + days + ' 天）'"/>
+      </el-card>
+
+      <template v-else>
+        <div class="stat-row">
+          <div class="stat-card">
+            <span class="stat-icon">▶</span>
+            <div class="stat-label">总运行数</div>
+            <div class="stat-num">{{ fmtCount(payload.total) }}</div>
+            <div class="stat-hint">含进行中 · 终态 {{ fmtCount(payload.terminal) }}</div>
+          </div>
+          <div class="stat-card" :class="rateTone(payload.successRate)">
+            <span class="stat-icon">✓</span>
+            <div class="stat-label">成功率</div>
+            <div class="stat-num">{{ fmtPercent(payload.successRate) }}</div>
+            <div class="stat-hint">SUCCESS ÷ 终态</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">⏱</span>
+            <div class="stat-label">平均耗时（ms）</div>
+            <div class="stat-num">{{ fmtMs(latency.avgMs) }}</div>
+            <div class="stat-hint">P95 {{ fmtMs(latency.p95Ms) }} · 样本 {{ fmtCount(latency.samples) }}</div>
+          </div>
+          <div class="stat-card" :class="payload.degradedRate > 0 ? 'warning' : ''">
+            <span class="stat-icon">⚠</span>
+            <div class="stat-label">降级率</div>
+            <div class="stat-num">{{ fmtPercent(payload.degradedRate) }}</div>
+            <div class="stat-hint">{{ fmtCount(payload.degradedCount) }} / {{ fmtCount(payload.degradedDenominator) }}（SUCCESS+REFUSED）</div>
+          </div>
+        </div>
+
+        <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="stat-card" :class="payload.refusedRate > 0 ? 'warning' : ''">
+            <div class="stat-label">拒答率</div>
+            <div class="stat-num">{{ fmtPercent(payload.refusedRate) }}</div>
+            <div class="stat-hint">REFUSED {{ countOf('REFUSED') }} 次 · 拒答不计入成功或失败</div>
+          </div>
+          <div class="stat-card" :class="payload.failureRate > 0 ? 'danger' : ''">
+            <div class="stat-label">失败率</div>
+            <div class="stat-num">{{ fmtPercent(payload.failureRate) }}</div>
+            <div class="stat-hint">FAILED {{ countOf('FAILED') }} 次</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">取消率</div>
+            <div class="stat-num">{{ fmtPercent(payload.cancelRate) }}</div>
+            <div class="stat-hint">CANCELLED {{ countOf('CANCELLED') }} 次</div>
+          </div>
+        </div>
+
+        <div class="dashboard-panels">
+          <el-card shadow="never"><template #header>状态分布（statusCounts）</template>
+            <el-table :data="statusRows" size="small">
+              <el-table-column label="状态" width="110">
+                <template #default="s">
+                  <el-tag :type="s.row.tag" effect="plain" size="small">{{ s.row.label }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="code" label="枚举值" width="110"/>
+              <el-table-column prop="count" label="次数" width="80" align="right"/>
+              <el-table-column label="占 total" align="right">
+                <template #default="s">{{ fmtPercent(s.row.ratio) }}</template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+          <el-card shadow="never"><template #header>错误 Top5（errorTop5）</template>
+            <div v-if="!errorTop5.length" class="metrics-note">近 {{ days }} 天无错误</div>
+            <el-table v-else :data="errorTop5" size="small">
+              <el-table-column prop="error" label="错误原文" show-overflow-tooltip/>
+              <el-table-column prop="count" label="次数" width="80" align="right"/>
+            </el-table>
+          </el-card>
+        </div>
+
+        <el-card shadow="never" style="margin-top:14px">
+          <template #header>生成器分布（generators，按 count 倒序，最多 20 组）</template>
+          <el-table :data="generators" size="small" empty-text="暂无生成器数据">
+            <el-table-column prop="generator" label="generator" min-width="160" show-overflow-tooltip/>
+            <el-table-column prop="count" label="运行数" width="90" align="right"/>
+            <el-table-column label="成功率" width="100" align="right">
+              <template #default="s">{{ fmtPercent(s.row.successRate) }}</template>
+            </el-table-column>
+            <el-table-column label="平均耗时 ms" width="120" align="right">
+              <template #default="s">{{ fmtMs(s.row.avgMs) }}</template>
+            </el-table-column>
+            <el-table-column label="P95 ms" width="110" align="right">
+              <template #default="s">{{ fmtMs(s.row.p95Ms) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <div class="metrics-scope">
+          <div class="metrics-note">① 成功率 = SUCCESS ÷ 终态（total − running）；分母为 0 显示「—」，不是 0%。拒答单列，不计入成功也不计入失败。</div>
+          <div class="metrics-note">② P95 采用 MySQL 8 窗口函数最近秩法（rn = CEIL(0.95 × n)），仅统计终态且 total_ms > 0 的样本，样本数见 samples 可核对。</div>
+          <div class="metrics-note">③ 降级率分母 = SUCCESS + REFUSED 子集（只有真正产出回答的轮次，降级才有意义）。</div>
+        </div>
+      </template>
+    </div>
+  </div>
+  `
+};
 
 createApp({
   data() {
@@ -914,10 +1260,17 @@ createApp({
       exams: [], subjectAdmin: [],
       logs: [], logTotal: 0, logPage: 1,
 
+      // 运行指标（只读）：随「AI 运行观测」页一起加载；data=null 表示尚未成功拉取过
+      metrics: {days: 7, data: null, loading: false, error: ''},
       agent: {question: '', running: false, steps: [], page: 1, runs: [], runTotal: 0,
         replayDialog: false, replay: null},
       eval: {tab: 'retrieval', running: false, task: null, runs: [], total: 0, page: 1,
-        detailDialog: false, detail: null},
+        detailDialog: false, detail: null,
+        // 评估对比：baseId / targetId 取自当前页运行记录
+        compareBase: null, compareTarget: null, compare: null, compareLoading: false,
+        compareError: '',
+        // 保留期清理：days 默认 90，仅 ADMIN，不可恢复
+        purge: {days: 90, running: false, notice: '', noticeType: 'info'}},
       wiki: {tab: 'revisions', stats: {}, revisions: [], revTotal: 0, revPage: 1,
         pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null,
         running: false, task: null, graph: {nodes: [], edges: []},
@@ -929,6 +1282,45 @@ createApp({
     // 原先在 data() 初始化时一次性读取，登录后不更新，导致上传永远带空 token 而 401。
     uploadHeaders() {
       return {Authorization: 'Bearer ' + (localStorage.getItem('token') || '')};
+    },
+    /** 对比概览两列：base / target 同字段并排，缺值统一显示「—」。 */
+    compareOverviewRows() {
+      const c = this.eval.compare;
+      if (!c) return [];
+      const b = c.base || {};
+      const t = c.target || {};
+      return [
+        {field: '运行 ID', base: this.idText(b.id), target: this.idText(t.id)},
+        {field: '层（layer）', base: this.cellText(b.layer), target: this.cellText(t.layer)},
+        {field: '时间', base: this.cellText(b.createdAt), target: this.cellText(t.createdAt)},
+        {field: '用例数（total）', base: this.cellText(b.total), target: this.cellText(t.total)},
+        {field: '通过数（passed）', base: this.cellText(b.passed), target: this.cellText(t.passed)},
+        {field: '通过率（passRate）', base: this.pctText(b.passRate), target: this.pctText(t.passRate)}
+      ];
+    },
+    /**
+     * 逐指标 delta 行：数值型 → `+0.0123 / -0.0200` 并带正负色；非数值原样显示。
+     * 键形如 `passRate` 或 `metrics.recallAt5`，按原文展示不做改写。
+     */
+    compareDeltaRows() {
+      const c = this.eval.compare;
+      const delta = (c && c.delta) || {};
+      return Object.keys(delta).sort().map(function (key) {
+        const v = delta[key];
+        const numeric = typeof v === 'number' && isFinite(v);
+        return {
+          key: key,
+          numeric: numeric,
+          text: numeric ? ((v > 0 ? '+' : '') + v.toFixed(4)) : String(v),
+          tone: numeric ? (v > 0 ? 'up' : (v < 0 ? 'down' : 'flat')) : 'flat'
+        };
+      });
+    },
+    /** 跨 layer 时同时展示后端给的 note（若有）。 */
+    compareWarnText() {
+      const c = this.eval.compare || {};
+      const note = c.note ? String(c.note) : '';
+      return note ? ('跨 layer 不可直接比较，仅作参考：' + note) : '跨 layer 不可直接比较，仅作参考';
     }
   },
   methods: {
@@ -1010,6 +1402,8 @@ createApp({
         agent: 'loadAgentRuns', eval: 'loadEvalRuns', wiki: 'loadWiki'
       };
       if (map[this.view]) this[map[this.view]]();
+      // 「AI 运行观测」页含「运行指标」区：进入该页时与历史会话一起加载，而不是只在切换时加载
+      if (this.view === 'agent') this.loadMetrics();
     },
 
     async loadDashboard() {
@@ -1290,6 +1684,32 @@ createApp({
       this.agent.runs = data.list || [];
       this.agent.runTotal = data.total;
     },
+    // ---------- 运行指标（只读，契约 §2） ----------
+    /**
+     * 拉取近 N 天 Agent 运行指标。
+     * days 只取契约允许的 1/7/30（越界后端会 400，前端不静默纠正成别的值）。
+     * 失败时保留上一次成功数据（api() 已统一弹错），并记录 error 供面板顶部 alert 展示，
+     * 绝不写入假数据，避免把「查不到」显示成「0 条 / 0%」。
+     */
+    async loadMetrics() {
+      if (this.metrics.loading) return;
+      const days = [1, 7, 30].indexOf(Number(this.metrics.days)) >= 0 ? Number(this.metrics.days) : 7;
+      this.metrics.loading = true;
+      this.metrics.error = '';
+      try {
+        const data = await api('GET', '/admin/ai/metrics?days=' + days);
+        this.metrics.data = data || {};
+      } catch (e) {
+        this.metrics.error = (e && e.message) ? e.message : '指标加载失败';
+      } finally {
+        this.metrics.loading = false;
+      }
+    },
+    /** 切换指标窗口天数（1/7/30）并重新拉取。 */
+    changeMetricsDays(v) {
+      this.metrics.days = Number(v) || 7;
+      this.loadMetrics();
+    },
     async replayRun(id) {
       this.agent.replay = await api('GET', '/admin/ai/agent/runs/' + id);
       this.agent.replayDialog = true;
@@ -1357,6 +1777,7 @@ createApp({
       } finally {
         this.agent.running = false;
         this.loadAgentRuns();
+        this.loadMetrics();   // 一次会话后 RUNNING→终态，指标区随之刷新
       }
     },
     dispatchAgentEvent(name, raw) {
@@ -1372,6 +1793,98 @@ createApp({
       const data = await api('GET', '/admin/ai/eval/runs?page=' + this.eval.page + '&size=20');
       this.eval.runs = data.list || [];
       this.eval.total = data.total;
+    },
+    // ---------- 评估对比（同 layer 两次运行） ----------
+    /** 下拉项文案：`#id layer createdAt passed/total`。 */
+    compareOptionLabel(r) {
+      if (!r) return '';
+      const id = (r.id === null || r.id === undefined) ? '—' : '#' + r.id;
+      const rate = (r.total || r.total === 0) ? ((r.passed || 0) + '/' + r.total) : '—';
+      return id + ' · ' + (r.layer || '—') + ' · ' + (r.createdAt || '—') + ' · ' + rate;
+    },
+    /** 空值统一显示「—」，避免出现 "null" / "undefined" 字样。 */
+    cellText(v) {
+      return (v === null || v === undefined || v === '') ? '—' : String(v);
+    },
+    idText(v) {
+      return (v === null || v === undefined || v === '') ? '—' : ('#' + v);
+    },
+    /** 比率（0..1）→ 百分比 1 位；null/非数字 → 「—」。 */
+    pctText(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return (n * 100).toFixed(1) + '%';
+    },
+    /**
+     * 拉取两次运行的对比结果。
+     * 缺参（任一侧未选）直接返回并清空，不发请求；缺参/404 由 catch 落到 el-alert，不白屏、不写假数据。
+     */
+    async loadEvalCompare() {
+      const base = this.eval.compareBase;
+      const target = this.eval.compareTarget;
+      if (base === null || base === undefined || base === '' ||
+          target === null || target === undefined || target === '') {
+        this.eval.compareError = '';
+        return;
+      }
+      if (this.eval.compareLoading) return;
+      this.eval.compareLoading = true;
+      this.eval.compareError = '';
+      try {
+        this.eval.compare = await api('GET', '/admin/ai/eval/compare?baseId=' +
+          encodeURIComponent(base) + '&targetId=' + encodeURIComponent(target));
+      } catch (e) {
+        // api() 已统一弹错；这里保留上一次结果，只在顶部给出错误条
+        this.eval.compareError = (e && e.message) ? e.message : '对比失败';
+      } finally {
+        this.eval.compareLoading = false;
+      }
+    },
+    // ---------- 保留期清理（ADMIN，不可恢复） ----------
+    /**
+     * 清理 ai_agent_run 中 created_at 早于 N 天的运行轨迹。
+     * 二次确认 → POST /admin/ai/retention/purge?days=N。
+     * 403 → 「仅超级管理员可执行」；400/500 → 用后端 message；任何失败都不写假数据。
+     */
+    async purgeRetention() {
+      const p = this.eval.purge;
+      if (p.running) return;
+      const days = Number(p.days);
+      if (!isFinite(days) || days < 1 || days > 3650) {
+        ElementPlus.ElMessage.warning('保留天数需在 1..3650 之间');
+        return;
+      }
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '将删除 ai_agent_run 中 created_at 早于「近 ' + days + ' 天」的运行轨迹，删除后不可恢复。确认执行？',
+          '确认清理运行轨迹',
+          {type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消',
+            distinguishCancelAndClose: true}
+        );
+      } catch (e) {
+        return;   // 用户取消：什么都不做
+      }
+      p.running = true;
+      p.notice = '';
+      p.noticeType = 'info';
+      try {
+        const r = await api('POST', '/admin/ai/retention/purge?days=' + days) || {};
+        const cutoff = r.cutoff ? String(r.cutoff).slice(0, 10) : '—';
+        const deleted = (r.deleted === null || r.deleted === undefined) ? 0 : r.deleted;
+        p.noticeType = 'success';
+        p.notice = '已清理 ' + deleted + ' 条（早于 ' + cutoff + '）';
+        ElementPlus.ElMessage.success(p.notice);
+      } catch (e) {
+        p.noticeType = 'error';
+        if (e && Number(e.code) === 403) {
+          p.notice = '仅超级管理员可执行';
+        } else {
+          p.notice = (e && e.message) ? e.message : '清理失败，请稍后重试';
+        }
+      } finally {
+        p.running = false;
+      }
     },
     async startEval(layer) {
       if (this.eval.running) return;
@@ -1528,7 +2041,7 @@ createApp({
   mounted() {
     if (this.token) this.loadView();
   }
-}).use(ElementPlus).mount('#app');
+}).component('metrics-panel', MetricsPanel).use(ElementPlus).mount('#app');
 </script>
 </body>
 </html>

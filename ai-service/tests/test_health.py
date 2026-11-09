@@ -111,9 +111,17 @@ def test_openjson_lists_all_endpoints(client: Any) -> None:
 
 
 def test_trace_id_header_echoed(client: Any) -> None:
-    """上游传入的 X-Trace-Id 会被透传回响应头（与 Java traceId 串联）。"""
+    """**合法**入站 TraceId（16 位小写 hex）会被原样透传回响应头（与 Java traceId 串联）。"""
+    response = client.get("/v1/health", headers={"X-Trace-Id": "0123456789abcdef"})
+    assert response.headers.get("X-Trace-Id") == "0123456789abcdef"
+
+
+def test_illegal_inbound_trace_id_is_regenerated(client: Any) -> None:
+    """非法入站值（长度/字符不符）**丢弃并重生成**，防日志注入（契约 §1）。"""
     response = client.get("/v1/health", headers={"X-Trace-Id": "trace-abc-123"})
-    assert response.headers.get("X-Trace-Id") == "trace-abc-123"
+    echoed = response.headers.get("X-Trace-Id")
+    assert echoed != "trace-abc-123", "非法 traceId 被原样透传"
+    assert len(echoed) == 16 and all(ch in "0123456789abcdef" for ch in echoed), echoed
 
 
 def test_trace_id_generated_when_absent(client: Any) -> None:

@@ -139,18 +139,24 @@ def test_agent_accepts_correct_token(client: Any, harness_stub: _HarnessStub,
     assert len(harness_stub.contexts) == 1
 
 
-def test_agent_fails_open_when_token_not_configured(client: Any, harness_stub: _HarnessStub,
-                                                    monkeypatch: pytest.MonkeyPatch) -> None:
-    """现状记录：未配置令牌时**放行**（fail-open），仅打告警日志。
+def test_agent_fails_closed_when_token_not_configured(client: Any,
+                                                      harness_stub: _HarnessStub,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    """A1（阶段三修正）：未配置令牌时 **fail-closed 401**，而不是阶段二的 fail-open 放行。
 
-    与 Java ``InternalTokenFilter`` 的 fail-closed（未配置一律 403）**不一致**。
-    这里断言现状，防止有人"以为默认安全"；是否改成 fail-closed 需产品决策
-    （改成 fail-closed 会让所有未配令牌的本地环境 401）。
+    阶段二记录的是"未配置即放行"的现状；阶段三已决策改为 fail-closed
+    （与 Java ``InternalTokenFilter`` 对齐）。唯一例外是显式 ``AGENT_ALLOW_ANONYMOUS=1``，
+    该例外在 ``tests/test_agent_security.py`` 里单独断言。
     """
     _patch_token(monkeypatch, "")
-    resp = client.post("/v1/agent/run", json={"question": "我的错题有哪些", "userId": 4})
-    assert resp.status_code == 200, resp.text
-    assert len(harness_stub.contexts) == 1
+    monkeypatch.setattr(agent_router, "_allow_anonymous", lambda: False)
+
+    for path in ("/v1/agent/run", "/v1/agent/stream"):
+        resp = client.post(path, json={"question": "我的错题有哪些", "userId": 4})
+        assert resp.status_code == 401, f"{path} 应 401，实际 {resp.status_code}"
+        assert resp.json()["message"] == "内部接口未授权：X-Internal-Token 缺失或无效"
+        assert resp.json()["code"] == 5231
+    assert harness_stub.contexts == [], "鉴权失败却已进入 Agent 执行"
 
 
 def test_agent_context_carries_user_id_from_body() -> None:
@@ -244,40 +250,41 @@ def test_overlong_question_rejected() -> None:
         AgentRequest(question="错" * 201)
 
 
-def test_max_steps_has_no_upper_bound() -> None:
-    """A8 记录：maxSteps 无上下界，999 会被接受（靠 max_tool_calls 兜底）。"""
-    request = AgentRequest(question="我的计划", maxSteps=999)
-    assert request.max_steps == 999
+def test_max_steps_schema_rejects_out_of_range() -> None:
+    """A8（阶段三修正）：maxSteps 只接受 1..12，越界在 schema 层就被拒。
 
-    harness = AgentHarness(
-        AgentSettings(max_steps=999, max_tool_calls=4), RecordingBridge()  # type: ignore[arg-type]
-    )
-    assert harness.settings.max_steps == 999
+    阶段二记录的是"无上下界，999 会被接受"。放开上限等于把"单次会话时长"
+    交给调用方（每步都可能是一次真实 LLM 调用），因此阶段三收敛为 1..12。
+    """
+    assert AgentRequest(question="我的计划", maxSteps=1).max_steps == 1
+    assert AgentRequest(question="我的计划", maxSteps=12).max_steps == 12
+    assert AgentRequest(question="我的计划").max_steps is None
+
+    for bad in (0, -1, 13, 999):
+        with pytest.raises(Exception):
+            AgentRequest(question="我的计划", maxSteps=bad)
 
 
-def test_max_steps_zero_is_ignored() -> None:
-    """A8 记录：maxSteps=0 是 falsy，``if max_steps_override`` 直接忽略（静默）。"""
-    stub_harness = _HarnessStub()
-    seen: List[Optional[int]] = []
+def test_max_steps_out_of_range_returns_400(client: Any,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    """A8（阶段三修正）：maxSteps=0/-1/13 走 HTTP 时是 400 + code=5200。
 
-    def fake_harness(max_steps: Optional[int]) -> _HarnessStub:
-        seen.append(max_steps)
-        return stub_harness
-
-    from app import config as config_module
-    from fastapi.testclient import TestClient
-    from app.main import app
-
-    original = agent_router._harness
-    agent_router._harness = fake_harness  # type: ignore[assignment]
-    try:
-        with TestClient(app, raise_server_exceptions=False) as client:
-            resp = client.post("/v1/agent/run", json={"question": "我的计划", "maxSteps": 0})
-        assert resp.status_code == 200, resp.text
-        assert seen == [0], "maxSteps=0 应原样传入（是否覆盖由 _harness 内 falsy 判断）"
-    finally:
-        agent_router._harness = original  # type: ignore[assignment]
-        config_module.reset_settings()
+    阶段二的 ``if max_steps_override:`` 会把 0 当 falsy 静默忽略（回到默认 6），
+    调用方以为限制了步数其实没有 —— 这类"静默降级"比直接报错危险得多。
+    """
+    _patch_token(monkeypatch, "s3cret-token")
+    headers = {"X-Internal-Token": "s3cret-token"}
+    for bad in (0, -1, 13):
+        resp = client.post(
+            "/v1/agent/run",
+            json={"question": "我的计划", "maxSteps": bad},
+            headers=headers,
+        )
+        assert resp.status_code == 400, f"maxSteps={bad} 应 400，实际 {resp.status_code}"
+        body = resp.json()
+        assert body["code"] == 5200, body
+        assert body["degraded"] is False
+        assert "1..12" in body["message"], f"文案须写清允许范围：{body['message']}"
 
 
 # --------------------------------------------------------------------------------------
@@ -286,11 +293,15 @@ def test_max_steps_zero_is_ignored() -> None:
 
 
 class _GreedyPlanner:
-    """永远要求调工具（模拟"被注入后想无限扩散"的规划器）。"""
+    """永远要求调工具（模拟"被注入后想无限扩散"的规划器）。
+
+    每步参数必须不同：harness 对"相同工具 + 相同参数"做去重（重复不扣预算），
+    固定参数会让第 2 步起被跳过，测不出预算闸门是否真正生效。
+    """
 
     def plan(self, ctx: AgentContext, observations: List[Dict[str, Any]]) -> Decision:
         return Decision(thought="再查一次", action="tool", tool="search_knowledge",
-                        arguments={"query": "x"})
+                        arguments={"query": f"x-{len(observations)}"})
 
 
 def test_tool_budget_stops_runaway_loop() -> None:
@@ -332,7 +343,8 @@ class _NoLlm:
 def test_stream_yields_error_event_on_failure(client: Any,
                                              monkeypatch: pytest.MonkeyPatch) -> None:
     """终态：harness 抛异常时 SSE 仍回 error + 结束（客户端不会无限等待）。"""
-    _patch_token(monkeypatch, "")
+    # fail-closed：本用例要测"执行期异常",先过关（不配令牌的话会直接 401）
+    _patch_token(monkeypatch, "s3cret-token")
 
     class _Boom:
         async def run(self, ctx: AgentContext):
@@ -341,7 +353,8 @@ def test_stream_yields_error_event_on_failure(client: Any,
 
     monkeypatch.setattr(agent_router, "_harness", lambda max_steps: _Boom())
     with client.stream("POST", "/v1/agent/stream",
-                       json={"question": "x"}) as resp:
+                       json={"question": "x"},
+                       headers={"X-Internal-Token": "s3cret-token"}) as resp:
         body = "".join(resp.iter_text())
     assert "event: meta" in body
     assert "event: error" in body, body

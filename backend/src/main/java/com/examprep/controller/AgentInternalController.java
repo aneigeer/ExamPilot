@@ -17,6 +17,7 @@ import com.examprep.service.ai.HybridRetriever;
 import com.examprep.service.ai.KnowledgeProfileService;
 import com.examprep.service.ai.LlmAnswer;
 import com.examprep.service.ai.LlmClient;
+import com.examprep.service.ai.PromptBuilder;
 import com.examprep.service.ai.SourceRef;
 import com.examprep.service.ai.agent.AsyncJobService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -145,10 +146,27 @@ public class AgentInternalController {
         return Result.success(studyPlanService.today(userId));
     }
 
+    /**
+     * 题目详情（Agent 只读工具）。
+     *
+     * <p>★ A11 产品决策：<b>默认不下发答案</b>。{@code includeAnswer} 缺省为 {@code false} 时，
+     * 选项 {@code isAnswer}、{@code analysis}、{@code answerContent}、{@code gradingPoints}
+     * 在响应体中整键消失（全局 {@code non_null} 序列化），而不是置 null / 空串。
+     * Python 侧只有判分、讲解等确需答案的场景才显式传 {@code includeAnswer=true}。
+     *
+     * <p>口径来源：{@code docs/阶段二验收结果-2026-10-31.md} A11 +
+     * {@code docs/Agent阶段三接口契约.md} §3。
+     *
+     * @param id            题目 ID
+     * @param includeAnswer 是否携带正确答案与解析，默认 false
+     * @return 题目详情；题目不存在/未开放时 data 为 null（工具调用不应中断整轮对话）
+     */
     @GetMapping("/agent/tools/question/{id}")
-    public Result<Object> question(@PathVariable Long id) {
+    public Result<Object> question(
+            @PathVariable Long id,
+            @RequestParam(value = "includeAnswer", defaultValue = "false") boolean includeAnswer) {
         try {
-            return Result.success(questionService.getQuestionDetail(id));
+            return Result.success(questionService.getQuestionDetail(id, includeAnswer));
         } catch (BizException e) {
             return Result.success(null);
         }
@@ -226,13 +244,27 @@ public class AgentInternalController {
             return Result.success(data);
         }
 
+        // ★ 输出不变量（F-10）：拒答一律归一为统一文案并清空 sources，
+        //   否则「正文=未找到相关资料[1][2][3]、refused=false」会自相矛盾。
+        //   判据复用 AnswerPostProcessor.isRefusal（正文含拒答文案 / sources 空 / generator=none）。
+        boolean refused = answerPostProcessor.isRefusal(answer);
+        if (refused && !PromptBuilder.REFUSAL_TEXT.equals(answer.content())) {
+            log.warn("[Agent] 拒答但正文非空（generator={}, sources={}），按不变量归一为拒答文案，"
+                            + "原正文 {} 字已丢弃",
+                    answer.generator(),
+                    answer.sources() == null ? 0 : answer.sources().size(),
+                    answer.content() == null ? 0 : answer.content().length());
+        }
+        String answerText = refused ? PromptBuilder.REFUSAL_TEXT : answer.content();
+        List<SourceRef> sources = refused ? List.of() : answer.sources();
+
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("answer", answer.content());
+        data.put("answer", answerText);
         data.put("generator", answer.generator());
         data.put("degraded", answer.degraded()
-                || !com.examprep.service.ai.PromptBuilder.isLlmGenerator(answer.generator()));
-        data.put("refused", answer.sources() == null || answer.sources().isEmpty());
-        data.put("sources", sourceMaps(answer.sources()));
+                || !PromptBuilder.isLlmGenerator(answer.generator()));
+        data.put("refused", refused);
+        data.put("sources", sourceMaps(sources));
         return Result.success(data);
     }
 

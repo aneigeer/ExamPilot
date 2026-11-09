@@ -44,8 +44,19 @@ public class AgentSessionService {
     private static final int SUMMARY_MAX_CHARS = 1800;
     private static final int HISTORY_ANSWER_MAX_CHARS = 300;
 
+    /** 传给 Python 的 memorySummary 总长上限（长期记忆 + 滚动摘要） */
+    public static final int MEMORY_SUMMARY_MAX_CHARS = 600;
+
     private final AiAgentSessionMapper sessionMapper;
     private final AiAgentRunMapper runMapper;
+
+    /**
+     * 长期记忆（学生可见可改可删的那部分）
+     *
+     * <p>依赖方向刻意保持单向：SessionService → MemoryService。
+     * MemoryService 不反向依赖本类，否则一来就成环（Spring 构造器注入直接启动失败）。
+     */
+    private final AgentMemoryService memoryService;
 
     /**
      * 解析或创建会话
@@ -116,6 +127,53 @@ public class AgentSessionService {
         }
         AiAgentSession session = sessionMapper.selectBySessionId(sessionId);
         return session == null || session.getSummary() == null ? "" : session.getSummary();
+    }
+
+    /**
+     * 拼装本轮传给 Python 的 {@code memorySummary}：<b>学生长期记忆在前 + 滚动摘要在后</b>。
+     *
+     * <p>为什么不新增 Python 字段：Python 侧已经有 {@code memorySummary} 作为
+     * 「背景信息」的统一入口，长期记忆只是又一类背景，塞进同一个字段可以
+     * <b>不动跨端契约</b>（少一个字段就少一处两边都要改的地方）。
+     *
+     * <p><b>顺序为什么是「长期记忆在前」</b>（团队最终口径）：长期记忆是学生
+     * <b>显式设定</b>的稳定约束（目标考试、薄弱模块），必须让模型先看到、且不易被后续
+     * 内容挤掉；滚动摘要是"最近发生过什么"的流水，放在后面作为上下文补充。
+     *
+     * <p><b>总长上限 {@value #MEMORY_SUMMARY_MAX_CHARS} 字</b>：memorySummary 只是
+     * prompt 的一部分，整个 prompt 还有工具观测、参考资料要放。超限时<b>保长期记忆、
+     * 截滚动摘要的头部（保留最近几轮）</b>——学生自己写的东西不能被系统流水挤掉。
+     *
+     * <p><b>即时性</b>：每次请求都现查，学生在「我的」页面删/改记忆后，
+     * 下一轮对话立即生效（没有进程内缓存，所以不存在"改了不生效"）。
+     *
+     * @param sessionId 会话 ID，可为空
+     * @param userId    当前用户 ID，游客为 null
+     * @return 供 Python 使用的 memorySummary（可能为空串，长度 ≤ {@value #MEMORY_SUMMARY_MAX_CHARS}）
+     */
+    public String summary(String sessionId, Long userId) {
+        String longTerm = memoryService.longTermBlock(userId);
+        String shortTerm = summary(sessionId);
+        if (longTerm.isEmpty()) {
+            return shortTerm;
+        }
+        if (shortTerm.isEmpty()) {
+            return longTerm.length() <= MEMORY_SUMMARY_MAX_CHARS
+                    ? longTerm
+                    : longTerm.substring(0, MEMORY_SUMMARY_MAX_CHARS);
+        }
+        String merged = longTerm + "\n" + shortTerm;
+        if (merged.length() <= MEMORY_SUMMARY_MAX_CHARS) {
+            return merged;
+        }
+        // 截断：长期记忆完整保留，摘要只留最近的（尾部）
+        int keep = MEMORY_SUMMARY_MAX_CHARS - longTerm.length() - 1;
+        if (keep <= 0) {
+            // 长期记忆自己就吃满了预算：摘要全部丢弃，长期记忆按上限截断
+            return longTerm.substring(0, Math.min(longTerm.length(), MEMORY_SUMMARY_MAX_CHARS));
+        }
+        String tail = shortTerm.substring(Math.max(0, shortTerm.length() - keep));
+        return longTerm + "\n" + tail;
     }
 
     /** 一轮成功（含拒答）结束后追加滚动摘要 */

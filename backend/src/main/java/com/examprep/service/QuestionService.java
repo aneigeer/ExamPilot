@@ -86,9 +86,33 @@ public class QuestionService {
     }
 
     /**
-     * 题目详情（含答案与解析，用于题库浏览模式）
+     * 题目详情（含答案与解析，用于题库浏览模式 / 学生端）
+     *
+     * <p>保持历史行为：等价于 {@code getQuestionDetail(id, true)}。
      */
     public QuestionVO getQuestionDetail(Long id) {
+        return getQuestionDetail(id, true);
+    }
+
+    /**
+     * 题目详情（按需决定是否下发答案）。
+     *
+     * <p>★ 产品决策：Agent 只读工具（{@code /internal/agent/tools/question/{id}}）
+     * <b>默认不给答案</b>（{@code includeAnswer=false}），避免模型把答案直接塞给用户、
+     * 破坏练习流程——见 {@code docs/阶段二验收结果-2026-10-31.md} A11。
+     * Python 侧确需判分/讲解时才显式传 {@code includeAnswer=true}。
+     *
+     * <p>{@code withAnswer=false} 时：选项 {@code isAnswer}、{@code analysis}、
+     * {@code answerContent}、{@code gradingPoints} 均为 {@code null}；由于全局
+     * {@code spring.jackson.default-property-inclusion: non_null}（application.yml:52），
+     * 这些字段在 JSON 中<b>整键消失</b>（不是空串、不是 null 占位）。
+     *
+     * @param id         题目 ID
+     * @param withAnswer 是否携带答案与解析
+     * @return 题目详情
+     * @throws BizException 题目不存在 / 未通过审核 / 题型未开放
+     */
+    public QuestionVO getQuestionDetail(Long id, boolean withAnswer) {
         Question q = questionMapper.selectById(id);
         if (q == null || q.getAuditStatus() == null || !"APPROVED".equals(q.getAuditStatus())) {
             throw new BizException(ResultCode.QUESTION_NOT_FOUND);
@@ -96,7 +120,7 @@ public class QuestionService {
         if (!QuestionType.isOpen(q.getType())) {
             throw new BizException(ResultCode.QUESTION_TYPE_NOT_OPEN);
         }
-        return buildDetail(q, true);
+        return buildDetail(q, withAnswer);
     }
 
     /**

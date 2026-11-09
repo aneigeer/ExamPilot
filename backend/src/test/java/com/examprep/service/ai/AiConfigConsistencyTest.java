@@ -1,5 +1,6 @@
 package com.examprep.service.ai;
 
+import com.examprep.config.ObservabilityProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,9 @@ class AiConfigConsistencyTest {
 
     @Autowired
     private AiProperties properties;
+
+    @Autowired
+    private ObservabilityProperties observability;
 
     /** 从 classpath 读取 application.yml 原文，用于确认键确实被声明 */
     private static String yml() throws IOException {
@@ -151,5 +155,49 @@ class AiConfigConsistencyTest {
                 "route 读超时应为 (0,1000]ms：路由在关键路径上，超过 1s 就该判它不可用");
         assertTrue(effective.getConnectTimeoutMillis() > 0,
                 "route 连接超时必须为正数");
+    }
+
+    // ==================================================================
+    // 阶段三：可观测性 / 数据最小化（app.observability.*）
+    // ==================================================================
+
+    @Test
+    @DisplayName("observability：yml 显式声明四个键，且与代码默认值一致")
+    void observabilityConfigMatchesYml() throws IOException {
+        String text = yml();
+        assertTrue(text.contains("observability:"),
+                "application.yml 未声明 app.observability 段（会静默回落到代码默认值）");
+        assertTrue(text.contains("log-question:"), "缺 log-question");
+        assertTrue(text.contains("retention-days:"), "缺 retention-days");
+        assertTrue(text.contains("retention-batch:"), "缺 retention-batch");
+        assertTrue(text.contains("retention-cron:"), "缺 retention-cron（@Scheduled 占位符读它）");
+
+        ObservabilityProperties codeDefault = new ObservabilityProperties();
+        assertEquals(codeDefault.isLogQuestion(), observability.isLogQuestion(),
+                "log-question 代码默认值与 yml 不一致");
+        assertEquals(codeDefault.getRetentionDays(), observability.getRetentionDays(),
+                "retention-days 代码默认值与 yml 不一致");
+        assertEquals(codeDefault.getRetentionBatch(), observability.getRetentionBatch(),
+                "retention-batch 代码默认值与 yml 不一致");
+        assertEquals(codeDefault.getRetentionCron(), observability.getRetentionCron(),
+                "retention-cron 代码默认值与 yml 不一致（占位符默认值与它必须相同）");
+    }
+
+    @Test
+    @DisplayName("observability 默认值必须偏保守：问题原文默认不进日志")
+    void observabilityDefaultsAreConservative() {
+        ObservabilityProperties defaults = new ObservabilityProperties();
+
+        // 这是合规底线，不是可调参数：默认值被改成 true 等于把所有用户问题写进日志系统
+        assertFalse(defaults.isLogQuestion(),
+                "app.observability.log-question 默认必须为 false —— "
+                        + "问题原文属 UGC，默认进日志会在日志平台/备份里留下难以撤回的副本");
+        assertTrue(defaults.getRetentionDays() >= 30 && defaults.getRetentionDays() <= 365,
+                "retention-days 默认应在 [30,365]（过短影响排障，过长违背最小必要）");
+        assertTrue(defaults.getRetentionBatch() > 0 && defaults.getRetentionBatch() <= 5000,
+                "retention-batch 默认应在 (0,5000]，过大等于回到大事务");
+        assertNotNull(defaults.getRetentionCron(), "retention-cron 不得为空");
+        assertTrue(defaults.getRetentionCron().split(" ").length >= 6,
+                "retention-cron 必须是 Spring 六段式 cron：" + defaults.getRetentionCron());
     }
 }

@@ -1,5 +1,6 @@
 package com.examprep.service.ai;
 
+import com.examprep.config.ObservabilityProperties;
 import com.examprep.dto.ai.AskRequest;
 import com.examprep.service.wiki.WikiQueryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +59,8 @@ class AiQaRouteFallbackTest {
                 new AiProperties(),
                 mock(WikiQueryService.class),
                 mock(VectorChannel.class),
-                List.of());
+                List.of(),
+                new ObservabilityProperties());
     }
 
     private static AskRequest request() {

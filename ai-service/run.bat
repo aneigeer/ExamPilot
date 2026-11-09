@@ -25,6 +25,35 @@ call ..\.venv-ai\Scripts\activate.bat
 REM 读取端口，允许外部覆盖（默认 8000）
 if "%PORT%"=="" set PORT=8000
 
+REM ============================================================================
+REM  安全前置检查：内部令牌（只提示，不阻塞启动）
+REM
+REM  /v1/agent/* 是 fail-closed：未配置 AI_INTERNAL_TOKEN 时一律 401，
+REM  Agent 工具链（查错题本/学情/学习计划）会整体失败；
+REM  但 AI 问答、检索、OCR 等其余接口照常可用，因此这里只告警、不退出。
+REM
+REM  用 python 读配置而不是读 %AI_INTERNAL_TOKEN%：令牌一般写在 .env 里，
+REM  CMD 环境变量是空的，直接判断环境变量会误报。
+REM ============================================================================
+python -c "import sys; from app.config import get_settings; sys.exit(0 if get_settings().agent.internal_token else 2)"
+if errorlevel 2 (
+    echo.
+    echo ============================================================
+    echo  [错误] 未配置 AI_INTERNAL_TOKEN
+    echo ------------------------------------------------------------
+    echo  后果：/v1/agent/* 一律返回 401，Agent 工具链会失败
+    echo        （AI 问答 / 检索 / OCR 不受影响，服务照常启动）
+    echo.
+    echo  修复：在 ai-service\.env 写入
+    echo          AI_INTERNAL_TOKEN=与Java相同的令牌值
+    echo        并确保 Java 的 app.ai.internal-token 完全同值，然后重启两侧。
+    echo.
+    echo  本地仅调 Python 时可设 AGENT_ALLOW_ANONYMOUS=1
+    echo        （关闭鉴权，启动日志会打 ERROR，切勿用于生产）
+    echo ============================================================
+    echo.
+)
+
 echo.
 echo ============================================================
 echo   启动 AI 微服务  http://localhost:%PORT%

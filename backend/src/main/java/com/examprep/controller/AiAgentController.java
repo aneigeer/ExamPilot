@@ -2,6 +2,7 @@ package com.examprep.controller;
 
 import com.examprep.common.PageResult;
 import com.examprep.common.Result;
+import com.examprep.common.TraceContext;
 import com.examprep.dto.ai.AgentRunVO;
 import com.examprep.dto.ai.AgentStreamRequest;
 import com.examprep.security.SecurityUtils;
@@ -17,11 +18,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.UUID;
 
 /**
  * Agent 会话接口
@@ -49,15 +49,22 @@ public class AiAgentController {
                     Python 不可用时自动回退 Java 问答，仍会收到 `final`（`degraded=true`）。
 
                     并发限制：每用户同时 1 个会话，全局默认 8 个；超限返回 429。
+
+                    链路追踪：入站 `X-Trace-Id` 合法则全程复用（响应头、`meta.traceId`、
+                    `ai_agent_run.trace_id`、Java/Python 日志 4 处同值）；断连/超时不重新生成。
                     """)
     @PostMapping("/ai/agent/stream")
-    public SseEmitter stream(@Valid @RequestBody AgentStreamRequest request) {
+    public SseEmitter stream(
+            @Valid @RequestBody AgentStreamRequest request,
+            @Parameter(description = "上游链路追踪 ID，16 位小写 hex；缺失或非法时由后端生成")
+            @RequestHeader(value = TraceContext.HEADER, required = false) String traceId) {
         Long userId = SecurityUtils.requireUserId();
         // 会话解析在这里完成：校验归属（跨用户复用 403），并把最终 sessionId 写回请求
         request.setSessionId(sessionService.resolve(
                 request.getSessionId(), userId, request.getQuestion()));
-        String traceId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        return streamService.stream(request, userId, traceId);
+        // 合法入站头 > 同线程 MDC（Filter 已写入）> 新生成；不在此处再生成第二个
+        String resolved = TraceContext.of(traceId);
+        return streamService.stream(request, userId, resolved);
     }
 
     @Operation(summary = "Agent 会话历史",
