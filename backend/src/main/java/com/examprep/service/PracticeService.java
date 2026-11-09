@@ -618,6 +618,26 @@ public class PracticeService {
             item.setTypeName(QuestionType.labelOf(q.getType()));
             item.setStem(q.getStem());
             item.setAnalysis(q.getAnalysis());
+
+            if (QuestionType.isObjective(q.getType())) {
+                if ("FILL_BLANK".equals(q.getType())) {
+                    // 填空题答案存在 JSON 字段里，不在选项表
+                    QuestionAnswer ans = questionAnswerMapper.selectOne(
+                            Wrappers.<QuestionAnswer>lambdaQuery()
+                                    .eq(QuestionAnswer::getQuestionId, q.getId()));
+                    item.setCorrectAnswer(extractBlanksText(ans));
+                } else {
+                    List<QuestionOption> options = questionOptionMapper.selectList(
+                            Wrappers.<QuestionOption>lambdaQuery()
+                                    .eq(QuestionOption::getQuestionId, q.getId())
+                                    .eq(QuestionOption::getIsAnswer, 1)
+                                    .orderByAsc(QuestionOption::getSort));
+                    item.setCorrectAnswer(options.stream()
+                            .map(QuestionOption::getOptionKey)
+                            .collect(Collectors.joining(",")));
+                }
+            }
+
             item.setCorrect(false);
             WrongBook wb = wrongMap.get(id);
             if (wb != null) {

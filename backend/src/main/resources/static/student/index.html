@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>备考助手 · 学生端</title>
+<link rel="stylesheet" href="../admin/vendor/element-plus.css">
+<style>
+  :root{
+    --bg:#f4f7fb;
+    --card:#ffffff;
+    --primary:#2f6fed;
+    --primary-dark:#2258c4;
+    --text:#1e2733;
+    --muted:#6b7686;
+    --line:#e6ebf3;
+    --ok:#12a06a;
+    --ok-bg:#eaf8f1;
+    --bad:#dd4a4a;
+    --bad-bg:#fdeeee;
+    --warn:#c27b09;
+    --warn-bg:#fdf4e3;
+    --radius:14px;
+    --shadow:0 2px 12px rgba(23,43,77,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:15px;
+    line-height:1.6;
+    min-width:360px;
+    overflow-x:hidden;
+  }
+  [v-cloak]{display:none}
+  button{font-family:inherit}
+  input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
+  .muted{color:var(--muted)}
+  .small{font-size:13px}
+
+  /* ---------- 通用控件 ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:1px solid var(--line);background:#fff;color:var(--text);
+    padding:9px 18px;border-radius:10px;font-size:14px;cursor:pointer;
+    transition:.16s;white-space:nowrap;
+  }
+  .btn:hover{border-color:#cfd9e8;background:#fafcff}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+  .btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:7px 12px}
+  .btn.ghost:hover{background:#f1f5fb;color:var(--text)}
+  .btn.sm{padding:5px 12px;font-size:13px;border-radius:8px}
+  .btn.block{width:100%}
+
+  .card{
+    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:20px;margin-bottom:16px;border:1px solid rgba(230,235,243,.7);
+  }
+  .card-title{font-size:17px;font-weight:700;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px;margin:4px 0 16px}
+  .tag{
+    display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;
+    background:#eaf1ff;color:var(--primary);line-height:1.6;
+  }
+  .tag.ghost{background:#f2f5fa;color:var(--muted)}
+  .tag.xs{font-size:11px;padding:1px 7px}
+  .tag.ok{background:var(--ok-bg);color:var(--ok)}
+  .tag.bad{background:var(--bad-bg);color:var(--bad)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+
+  /* ---------- 登录 ---------- */
+  .login-wrap{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;
+    background:
+      radial-gradient(900px 400px at 12% -8%, #e3ecff 0%, rgba(227,236,255,0) 60%),
+      radial-gradient(700px 380px at 92% 8%, #e6f7f1 0%, rgba(230,247,241,0) 62%),
+      var(--bg);
+  }
+  .login-card{
+    width:100%;max-width:380px;background:#fff;border-radius:18px;
+    box-shadow:0 10px 40px rgba(28,52,94,.10);padding:30px 26px 24px;
+  }
+  .brand-badge{
+    width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#4a86ff,#2f6fed);color:#fff;font-weight:700;font-size:20px;
+    box-shadow:0 6px 16px rgba(47,111,237,.28);margin-bottom:16px;
+  }
+  .login-card h1{font-size:21px;margin:0 0 6px;letter-spacing:.3px}
+  .login-card p.lead{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .field{display:block;margin-bottom:14px}
+  .field>span{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .field input,.field select,.field textarea{
+    width:100%;border:1px solid var(--line);background:#fbfcfe;border-radius:10px;
+    padding:11px 12px;outline:none;transition:.16s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{
+    border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(47,111,237,.12);
+  }
+  .field input::placeholder,.field textarea::placeholder{color:#a9b3c2}
+  .login-hint{text-align:center;color:#9aa5b5;font-size:12px;margin:14px 0 0}
+
+  /* ---------- 头部 ---------- */
+  .topbar{
+    background:rgba(255,255,255,.94);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
+  }
+  .topbar-inner{
+    max-width:960px;margin:0 auto;padding:12px 16px 6px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.3px}
+  .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,#4a86ff,#2f6fed);box-shadow:0 0 0 3px rgba(47,111,237,.14);
+  }
+  .userbox{display:flex;align-items:center;gap:8px;min-width:0}
+  .nick{font-weight:600;font-size:14px;max-width:8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sid{color:var(--muted);font-size:12px}
+  .tabs{
+    max-width:960px;margin:0 auto;padding:0 10px 8px;display:flex;gap:4px;overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    flex:1 0 auto;min-width:74px;border:0;background:transparent;color:var(--muted);
+    font-size:14px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:.16s;white-space:nowrap;
+  }
+  .tab:hover{background:#f2f6fd;color:var(--text)}
+  .tab.active{background:#eaf1ff;color:var(--primary);font-weight:700}
+
+  .main{max-width:960px;margin:0 auto;padding:18px 16px 48px}
+  .page-head{margin:2px 0 14px}
+  .page-head h2{font-size:19px;margin:0 0 4px}
+  .page-head p{margin:0;color:var(--muted);font-size:13px}
+
+  /* ---------- 表单 ---------- */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-grid .full{grid-column:1 / -1}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{
+    border:1px solid var(--line);background:#fbfcfe;border-radius:10px;padding:9px 16px;
+    font-size:14px;color:var(--muted);cursor:pointer;transition:.16s;
+  }
+  .chip:hover{border-color:#cfd9e8;color:var(--text)}
+  .chip.on{background:#eaf1ff;border-color:#bcd2ff;color:var(--primary);font-weight:700}
+  .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+
+  /* ---------- 答题 ---------- */
+  .q-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .q-meta{display:flex;gap:6px;flex-wrap:wrap}
+  .q-progress{color:var(--muted);font-size:13px}
+  .progressbar{height:6px;border-radius:99px;background:#eef2f8;margin:12px 0 18px;overflow:hidden}
+  .progressbar i{display:block;height:100%;background:linear-gradient(90deg,#5b93ff,#2f6fed);border-radius:99px;transition:width .3s}
+  .material{
+    background:#f7f9fd;border-left:3px solid #c7d8f7;border-radius:0 10px 10px 0;
+    padding:12px 14px;color:#41506a;font-size:14px;white-space:pre-wrap;margin-bottom:14px;
+    overflow-wrap:anywhere;
+  }
+  .stem{font-size:16px;font-weight:600;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:16px}
+  .options{display:flex;flex-direction:column;gap:10px}
+  .opt{
+    display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:11px;
+    padding:11px 13px;cursor:pointer;background:#fcfdff;transition:.16s;
+  }
+  .opt:hover{border-color:#c9d8f0;background:#f8fbff}
+  .opt.sel{border-color:var(--primary);background:#f2f7ff;box-shadow:0 0 0 2px rgba(47,111,237,.08)}
+  .opt.locked{cursor:default;opacity:.92}
+  .opt input{margin:5px 0 0;accent-color:var(--primary);flex:0 0 auto}
+  .opt-key{
+    flex:0 0 auto;width:22px;height:22px;border-radius:6px;background:#eef3fb;color:#5a6b86;
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px;
+  }
+  .opt.sel .opt-key{background:var(--primary);color:#fff}
+  .opt-content{flex:1;min-width:0;overflow-wrap:anywhere}
+  .answer-area{margin-top:2px}
+  .answer-area textarea{width:100%;min-height:96px;resize:vertical;border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fbfcfe;outline:none}
+  .answer-area textarea:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(47,111,237,.12)}
+  .subtip{color:var(--muted);font-size:12px;margin-top:6px}
+
+  .feedback{margin-top:16px;border-radius:12px;padding:14px;border:1px solid transparent}
+  .feedback.ok{background:var(--ok-bg);border-color:#cdeade}
+  .feedback.bad{background:var(--bad-bg);border-color:#f6d6d6}
+  .feedback.warn{background:var(--warn-bg);border-color:#f2e0c2}
+  .fb-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .fb-badge{font-weight:700;font-size:14px}
+  .fb-badge.ok{color:var(--ok)}
+  .fb-badge.bad{color:var(--bad)}
+  .fb-badge.warn{color:var(--warn)}
+  .fb-ans{font-weight:600;overflow-wrap:anywhere}
+  .feedback .analysis{margin-top:10px;background:rgba(255,255,255,.7);border-radius:9px;padding:10px 12px}
+  .feedback .analysis strong{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px}
+  .feedback .analysis p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+  .ref-box{margin-top:8px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .ref-box b{font-size:12px;color:var(--muted);display:block;font-weight:600}
+  .selfeval{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .selfeval .btn{background:#fff}
+
+  /* ---------- 报告 ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+  .stat{
+    background:#f8fafd;border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:center;
+  }
+  .stat .n{font-size:23px;font-weight:800;letter-spacing:.5px;color:var(--primary);line-height:1.25;word-break:break-all}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .stat.ok .n{color:var(--ok)}
+  .stat.bad .n{color:var(--bad)}
+
+  /* ---------- 错题 / 列表 ---------- */
+  .w-item{margin-bottom:12px}
+  .w-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .w-stem{font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap}
+  .kv{display:flex;gap:8px;font-size:14px;margin-top:8px;flex-wrap:wrap}
+  .kv>span{color:var(--muted);flex:0 0 auto}
+  .kv>b{font-weight:600;overflow-wrap:anywhere}
+  .ok-text{color:var(--ok)}
+  .bad-text{color:var(--bad)}
+  .w-analysis{margin-top:10px;background:#f8fafd;border-radius:9px;padding:10px 12px;font-size:14px}
+  .w-analysis strong{display:block;font-size:12px;color:var(--muted);font-weight:600}
+  .w-analysis p{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+  /* ---------- 统计 ---------- */
+  .bars{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:8px}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+  .bar-num{font-size:11px;color:var(--muted);margin-bottom:3px}
+  .bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .bar{
+    width:64%;max-width:30px;border-radius:6px 6px 3px 3px;min-height:3px;
+    background:linear-gradient(180deg,#6ea2ff,#2f6fed);transition:height .35s;
+  }
+  .bar.empty{background:#e7edf7}
+  .bar-date{font-size:11px;color:var(--muted);margin-top:6px;white-space:nowrap}
+  .m-row{margin-top:14px}
+  .m-head{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:6px}
+  .m-head>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-bar{height:8px;background:#eef2f8;border-radius:99px;overflow:hidden}
+  .m-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#5cc99b,#12a06a)}
+  .m-bar i.low{background:linear-gradient(90deg,#f3b262,#e08a1e)}
+  .m-bar i.vlow{background:linear-gradient(90deg,#f08a8a,#dd4a4a)}
+
+  /* ---------- AI ---------- */
+  .ai-input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfcfe;outline:none;min-height:92px;resize:vertical}
+  .ai-input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(47,111,237,.12)}
+  .counter{text-align:right;color:#a9b3c2;font-size:12px;margin:4px 0 12px}
+  .loading{
+    margin-top:14px;background:#eff4ff;border:1px solid #d9e4ff;color:#34558f;border-radius:10px;
+    padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:center;
+  }
+  .spinner{
+    width:16px;height:16px;border-radius:50%;border:2px solid #b9ccf5;border-top-color:#2f6fed;
+    animation:spin .8s linear infinite;flex:0 0 auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ai-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .refused{
+    background:var(--warn-bg);border:1px solid #f0dcb8;color:var(--warn);border-radius:10px;
+    padding:11px 13px;font-weight:600;font-size:14px;margin-bottom:10px;
+  }
+  .answer{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;font-size:15px}
+  .sources{margin-top:18px;border-top:1px dashed var(--line);padding-top:14px}
+  .src-title{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .src{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #f2f5fa}
+  .src:last-child{border-bottom:0}
+  .src-idx{flex:0 0 auto;width:20px;height:20px;border-radius:6px;background:#eef3fb;color:#5a6b86;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .src-body{min-width:0;flex:1}
+  .src-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .src-name{font-weight:600;font-size:14px;overflow-wrap:anywhere}
+  .src-snip{color:var(--muted);font-size:13px;margin-top:2px;overflow-wrap:anywhere;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+  /* ---------- 空态 / 提示 ---------- */
+  .empty{text-align:center;color:var(--muted);padding:34px 16px;font-size:14px}
+  .empty .icon{font-size:26px;line-height:1;margin-bottom:8px;opacity:.5}
+  .empty.sm{padding:16px;font-size:13px}
+  .alert{border-radius:10px;padding:10px 13px;font-size:13px;margin-top:14px}
+  .alert.bad{background:var(--bad-bg);color:#b23c3c;border:1px solid #f6d6d6}
+  .foot{text-align:center;color:#a9b3c2;font-size:12px;padding:10px 0 0}
+
+  @media (max-width:640px){
+    body{font-size:14px}
+    .main{padding:14px 12px 40px}
+    .card{padding:16px;border-radius:12px}
+    .login-card{padding:26px 20px 20px}
+    .form-grid{grid-template-columns:1fr}
+    .stat-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+    .stem{font-size:15px}
+    .topbar-inner{padding:10px 12px 4px}
+    .nick{max-width:6em}
+    .sid{display:none}
+    .tab{font-size:13px;min-width:66px;padding:7px 8px}
+    .card-title{font-size:16px}
+  }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- ============ 登录 ============ -->
+  <div class="login-wrap" v-if="!token">
+    <div class="login-card">
+      <div class="brand-badge">备</div>
+      <h1>大学生备考助手</h1>
+      <p class="lead">登录后可刷题、看错题、查统计、问 AI</p>
+      <label class="field">
+        <span>学号</span>
+        <input v-model.trim="loginForm.studentNo" @keyup.enter="doLogin" placeholder="请输入学号" autocomplete="username" inputmode="numeric">
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input type="password" v-model="loginForm.password" @keyup.enter="doLogin" placeholder="请输入密码" autocomplete="current-password">
+      </label>
+      <div class="alert bad" v-if="loginError">{{ loginError }}</div>
+      <button class="btn primary block" style="margin-top:6px" :disabled="loginLoading" @click="doLogin">
+        {{ loginLoading ? '登录中…' : '登 录' }}
+      </button>
+      <p class="login-hint">演示账号 2021001 / 123456</p>
+    </div>
+  </div>
+
+  <!-- ============ 主界面 ============ -->
+  <template v-else>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand"><span class="dot"></span>备考助手</div>
+        <div class="userbox">
+          <span class="nick">{{ (user && user.nickname) || '同学' }}</span>
+          <span class="sid">{{ user && user.maskedStudentNo }}</span>
+          <button class="btn ghost sm" @click="logout">退出</button>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button v-for="t in tabs" :key="t.key" class="tab" :class="{active: tab === t.key}" @click="switchTab(t.key)">{{ t.label }}</button>
+      </nav>
+    </header>
+
+    <main class="main">
+
+      <!-- ---------------- 题库练习 ---------------- -->
+      <section v-if="tab === 'practice'">
+        <div class="page-head">
+          <h2>题库练习</h2>
+          <p>随机抽题、当场判分，练完看报告</p>
+        </div>
+
+        <!-- 报告 -->
+        <div class="card" v-if="report">
+          <div class="card-title">本次练习报告</div>
+          <div class="sub">
+            {{ report.subjectName || currentSubjectName || '本次练习' }}
+            <span v-if="report.status === 'FINISHED'"> · 已结束</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat"><div class="n">{{ report.totalCount }}</div><div class="l">总题数</div></div>
+            <div class="stat"><div class="n">{{ report.answeredCount }}</div><div class="l">已答</div></div>
+            <div class="stat ok"><div class="n">{{ report.correctCount }}</div><div class="l">答对</div></div>
+            <div class="stat"><div class="n">{{ fmtRate(report.accuracy) }}%</div><div class="l">正确率</div></div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" @click="resetPractice">再练一组</button>
+            <button class="btn" @click="switchTab('wrong')">去错题本</button>
+          </div>
+        </div>
+
+        <!-- 全部答完 -->
+        <div class="card" v-else-if="allDone">
+          <div class="card-title">这一组题目已全部作答</div>
+          <div class="sub">可以结束练习，查看本次报告。</div>
+          <div class="actions">
+            <button class="btn primary" :disabled="finishing" @click="finishPractice">{{ finishing ? '生成报告中…' : '结束练习' }}</button>
+            <button class="btn" @click="resetPractice">放弃本组</button>
+          </div>
+        </div>
+
+        <!-- 答题 -->
+        <div class="card" v-else-if="question">
+          <div class="q-top">
+            <div class="q-meta">
+              <span class="tag">{{ question.typeName || question.type }}</span>
+              <span class="tag ghost" v-if="question.difficulty">难度 {{ question.difficulty }}</span>
+              <span class="tag ghost" v-if="question.score != null">{{ question.score }} 分</span>
+            </div>
+            <div class="q-progress">第 {{ questionIndex }} / {{ practice.totalCount }} 题</div>
+          </div>
+          <div class="progressbar"><i :style="{ width: progressPct + '%' }"></i></div>
+
+          <div class="material" v-if="question.material">{{ question.material }}</div>
+          <div class="stem">{{ question.stem }}</div>
+          <div class="options" v-if="question.subQuestions && question.subQuestions.length">
+            <div class="subtip" style="margin:0 0 4px">本题包含 {{ question.subQuestions.length }} 个小问，请在下方作答。</div>
+          </div>
+
+          <!-- 选项型 -->
+          <div class="options" v-if="hasOptions">
+            <label class="opt" v-for="o in question.options" :key="o.key"
+                   :class="{ sel: isSelected(o.key), locked: !!feedback }">
+              <input v-if="isMulti" type="checkbox" :value="o.key" v-model="multi" :disabled="!!feedback">
+              <input v-else type="radio" :value="o.key" v-model="answer" :disabled="!!feedback">
+              <span class="opt-key">{{ o.key }}</span>
+              <span class="opt-content">{{ o.content }}</span>
+            </label>
+          </div>
+
+          <!-- 判断题无选项时 -->
+          <div class="options" v-else-if="question.type === 'TRUE_FALSE'">
+            <label class="opt" v-for="v in ['正确','错误']" :key="v"
+                   :class="{ sel: answer === v, locked: !!feedback }">
+              <input type="radio" :value="v" v-model="answer" :disabled="!!feedback">
+              <span class="opt-key">{{ v === '正确' ? 'T' : 'F' }}</span>
+              <span class="opt-content">{{ v }}</span>
+            </label>
+          </div>
+
+          <!-- 填空 -->
+          <div class="answer-area" v-else-if="question.type === 'FILL_BLANK'">
+            <input class="ai-input" style="min-height:0;padding:11px 12px"
+                   v-model="answer" :disabled="!!feedback"
+                   placeholder="请输入答案，多个空用竖线分隔，如：答案1|答案2">
+            <div class="subtip">多个空请用竖线 | 分隔</div>
+          </div>
+
+          <!-- 主观题 -->
+          <div class="answer-area" v-else>
+            <textarea v-model="answer" :disabled="!!feedback" placeholder="请在此作答（主观题提交后需自评）"></textarea>
+            <div class="subtip">主观题不自动判分，提交后请按实际情况自评</div>
+          </div>
+
+          <!-- 反馈 -->
+          <div class="feedback" :class="fbClass" v-if="feedback">
+            <template v-if="feedback.judged">
+              <div class="fb-head">
+                <span class="fb-badge" :class="feedback.correct ? 'ok' : 'bad'">{{ feedback.correct ? '回答正确' : '回答错误' }}</span>
+                <span class="muted">正确答案：<b class="fb-ans">{{ feedback.correctAnswer || '—' }}</b></span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="fb-head">
+                <span class="fb-badge warn">主观题 · 请自评</span>
+                <span class="muted" v-if="feedback.answeredCount != null">进度 {{ feedback.answeredCount }} / {{ feedback.totalCount }}</span>
+              </div>
+              <div class="ref-box" v-if="feedback.reference != null">
+                <b>参考答案</b>{{ refText(feedback.reference) }}
+              </div>
+              <div class="ref-box" v-if="feedback.gradingPoints != null">
+                <b>评分要点</b>{{ refText(feedback.gradingPoints) }}
+              </div>
+              <div class="selfeval" v-if="feedback.needSelfEval && !selfEvalDone">
+                <button class="btn sm" @click="doSelfEval('KNOW')">会了</button>
+                <button class="btn sm" @click="doSelfEval('UNSURE')">有点模糊</button>
+                <button class="btn sm" @click="doSelfEval('DONT_KNOW')">不会</button>
+              </div>
+              <div class="ref-box" v-if="selfEvalDone" style="margin-top:10px;color:var(--warn)">
+                已记录自评：{{ selfEvalLabel }}
+              </div>
+            </template>
+            <div class="analysis" v-if="feedback.analysis">
+              <strong>解析</strong>
+              <p>{{ feedback.analysis }}</p>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" v-if="!feedback" :disabled="submitting" @click="submitAnswer">
+              {{ submitting ? '判分中…' : '提交答案' }}
+            </button>
+            <button class="btn primary" v-else :disabled="nexting" @click="nextQuestion">
+              {{ nexting ? '加载中…' : '下一题' }}
+            </button>
+            <button class="btn" :disabled="finishing" @click="finishPractice">结束练习</button>
+          </div>
+          <div class="alert bad" v-if="practiceError">{{ practiceError }}</div>
+        </div>
+
+        <!-- 开始练习 -->
+        <div class="card" v-else>
+          <div class="card-title">开始一组练习</div>
+          <div class="sub">先选考试类别，再选科目，系统随机抽题</div>
+          <div class="form-grid">
+            <label class="field">
+              <span>考试类别</span>
+              <select v-model="examId" @change="onExamChange">
+                <option :value="null">请选择考试类别</option>
+                <option v-for="e in exams" :key="e.id" :value="e.id">{{ e.name }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>科目</span>
+              <select v-model="subjectId" :disabled="!examId || subjectsLoading">
+                <option :value="null">{{ !examId ? '请先选考试类别' : (subjectsLoading ? '加载中…' : '请选择科目') }}</option>
+                <option v-for="s in subjects" :key="s.id" :value="s.id">
+                  {{ s.name }}{{ s.questionCount ? '（' + s.questionCount + ' 题）' : '' }}
+                </option>
+              </select>
+            </label>
+            <div class="field full">
+              <span>本次题数</span>
+              <div class="chips">
+                <button class="chip" v-for="n in [5,10,20]" :key="n" :class="{ on: count === n }" @click="count = n">{{ n }} 题</button>
+              </div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" :disabled="starting || !subjectId" @click="startPractice">
+              {{ starting ? '正在组卷…' : '开始练习' }}
+            </button>
+            <span class="muted small" v-if="examsLoading">考试类别加载中…</span>
+            <span class="muted small" v-else-if="exams.length === 0">暂无可选考试类别</span>
+          </div>
+          <div class="alert bad" v-if="setupError">{{ setupError }}</div>
+        </div>
+      </section>
+
+      <!-- ---------------- 错题本 ---------------- -->
+      <section v-else-if="tab === 'wrong'">
+        <div class="page-head">
+          <h2>错题本</h2>
+          <p>答错的题会自动收进来，弄懂后可以移除；错题本不保存历史作答</p>
+        </div>
+        <div class="card" v-if="wrongLoading">
+          <div class="empty sm">加载中…</div>
+        </div>
+        <div class="card" v-else-if="wrongError">
+          <div class="alert bad" style="margin:0">{{ wrongError }}</div>
+          <div class="actions"><button class="btn sm" @click="loadWrong">重新加载</button></div>
+        </div>
+        <template v-else-if="wrongList.length">
+          <div class="card w-item" v-for="it in wrongList" :key="it.questionId">
+            <div class="w-top">
+              <span class="tag">{{ it.typeName || it.type }}</span>
+              <button class="btn ghost sm" @click="removeWrong(it)">移除</button>
+            </div>
+            <div class="w-stem">{{ it.stem }}</div>
+            <div class="kv"><span>正确答案</span><b class="ok-text">{{ it.correctAnswer || (['SINGLE_CHOICE','MULTI_CHOICE','TRUE_FALSE','FILL_BLANK','MATCHING','ORDERING'].indexOf(it.type) >= 0 ? '—' : '主观题') }}</b></div>
+            <div class="kv"><span>我的作答</span><b class="bad-text">{{ it.userAnswer || '未记录' }}</b></div>
+            <div class="w-analysis" v-if="it.analysis">
+              <strong>解析</strong>
+              <p>{{ it.analysis }}</p>
+            </div>
+          </div>
+          <div class="foot">共 {{ wrongList.length }} 道未掌握错题</div>
+        </template>
+        <div class="card" v-else>
+          <div class="empty">
+            <div class="icon">✓</div>
+            错题本还是空的，先去做一组练习吧
+            <div class="actions" style="justify-content:center">
+              <button class="btn sm" @click="switchTab('practice')">去练习</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------------- 学习统计 ---------------- -->
+      <section v-else-if="tab === 'stats'">
+        <div class="page-head">
+          <h2>学习统计</h2>
+          <p>看看最近的练习量、正确率和知识点掌握情况</p>
+        </div>
+
+        <div class="card" v-if="statsLoading">
+          <div class="empty sm">统计加载中…</div>
+        </div>
+
+        <template v-else>
+          <div class="card" v-if="stats">
+            <div class="card-title">总览</div>
+            <div class="sub">数据来自你在本系统的全部作答记录</div>
+            <div class="stat-grid">
+              <div class="stat"><div class="n">{{ stats.practiceCount != null ? stats.practiceCount : 0 }}</div><div class="l">练习次数</div></div>
+              <div class="stat"><div class="n">{{ stats.totalAnswered != null ? stats.totalAnswered : 0 }}</div><div class="l">累计答题</div></div>
+              <div class="stat ok"><div class="n">{{ fmtRate(stats.accuracy) }}%</div><div class="l">累计正确率</div></div>
+              <div class="stat bad"><div class="n">{{ stats.wrongBookCount != null ? stats.wrongBookCount : 0 }}</div><div class="l">待攻克错题</div></div>
+            </div>
+          </div>
+          <div class="card" v-if="statsError">
+            <div class="alert bad" style="margin:0">{{ statsError }}</div>
+            <div class="actions"><button class="btn sm" @click="loadStats">重新加载</button></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">近 7 天答题趋势</div>
+            <div class="sub">柱高表示每天的答题量</div>
+            <div class="bars" v-if="trend.length">
+              <div class="bar-col" v-for="d in trend" :key="d.date">
+                <div class="bar-num">{{ d.answered || 0 }}</div>
+                <div class="bar-wrap">
+                  <div class="bar" :class="{ empty: !d.answered }" :style="{ height: barHeight(d.answered) }" :title="d.date + ' 答对 ' + (d.correct || 0) + ' 题'"></div>
+                </div>
+                <div class="bar-date">{{ shortDate(d.date) }}</div>
+              </div>
+            </div>
+            <div class="empty sm" v-else>近 7 天还没有答题记录</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">知识点掌握度</div>
+            <div class="sub">按正确率从低到高排列，优先补薄弱的</div>
+            <template v-if="masteryItems.length">
+              <div class="m-row" v-for="m in masteryItems" :key="m.knowledgeId">
+                <div class="m-head">
+                  <span>{{ m.knowledgeName || '未命名知识点' }}</span>
+                  <span class="muted">{{ m.correct || 0 }}/{{ m.answered || 0 }} · {{ fmtRate(m.masteryRate) }}%</span>
+                </div>
+                <div class="m-bar"><i :class="rateClass(m.masteryRate)" :style="{ width: clampPct(m.masteryRate) + '%' }"></i></div>
+              </div>
+            </template>
+            <div class="empty sm" v-else>还没有可统计的知识点掌握数据</div>
+          </div>
+        </template>
+      </section>
+
+      <!-- ---------------- AI 答疑 ---------------- -->
+      <section v-else-if="tab === 'ai'">
+        <div class="page-head">
+          <h2>AI 答疑</h2>
+          <p>基于站内已审核题库与资料的检索问答，答案附来源</p>
+        </div>
+
+        <div class="card">
+          <textarea class="ai-input" v-model="aiQ" maxlength="200"
+                    placeholder="例如：值传递和地址传递有什么区别？"
+                    :disabled="aiLoading"></textarea>
+          <div class="counter">{{ aiQ.length }}/200</div>
+          <div class="actions" style="margin-top:0">
+            <button class="btn primary" :disabled="aiLoading || !aiQ.trim()" @click="ask">
+              {{ aiLoading ? '思考中…' : '提问' }}
+            </button>
+            <span class="muted small">回答较慢时请耐心等待，不要重复提交</span>
+          </div>
+          <div class="loading" v-if="aiLoading">
+            <span class="spinner"></span>
+            <span>正在检索站内资料并生成回答，通常需要 10–60 秒，请稍候…</span>
+          </div>
+          <div class="alert bad" v-if="aiError">{{ aiError }}</div>
+        </div>
+
+        <div class="card" v-if="aiResult">
+          <div class="ai-top">
+            <span class="tag">{{ genLabel(aiResult.generator) }}</span>
+            <span class="tag ghost" v-if="aiResult.engine">{{ aiResult.engine === 'WIKI' ? '站内百科' : '资料检索' }}</span>
+            <span class="tag warn" v-if="aiResult.degraded">降级模式</span>
+            <span class="muted small" v-if="costText">{{ costText }}</span>
+          </div>
+          <div class="refused" v-if="aiResult.refused">资料中未找到相关内容</div>
+          <div class="answer">{{ aiResult.answer || '（无回答内容）' }}</div>
+
+          <div class="sources" v-if="aiResult.sources && aiResult.sources.length">
+            <div class="src-title">参考来源（{{ aiResult.sources.length }}）</div>
+            <div class="src" v-for="(s, i) in aiResult.sources" :key="i">
+              <span class="src-idx">{{ i + 1 }}</span>
+              <div class="src-body">
+                <div class="src-h">
+                  <span class="src-name">{{ s.title || '未命名来源' }}</span>
+                  <span class="tag ghost xs">{{ refTypeLabel(s.refType) }}</span>
+                </div>
+                <div class="src-snip" v-if="s.snippet">{{ s.snippet }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="empty sm" v-else>本次回答没有可展示的来源</div>
+        </div>
+
+        <div class="card" v-else-if="!aiLoading">
+          <div class="empty">
+            <div class="icon">?</div>
+            输入一个知识点或题目疑问，AI 会先检索站内资料再回答
+          </div>
+        </div>
+      </section>
+
+      <div class="foot">备考助手 · 学生端演示页 · 数据实时来自后端</div>
+    </main>
+  </template>
+</div>
+
+<script src="../admin/vendor/vue.global.prod.js"></script>
+<script src="../admin/vendor/element-plus.full.min.js"></script>
+<script src="../admin/vendor/element-icons.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var API = '/api';
+  var STORE_KEY = 'exam_prep_student_auth';
+
+  /* ---------------- 轻量提示（Element Plus 不可用时自动回退） ---------------- */
+  function toast(message, type) {
+    if (window.ElementPlus && ElementPlus.ElMessage) {
+      ElementPlus.ElMessage({ message: message, type: type === 'error' ? 'error' : (type || 'info'), duration: 2600, offset: 90 });
+      return;
+    }
+    var box = document.createElement('div');
+    box.textContent = message;
+    box.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;'
+      + 'background:rgba(30,39,51,.92);color:#fff;padding:9px 16px;border-radius:9px;font-size:14px;'
+      + 'max-width:86vw;box-shadow:0 6px 20px rgba(0,0,0,.18);';
+    document.body.appendChild(box);
+    setTimeout(function () { box.parentNode && box.parentNode.removeChild(box); }, 2600);
+  }
+
+  /* ---------------- 令牌读写 ---------------- */
+  function readAuth() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      if (!obj || !obj.token) return null;
+      return obj;
+    } catch (e) { return null; }
+  }
+  function writeAuth(token, user) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ token: token, user: user || null })); } catch (e) {}
+  }
+  function clearAuth() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+  }
+
+  /* ---------------- 请求封装 ---------------- */
+  function makeRequest(getToken, onUnauthorized) {
+    return function request(path, opts) {
+      opts = opts || {};
+      var method = opts.method || 'GET';
+      var timeout = opts.timeout || 15000;
+      var headers = {};
+      if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+      var token = opts.auth === false ? null : getToken();
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      var body = opts.body === undefined ? undefined : JSON.stringify(opts.body);
+
+      var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer = setTimeout(function () { controller && controller.abort(); }, timeout);
+
+      return fetch(API + path, {
+        method: method,
+        headers: headers,
+        body: body,
+        signal: controller ? controller.signal : undefined
+      }).then(function (res) {
+        if (res.status === 401) {
+          onUnauthorized();
+          var err401 = new Error('登录已失效，请重新登录');
+          err401.handled = true;
+          throw err401;
+        }
+        return res.text().then(function (text) {
+          var json = null;
+          if (text) {
+            try { json = JSON.parse(text); } catch (e) { throw new Error('服务返回异常（HTTP ' + res.status + '）'); }
+          }
+          if (!res.ok) {
+            throw new Error((json && (json.message || json.msg)) || ('请求失败（HTTP ' + res.status + '）'));
+          }
+          if (!json || json.code !== 200) {
+            throw new Error((json && json.message) || '请求失败');
+          }
+          return json.data;
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'AbortError') throw new Error('请求超时，请稍后重试');
+        if (e instanceof TypeError) throw new Error('网络异常，请确认后端服务已启动');
+        throw e;
+      }).then(function (v) {
+        clearTimeout(timer);
+        return v;
+      }, function (e) {
+        clearTimeout(timer);
+        throw e;
+      });
+    };
+  }
+
+  var saved = readAuth();
+
+  var app = Vue.createApp({
+    data: function () {
+      return {
+        request: null,
+        token: saved ? saved.token : '',
+        user: saved ? saved.user : null,
+
+        loginForm: { studentNo: '2021001', password: '123456' },
+        loginLoading: false,
+        loginError: '',
+
+        tabs: [
+          { key: 'practice', label: '题库练习' },
+          { key: 'wrong', label: '错题本' },
+          { key: 'stats', label: '学习统计' },
+          { key: 'ai', label: 'AI 答疑' }
+        ],
+        tab: 'practice',
+
+        exams: [],
+        subjects: [],
+        examId: null,
+        subjectId: null,
+        count: 10,
+        examsLoading: false,
+        subjectsLoading: false,
+        setupError: '',
+
+        starting: false,
+        practice: null,
+        question: null,
+        answer: '',
+        multi: [],
+        feedback: null,
+        selfEvalDone: false,
+        submitting: false,
+        nexting: false,
+        finishing: false,
+        allDone: false,
+        practiceError: '',
+        report: null,
+        currentSubjectName: '',
+
+        wrongList: [],
+        wrongLoading: false,
+        wrongError: '',
+        wrongLoaded: false,
+
+        stats: null,
+        statsLoading: false,
+        statsError: '',
+        trend: [],
+        masteryItems: [],
+
+        aiQ: '',
+        aiLoading: false,
+        aiError: '',
+        aiResult: null,
+        aiCostMillis: 0
+      };
+    },
+
+    computed: {
+      hasOptions: function () {
+        return !!(this.question && this.question.options && this.question.options.length);
+      },
+      isMulti: function () {
+        return !!(this.question && this.question.type === 'MULTI_CHOICE');
+      },
+      questionIndex: function () {
+        if (!this.practice) return 1;
+        return Math.min((this.practice.answeredCount || 0) + 1, this.practice.totalCount || 1);
+      },
+      progressPct: function () {
+        if (!this.practice || !this.practice.totalCount) return 0;
+        var pct = ((this.practice.answeredCount || 0) / this.practice.totalCount) * 100;
+        return Math.max(0, Math.min(100, Math.round(pct)));
+      },
+      fbClass: function () {
+        if (!this.feedback) return '';
+        if (!this.feedback.judged) return 'warn';
+        return this.feedback.correct ? 'ok' : 'bad';
+      },
+      selfEvalLabel: function () {
+        if (!this.feedback) return '';
+        var map = { KNOW: '会了', UNSURE: '有点模糊', DONT_KNOW: '不会' };
+        return map[this.feedback.selfEvalResult] || '';
+      },
+      costText: function () {
+        var ms = this.aiCostMillis;
+        if (!ms) return '';
+        if (ms < 1000) return '耗时 ' + ms + ' 毫秒';
+        return '耗时 ' + (ms / 1000).toFixed(1) + ' 秒';
+      }
+    },
+
+    mounted: function () {
+      var self = this;
+      this.request = makeRequest(function () { return self.token; }, function () { self.forceLogout(); });
+      if (this.token) {
+        this.loadExams();
+        this.refreshMe();
+      }
+    },
+
+    methods: {
+      /* ---------- 认证 ---------- */
+      onUnauthorized: function () {},
+
+      forceLogout: function (silent) {
+        clearAuth();
+        this.token = '';
+        this.user = null;
+        this.report = null;
+        this.question = null;
+        this.practice = null;
+        this.feedback = null;
+        this.allDone = false;
+        this.wrongList = [];
+        this.wrongLoaded = false;
+        this.stats = null;
+        this.trend = [];
+        this.masteryItems = [];
+        this.aiResult = null;
+        this.tab = 'practice';
+        if (!silent) toast('登录已失效，请重新登录', 'error');
+      },
+
+      logout: function () {
+        this.forceLogout(true);
+        toast('已退出登录');
+      },
+
+      doLogin: function () {
+        if (this.loginLoading) return;
+        var no = (this.loginForm.studentNo || '').trim();
+        var pwd = this.loginForm.password || '';
+        if (!no) { this.loginError = '请输入学号'; return; }
+        if (!pwd) { this.loginError = '请输入密码'; return; }
+        var self = this;
+        this.loginLoading = true;
+        this.loginError = '';
+        this.request('/auth/login', {
+          method: 'POST',
+          auth: false,
+          body: { studentNo: no, password: pwd }
+        }).then(function (data) {
+          if (!data || !data.token) throw new Error('登录响应异常，未获取到令牌');
+          self.token = data.token;
+          self.user = data.user || null;
+          writeAuth(data.token, data.user || null);
+          toast('欢迎回来，' + ((data.user && data.user.nickname) || no));
+          self.loadExams();
+        }).catch(function (e) {
+          self.loginError = e.message || '登录失败';
+        }).then(function () {
+          self.loginLoading = false;
+        });
+      },
+
+      refreshMe: function () {
+        var self = this;
+        this.request('/auth/me').then(function (u) {
+          if (u) {
+            self.user = u;
+            writeAuth(self.token, u);
+          }
+        }).catch(function () { /* 401 已在 request 内处理，其它错误忽略 */ });
+      },
+
+      /* ---------- 题库选择 ---------- */
+      loadExams: function () {
+        var self = this;
+        this.examsLoading = true;
+        this.request('/exams', { auth: false }).then(function (list) {
+          self.exams = Array.isArray(list) ? list : [];
+          if (self.exams.length && self.examId == null) {
+            self.examId = self.exams[0].id;
+            self.loadSubjects();
+          }
+        }).catch(function (e) {
+          self.setupError = e.message || '考试类别加载失败';
+        }).then(function () {
+          self.examsLoading = false;
+        });
+      },
+
+      onExamChange: function () {
+        this.subjectId = null;
+        this.subjects = [];
+        this.setupError = '';
+        this.loadSubjects();
+      },
+
+      loadSubjects: function () {
+        if (!this.examId) return;
+        var self = this;
+        this.subjectsLoading = true;
+        this.request('/subjects?examCategoryId=' + encodeURIComponent(this.examId), { auth: false })
+          .then(function (list) {
+            self.subjects = Array.isArray(list) ? list : [];
+          })
+          .catch(function (e) {
+            self.subjects = [];
+            self.setupError = e.message || '科目加载失败';
+          })
+          .then(function () {
+            self.subjectsLoading = false;
+          });
+      },
+
+      /* ---------- 练习 ---------- */
+      startPractice: function () {
+        if (!this.subjectId || this.starting) return;
+        var self = this;
+        this.starting = true;
+        this.setupError = '';
+        this.report = null;
+        this.allDone = false;
+        this.feedback = null;
+        this.answer = '';
+        this.multi = [];
+        this.practiceError = '';
+
+        var subject = this.subjects.filter(function (s) { return s.id === self.subjectId; })[0];
+        this.currentSubjectName = subject ? subject.name : '';
+
+        this.request('/practice/start', {
+          method: 'POST',
+          body: { subjectId: this.subjectId, mode: 'RANDOM', count: Number(this.count) || 10 }
+        }).then(function (data) {
+          if (!data || !data.question) {
+            self.setupError = '该科目暂无可用题目，请换一个科目试试';
+            return;
+          }
+          self.practice = {
+            practiceId: data.practiceId,
+            totalCount: data.totalCount || 1,
+            answeredCount: data.answeredCount || 0
+          };
+          self.question = data.question;
+          self.answer = '';
+          self.multi = [];
+          self.feedback = null;
+          self.selfEvalDone = false;
+        }).catch(function (e) {
+          self.setupError = e.message || '开始练习失败';
+        }).then(function () {
+          self.starting = false;
+        });
+      },
+
+      isSelected: function (key) {
+        if (this.isMulti) return this.multi.indexOf(key) >= 0;
+        return this.answer === key;
+      },
+
+      buildAnswer: function () {
+        if (this.isMulti) return this.multi.slice().sort().join(',');
+        return (this.answer || '').trim();
+      },
+
+      submitAnswer: function () {
+        if (!this.question || !this.practice || this.submitting || this.feedback) return;
+        var payload = this.buildAnswer();
+        if (!payload) { this.practiceError = '请先作答再提交'; return; }
+        this.practiceError = '';
+        var self = this;
+        this.submitting = true;
+
+        this.request('/practice/' + this.practice.practiceId + '/answer', {
+          method: 'POST',
+          body: { questionId: this.question.id, userAnswer: payload }
+        }).then(function (data) {
+          var fb = data || {};
+          fb.selfEvalResult = '';
+          self.feedback = fb;
+          self.selfEvalDone = false;
+          if (fb.answeredCount != null) self.practice.answeredCount = fb.answeredCount;
+          if (fb.totalCount != null) self.practice.totalCount = fb.totalCount;
+        }).catch(function (e) {
+          self.practiceError = e.message || '提交失败';
+        }).then(function () {
+          self.submitting = false;
+        });
+      },
+
+      doSelfEval: function (result) {
+        if (!this.question || !this.practice) return;
+        var self = this;
+        this.request('/practice/' + this.practice.practiceId + '/self-eval', {
+          method: 'POST',
+          body: { questionId: this.question.id, result: result }
+        }).then(function (data) {
+          self.feedback.selfEvalResult = result;
+          self.selfEvalDone = true;
+          if (data && data.answeredCount != null) self.practice.answeredCount = data.answeredCount;
+          toast('自评已记录');
+        }).catch(function (e) {
+          toast(e.message || '自评失败', 'error');
+        });
+      },
+
+      nextQuestion: function () {
+        if (!this.practice || this.nexting) return;
+        var self = this;
+        this.nexting = true;
+        this.practiceError = '';
+
+        this.request('/practice/' + this.practice.practiceId + '/next').then(function (data) {
+          if (!data || data.finished || !data.question) {
+            self.question = null;
+            self.allDone = true;
+            self.feedback = null;
+            if (data && data.answeredCount != null) self.practice.answeredCount = data.answeredCount;
+            if (data && data.totalCount != null) self.practice.totalCount = data.totalCount;
+            return;
+          }
+          self.question = data.question;
+          self.answer = '';
+          self.multi = [];
+          self.feedback = null;
+          self.selfEvalDone = false;
+          if (data.answeredCount != null) self.practice.answeredCount = data.answeredCount;
+          if (data.totalCount != null) self.practice.totalCount = data.totalCount;
+        }).catch(function (e) {
+          self.practiceError = e.message || '获取下一题失败';
+        }).then(function () {
+          self.nexting = false;
+        });
+      },
+
+      finishPractice: function () {
+        if (!this.practice || this.finishing) return;
+        var self = this;
+        this.finishing = true;
+        this.practiceError = '';
+        var pid = this.practice.practiceId;
+
+        this.request('/practice/' + pid + '/finish', { method: 'POST' }).then(function (data) {
+          self.report = data || {};
+          self.question = null;
+          self.feedback = null;
+          self.allDone = false;
+          self.practice = null;
+          self.wrongLoaded = false;
+          toast('本次练习已结束');
+        }).catch(function (e) {
+          self.practiceError = e.message || '结束练习失败';
+        }).then(function () {
+          self.finishing = false;
+        });
+      },
+
+      resetPractice: function () {
+        this.report = null;
+        this.question = null;
+        this.feedback = null;
+        this.practice = null;
+        this.allDone = false;
+        this.answer = '';
+        this.multi = [];
+        this.selfEvalDone = false;
+        this.practiceError = '';
+        this.setupError = '';
+      },
+
+      /* ---------- 错题本 ---------- */
+      loadWrong: function () {
+        var self = this;
+        this.wrongLoading = true;
+        this.wrongError = '';
+        this.request('/wrong-book').then(function (list) {
+          self.wrongList = Array.isArray(list) ? list : [];
+          self.wrongLoaded = true;
+        }).catch(function (e) {
+          self.wrongError = e.message || '错题本加载失败';
+        }).then(function () {
+          self.wrongLoading = false;
+        });
+      },
+
+      removeWrong: function (item) {
+        var self = this;
+        var pid = item.questionId;
+
+        function doRemove() {
+          self.request('/wrong-book/' + pid, { method: 'DELETE' }).then(function () {
+            self.wrongList = self.wrongList.filter(function (x) { return x.questionId !== pid; });
+            toast('已移出错题本');
+          }).catch(function (e) {
+            toast(e.message || '移除失败', 'error');
+          });
+        }
+
+        if (window.ElementPlus && ElementPlus.ElMessageBox) {
+          ElementPlus.ElMessageBox.confirm('移除后该题不再出现在错题本中，确定吗？', '移出错题本', {
+            confirmButtonText: '确定移除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(doRemove).catch(function () {});
+        } else if (window.confirm('移除后该题不再出现在错题本中，确定吗？')) {
+          doRemove();
+        }
+      },
+
+      /* ---------- 统计 ---------- */
+      loadStats: function () {
+        var self = this;
+        this.statsLoading = true;
+        this.statsError = '';
+
+        var pStats = this.request('/me/stats').then(function (d) { self.stats = d || null; },
+          function (e) { self.statsError = e.message || '统计数据加载失败'; });
+        var pTrend = this.request('/me/practice-trend?days=7').then(function (d) {
+          self.trend = (d && Array.isArray(d.items)) ? d.items : [];
+        }, function () { self.trend = []; });
+        var pMastery = this.request('/me/mastery').then(function (d) {
+          var items = (d && Array.isArray(d.items)) ? d.items.slice() : [];
+          items.sort(function (a, b) {
+            var x = Number(a.masteryRate), y = Number(b.masteryRate);
+            if (isNaN(x)) x = 0;
+            if (isNaN(y)) y = 0;
+            return x - y;
+          });
+          self.masteryItems = items;
+        }, function () { self.masteryItems = []; });
+
+        Promise.all([pStats, pTrend, pMastery]).then(function () {
+          self.statsLoading = false;
+        });
+      },
+
+      /* ---------- AI ---------- */
+      ask: function () {
+        var q = (this.aiQ || '').trim();
+        if (!q) { toast('请输入问题'); return; }
+        if (this.aiLoading) return;
+        var self = this;
+        this.aiLoading = true;
+        this.aiError = '';
+        this.aiResult = null;
+        this.aiCostMillis = 0;
+        var t0 = Date.now();
+
+        this.request('/ai/ask', {
+          method: 'POST',
+          body: { question: q },
+          timeout: 180000
+        }).then(function (data) {
+          self.aiResult = data || {};
+          var ms = (data && data.costMillis) ? Number(data.costMillis) : (Date.now() - t0);
+          self.aiCostMillis = ms;
+        }).catch(function (e) {
+          self.aiError = e.message || 'AI 答疑失败，请稍后重试';
+        }).then(function () {
+          self.aiLoading = false;
+        });
+      },
+
+      /* ---------- 导航 ---------- */
+      switchTab: function (key) {
+        this.tab = key;
+        if (key === 'wrong') this.loadWrong();
+        if (key === 'stats') this.loadStats();
+      },
+
+      /* ---------- 展示辅助 ---------- */
+      fmtRate: function (v) {
+        if (v === null || v === undefined || v === '') return '0.0';
+        var n = Number(v);
+        if (isNaN(n)) return '0.0';
+        return (Math.round(n * 10) / 10).toFixed(1);
+      },
+      clampPct: function (v) {
+        var n = Number(v);
+        if (isNaN(n)) n = 0;
+        return Math.max(0, Math.min(100, n));
+      },
+      shortDate: function (d) {
+        if (!d) return '';
+        var s = String(d);
+        return s.length >= 10 ? s.slice(5, 10) : s;
+      },
+      barHeight: function (v) {
+        var n = Number(v) || 0;
+        var max = 0;
+        for (var i = 0; i < this.trend.length; i++) {
+          var m = Number(this.trend[i].answered) || 0;
+          if (m > max) max = m;
+        }
+        if (max <= 0) return '3px';
+        var pct = (n / max) * 100;
+        return (n === 0 ? 3 : Math.max(6, pct)) + '%';
+      },
+      rateClass: function (v) {
+        var n = Number(v) || 0;
+        if (n < 40) return 'vlow';
+        if (n < 70) return 'low';
+        return '';
+      },
+      refText: function (v) {
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'string') return v;
+        if (Array.isArray(v)) return v.map(function (x) { return (typeof x === 'string') ? x : JSON.stringify(x); }).join('\n');
+        if (typeof v === 'object') {
+          var keys = Object.keys(v);
+          if (!keys.length) return '';
+          return keys.map(function (k) { return k + '：' + (typeof v[k] === 'object' ? JSON.stringify(v[k]) : v[k]); }).join('\n');
+        }
+        return String(v);
+      },
+      genLabel: function (g) {
+        var map = {
+          extractive: '本地抽取',
+          dashscope: '通义千问',
+          zhipu: '智谱 GLM',
+          wiki: '站内百科',
+          none: '无生成器'
+        };
+        return map[g] || (g ? String(g) : 'AI 回答');
+      },
+      refTypeLabel: function (t) {
+        var map = { QUESTION: '题目', RESOURCE: '资料', KNOWLEDGE: '知识点', WIKI: '百科', COURSE: '课程' };
+        return map[t] || (t ? String(t) : '来源');
+      }
+    }
+  });
+
+  app.mount('#app');
+})();
+</script>
+</body>
+</html>

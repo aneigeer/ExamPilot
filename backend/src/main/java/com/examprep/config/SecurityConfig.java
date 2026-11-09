@@ -200,9 +200,11 @@ public class SecurityConfig {
                         // 业务层仍用 currentUserIdOrNull() 取用户，那是为了兼容「已登录但画像未建立」，
                         // 不是为了给游客开口子（此处规则决定一切）。
                         .requestMatchers(HttpMethod.POST, "/ai/ask").authenticated()
-                        // 管理端静态页面（Vue 单页应用）匿名可访问；页面内的管理 API 仍有角色校验
+                        // 管理端 / 学生端静态页面（Vue 单页应用）匿名可访问；
+                        // 页面本身只是壳，页面内调用的业务 API 仍逐接口鉴权
                         .requestMatchers(HttpMethod.GET, "/", "/admin/", "/admin/index.html",
-                                "/admin/vendor/**").permitAll()
+                                "/admin/vendor/**", "/student/", "/student/index.html",
+                                "/student/vendor/**").permitAll()
                         // 管理端：超管专属
                         .requestMatchers("/admin/logs/audit").hasAnyRole("AUDITOR", "ADMIN")
                         .requestMatchers("/admin/users/**", "/admin/logs/**", "/admin/roles/**")
