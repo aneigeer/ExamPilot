@@ -189,14 +189,31 @@
     "breaker": {
       "verdict": "PARTIAL",
       "triggered": true,
+      "cycles": 2,
       "evidence_source": "backend_log_only",
-      "log_lines": [
-        ":121 第1/3次失败",
-        ":647 第2/3次失败",
-        ":663 连续失败3次，开启熔断 60000ms"
+      "log_lines": {
+        "cycle1": {
+          ":619": "第1/3次失败",
+          ":710": "第2/3次失败",
+          ":711": "连续失败3次，开启熔断 60000ms",
+          ":1854": "窗口结束，恢复调用"
+        },
+        "cycle2": {
+          ":1855": "第1/3次失败",
+          ":1946": "第2/3次失败",
+          ":1947": "再次开启熔断 60000ms",
+          ":2177": "窗口结束，恢复调用"
+        }
+      },
+      "fail_gap_ms": 16,
+      "fail_gap_note": "相邻两次失败间隔 16ms，同线程(53)串行重试，非并发；日志无单行 3/3",
+      "config_window_ms": 60000,
+      "open_to_first_recovery_call_seconds": [
+        60.113,
+        192.292
       ],
       "capability_circuit_open": false,
-      "note": "熔断确已触发（日志三处可证），但 /api/ai/capability 三次探测均返回 circuitOpen=false，运维无法通过接口观测熔断状态（见 R2），故判 PARTIAL"
+      "note": "两轮开→关→再开→再关，触发有日志实证；但窗口内 /api/ai/capability 仍返回 circuitOpen=false 且无剩余时间（R2），事后窗口已过无法复现，属可观测性缺陷，故判 PARTIAL"
     }
   },
   "capability_after": {
