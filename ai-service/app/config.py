@@ -276,20 +276,16 @@ def _enforce_local_llm(env: Mapping[str, str], llm: LlmSettings) -> LlmSettings:
     Returns:
         合规的原配置，或被强制回退后的本地 3B 配置。
     """
-    allow_online = _get_bool(env, "ALLOW_ONLINE_LLM", False)
+    allow_online = (
+        _get_bool(env, "ALLOW_ONLINE_LLM", False)
+        or _get(env, "LLM_MODE", "").lower() == "api"
+    )
     if is_local_ollama_3b(llm):
-        if allow_online:
-            logger.warning(
-                "[单模型护栏] ALLOW_ONLINE_LLM=true 已开启，但当前配置本就是本地 3B；"
-                "该开关本阶段无需打开，建议移除"
-            )
         return llm
     if allow_online:
-        logger.warning(
-            "[单模型护栏] ALLOW_ONLINE_LLM=true：已显式放行非本地 LLM 配置 "
-            "（model=%s base_url=%s）。本阶段要求只用本地千问 3B，"
-            "此开关仅应在阶段切换时由负责人打开",
-            llm.model, llm.base_url,
+        logger.info(
+            "[LLM 模式] 已启用在线 API / 自定义端点模式（model=%s base_url=%s generator=%s）",
+            llm.model, llm.base_url, llm.generator_name,
         )
         return llm
     logger.error(
@@ -651,19 +647,17 @@ def log_security_posture(settings: Settings) -> None:
             "（默认关闭：执行路径与事件序列与单 Agent 一致）",
             agent.subagent_max_questions,
         )
-    # 单模型护栏姿态：启动时明确打印当前锁定的 LLM，让运维一眼确认没走在线服务。
+    # LLM 模式姿态日志：明确打印当前生效的模型与端点，便于运维确认本地或云端模式。
     llm = settings.llm
     if is_local_ollama_3b(llm):
         logger.info(
-            "[单模型护栏] 已锁定本地 Ollama 3B 单模型：model=%s base_url=%s "
-            "generator=%s（ALLOW_ONLINE_LLM 默认 false，禁止在线模型）",
+            "[LLM 模式] 本地 Ollama 模式：model=%s base_url=%s generator=%s",
             llm.model, llm.base_url, llm.generator_name,
         )
     else:
-        logger.error(
-            "[单模型护栏] 当前 LLM 不是本地 3B（model=%s base_url=%s）："
-            "只有 ALLOW_ONLINE_LLM=true 显式放行时才会出现，本阶段不应出现",
-            llm.model, llm.base_url,
+        logger.info(
+            "[LLM 模式] 在线 API 模式：model=%s base_url=%s generator=%s",
+            llm.model, llm.base_url, llm.generator_name,
         )
 
 

@@ -194,46 +194,35 @@ app:
       group: expert-workers
 
     llm:
-      # 客户端标识：ollama（本地模型）/ dashscope（阿里云百炼）/ zhipu（智谱 GLM）/ extractive（强制本地抽取）
-      # ⚠️ 实际选路由 @Order + available() 决定（AiQaService.generate 取第一个 available 的客户端）：
-      #   档位 5 Ollama → 10 DashScope → 15 FastApi → 20 Zhipu → 30 Extractive(仅兜底)。
-      #   DashScope / Zhipu 的 available() 明确读取 provider 与 api-key：
-      #     DashScopeLlmClient.available / ZhipuLlmClient.available
-      #       → AbstractOpenAiCompatLlmClient.available → hasCredentials → AiProperties.Llm.hasKey()
-      #
-      # ★ 本阶段只允许本地 3B 单模型：dashscope / zhipu 两个在线 provider **明确禁用**。
-      #   机制（可验证，零代码改动）：
-      #     ① provider 固定为 ollama（不等于 dashscope/zhipu）→ 二者 available() 第一道闸门恒 false；
-      #     ② api-key 注释掉、保持为空 → hasKey()=false → 第二道闸门 super.available() 恒 false。
-      #   即便 Ollama 熔断需降级，链路也只会在本地 FastAPI 代理 / 抽取式兜底之间选择，
-      #   绝不会自动启用任何在线模型。Ollama @Order(5) 排最前且恒 available，是唯一默认生成器。
-      provider: ollama
+      # 双模切换（本地 Ollama / 在线 API）：
+      #   ollama    （默认，本地零费用，无需 API Key）
+      #   openai    （任意 OpenAI 兼容 API：DeepSeek/OpenAI/SiliconFlow/Kimi/vLLM）
+      #   dashscope （阿里云百炼）
+      #   zhipu     （智谱 GLM）
+      #   auto      （有 LLM_API_KEY 优先走云端 API，无 Key 自动回退本地 Ollama）
+      #   extractive（强制抽取式兜底）
+      # 优先级：@Order(8) OpenAI兼容 → @Order(10) DashScope → @Order(12) Ollama → @Order(15) FastAPI → @Order(20) Zhipu → @Order(30) Extractive
+      provider: ${LLM_PROVIDER:ollama}
 
-      # ---------- 本地模型 Ollama（本阶段唯一默认，无需 Key、不过期、零费用）----------
-      # OpenAI 兼容端点，注意带 /v1，程序内部会拼 /chat/completions
+      # ---------- 本地模型 Ollama（默认零费用，无需 Key）----------
       ollama-base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434/v1}
-      # ★ 2026-11-13 起允许环境变量覆盖：模型选型已实测（见 tools/bench_models.py），
-      #   换模型只需改 .env 的 OLLAMA_MODEL 后重启，不必重新打包。
-      #   仍只允许本地 Ollama，不允许在线模型（provider 固定 ollama）。
       ollama-model: ${OLLAMA_MODEL:qwen2.5-3b-instruct-q8_0-baseline}
-      # ★ 3B(q8_0) 生成 300 token 约 5–10 秒；7B 需 15–25 秒。两者都保留 90s 上限以容忍冷启动
-      #   绝不要为了本地模型把全局超时改成 90s —— 云端失败时会白等 90 秒才降级
       ollama-timeout-millis: ${OLLAMA_TIMEOUT_MS:90000}
 
-      # ★ 在线模型凭据：本阶段禁用，故注释掉这一行（AiProperties.Llm.apiKey 代码默认 "" 亦为空）。
-      #   注释掉后 hasKey()=false，DashScope / Zhipu 的 super.available() 恒 false。
-      #   恢复在线模型时必须同时改 provider 与取消本行注释，二者缺一不可。
-      # api-key: ${LLM_API_KEY:}
-      # 单次调用超时（毫秒），超时计入熔断计数
-      timeout-millis: 8000
+      # ---------- 在线 API（OpenAI 兼容 / 百炼 / 智谱，默认留空不启用）----------
+      api-key: ${LLM_API_KEY:}
+      # 单次云端 API 调用超时（毫秒，默认 8000；API 模式可用 LLM_TIMEOUT_MS 放宽），超时计入熔断计数
+      timeout-millis: ${LLM_TIMEOUT_MS:8000}
       # 连续失败多少次后熔断
       circuit-breaker-threshold: 3
-      # 熔断持续时间（毫秒），期间静默降级为抽取式，用户无感
+      # 熔断持续时间（毫秒），期间静默降级
       circuit-breaker-open-millis: 60000
-      # 以下两个在线模型名只是「万一恢复在线模型」时的占位；当前 provider=ollama + 无 Key，
-      # 二者均不会生效。保留配置以免恢复时需翻代码。
-      dashscope-model: qwen-plus
-      zhipu-model: glm-4-flash
+      # 通用 OpenAI 兼容端点与模型（provider=openai 或 auto 时生效）
+      openai-base-url: ${LLM_BASE_URL:https://api.openai.com/v1}
+      openai-model: ${LLM_MODEL:gpt-4o-mini}
+      # 百炼 / 智谱模型名（优先读专属环境变量，其次回退 LLM_MODEL，再回退默认）
+      dashscope-model: ${DASHSCOPE_MODEL:${LLM_MODEL:qwen-plus}}
+      zhipu-model: ${ZHIPU_MODEL:${LLM_MODEL:glm-4-flash}}
     retrieval:
       # 召回条数（重排前的候选池）
       recall-limit: 50

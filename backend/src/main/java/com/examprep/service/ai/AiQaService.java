@@ -404,8 +404,8 @@ public class AiQaService {
             active = null;
             ollamaDown = true;
         }
-        // 本地模型不需要 Key，所以「已配置」的判定不能只看 api-key
-        boolean llmConfigured = llm.hasKey() || llm.isOllama();
+        // 本地模型与 auto 双模不需要强绑定 Key，所以「已配置」的判定不能只看 api-key
+        boolean llmConfigured = llm.hasKey() || llm.isOllama() || llm.isAuto();
         boolean circuitOpen = false;
         long remaining = 0L;
         for (LlmClient client : llmClients) {

@@ -228,3 +228,30 @@ def test_safe_dump_never_leaks_key() -> None:
     dumped = str(settings.safe_dump())
     assert "super-secret-key-value" not in dumped
     assert "api_key_set" in dumped
+
+
+def test_llm_mode_api_enables_online_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LLM_MODE=api 时应放行在线 OpenAI 兼容端点，不回退本地 Ollama。"""
+    from app.config import Settings
+
+    monkeypatch.setenv("LLM_MODE", "api")
+    monkeypatch.setenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
+    monkeypatch.setenv("LLM_MODEL", "deepseek-chat")
+    monkeypatch.setenv("LLM_API_KEY", "sk-dummy-test")
+    monkeypatch.setenv("LLM_GENERATOR_NAME", "openai")
+    settings = Settings.from_env()
+    assert settings.llm.base_url == "https://api.deepseek.com/v1"
+    assert settings.llm.model == "deepseek-chat"
+    assert settings.llm.generator_name == "openai"
+
+
+def test_llm_mode_local_falls_back_non_local_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认 LLM_MODE=local 且 ALLOW_ONLINE_LLM=false 时，非本地端点回退本地 Ollama。"""
+    from app.config import LOCAL_LLM_BASE_URL, Settings
+
+    monkeypatch.setenv("LLM_MODE", "local")
+    monkeypatch.setenv("ALLOW_ONLINE_LLM", "false")
+    monkeypatch.setenv("LLM_BASE_URL", "https://api.deepseek.com/v1")
+    monkeypatch.setenv("LLM_MODEL", "deepseek-chat")
+    settings = Settings.from_env()
+    assert settings.llm.base_url == LOCAL_LLM_BASE_URL

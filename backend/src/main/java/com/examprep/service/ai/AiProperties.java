@@ -202,16 +202,21 @@ public class AiProperties {
 
     @Data
     public static class Llm {
-        /** 客户端标识：dashscope / zhipu / extractive */
+        /**
+         * 客户端标识：
+         * ollama（本地默认）/ openai（任意 OpenAI 兼容 API：DeepSeek/OpenAI/SiliconFlow/Kimi 等）
+         * / dashscope（阿里云百炼）/ zhipu（智谱 GLM）/ auto（有 Key 优先云端，无 Key 回退本地 Ollama）
+         * / extractive（纯抽取式）
+         */
         private String provider = "extractive";
 
         /**
-         * API Key。<b>默认留空</b>，为空时所有大模型客户端 available() 返回 false，
-         * 自动走抽取式兜底，接口仍返回 200。
+         * API Key。<b>默认留空</b>，为空时云端大模型客户端 available() 返回 false，
+         * 自动回退本地 Ollama（auto 模式）或抽取式兜底，接口仍返回 200。
          */
         private String apiKey = "";
 
-        /** 调用超时（毫秒） */
+        /** 云端 API 调用超时（毫秒，默认 8s；API 模式可通过 LLM_TIMEOUT_MS 调大） */
         private int timeoutMillis = 8000;
 
         /** 连续失败多少次后熔断 */
@@ -219,6 +224,12 @@ public class AiProperties {
 
         /** 熔断持续时间（毫秒） */
         private long circuitBreakerOpenMillis = 60_000L;
+
+        /** 通用 OpenAI 兼容端点（不含 /chat/completions），支持 DeepSeek/OpenAI/SiliconFlow 等 */
+        private String openaiBaseUrl = "https://api.openai.com/v1";
+
+        /** 通用 OpenAI 兼容模型名 */
+        private String openaiModel = "gpt-4o-mini";
 
         /** 候选模型（按 provider 取对应项） */
         private String dashscopeModel = "qwen-plus";
@@ -278,6 +289,11 @@ public class AiProperties {
         /** 当前是否指向本地模型 */
         public boolean isOllama() {
             return "ollama".equalsIgnoreCase(provider == null ? "" : provider.trim());
+        }
+
+        /** 当前是否为双模自动切换（有 Key 优先云端，无 Key 回退本地 Ollama） */
+        public boolean isAuto() {
+            return "auto".equalsIgnoreCase(provider == null ? "" : provider.trim());
         }
     }
 

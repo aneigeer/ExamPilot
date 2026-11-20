@@ -33,7 +33,7 @@ import org.springframework.util.StringUtils;
  */
 @Slf4j
 @Component
-@Order(5)
+@Order(12)
 public class OllamaLlmClient extends AbstractOpenAiCompatLlmClient {
 
     public OllamaLlmClient(AiProperties properties,
@@ -108,7 +108,12 @@ public class OllamaLlmClient extends AbstractOpenAiCompatLlmClient {
      */
     @Override
     public boolean available() {
-        return super.available();
+        String provider = properties.getLlm().getProvider();
+        String normalized = provider == null ? "" : provider.trim();
+        boolean allowed = normalized.isEmpty()
+                || "ollama".equalsIgnoreCase(normalized)
+                || "auto".equalsIgnoreCase(normalized);
+        return allowed && super.available();
     }
 
     // ==================================================================

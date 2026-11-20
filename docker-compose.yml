@@ -31,7 +31,22 @@ services:
       - ./sql/migration-ai-vector.sql:/docker-entrypoint-initdb.d/09-migration-ai-vector.sql:ro
       - ./sql/migration-perf.sql:/docker-entrypoint-initdb.d/10-migration-perf.sql:ro
       - ./sql/migration-srs.sql:/docker-entrypoint-initdb.d/11-migration-srs.sql:ro
-      # 可选：AI 语料种子（sql/data-ai-seed.sql）。不挂载则 AI 语料为空，
+      - ./sql/migration-courseware.sql:/docker-entrypoint-initdb.d/12-migration-courseware.sql:ro
+      - ./sql/migration-agent.sql:/docker-entrypoint-initdb.d/13-migration-agent.sql:ro
+      - ./sql/migration-agent-checkpoint.sql:/docker-entrypoint-initdb.d/14-migration-agent-checkpoint.sql:ro
+      - ./sql/migration-agent-memory.sql:/docker-entrypoint-initdb.d/15-migration-agent-memory.sql:ro
+      - ./sql/migration-agent-memory-ltm.sql:/docker-entrypoint-initdb.d/16-migration-agent-memory-ltm.sql:ro
+      - ./sql/migration-wiki.sql:/docker-entrypoint-initdb.d/17-migration-wiki.sql:ro
+      - ./sql/migration-rsi.sql:/docker-entrypoint-initdb.d/18-migration-rsi.sql:ro
+      - ./sql/migration-study-plan.sql:/docker-entrypoint-initdb.d/19-migration-study-plan.sql:ro
+      - ./sql/migration-question-source.sql:/docker-entrypoint-initdb.d/20-migration-question-source.sql:ro
+      - ./sql/migration-question-year.sql:/docker-entrypoint-initdb.d/21-migration-question-year.sql:ro
+      - ./sql/migration-question-exam-code.sql:/docker-entrypoint-initdb.d/22-migration-question-exam-code.sql:ro
+      - ./sql/migration-postgrad-category.sql:/docker-entrypoint-initdb.d/23-migration-postgrad-category.sql:ro
+      - ./sql/migration-exam-platform.sql:/docker-entrypoint-initdb.d/24-migration-exam-platform.sql:ro
+      - ./sql/migration-data-hub.sql:/docker-entrypoint-initdb.d/25-migration-data-hub.sql:ro
+      - ./sql/migration-assessment-platform.sql:/docker-entrypoint-initdb.d/26-migration-assessment-platform.sql:ro
+      # 可选：AI 语料种子（sql/data-ai-seed.sql / sql/data-study-methods.sql）。不挂载则 AI 语料为空，
       # 需要时手工执行：docker compose exec -T mysql mysql -uroot -p exam_prep < sql/data-ai-seed.sql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
@@ -43,27 +58,39 @@ services:
     restart: unless-stopped
 
   backend:
-    image: eclipse-temurin:21-jre
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: examprep-backend
     working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # JWT 密钥必填：未配置时后端会拒绝启动（见 application.yml 的安全规范）
       # 本地生成示例：openssl rand -hex 32
       JWT_SECRET: "${JWT_SECRET:?请通过环境变量注入 JWT_SECRET}"
       DB_USERNAME: root
       DB_PASSWORD: "${MYSQL_ROOT_PASSWORD:?请先设置环境变量 MYSQL_ROOT_PASSWORD}"
+      # 双模 LLM 切换：
+      #   本地模式：LLM_PROVIDER=ollama（默认，通过 host.docker.internal 访问宿主机 Ollama）
+      #   API 模式：LLM_PROVIDER=openai|dashscope|zhipu|auto + LLM_API_KEY + LLM_BASE_URL + LLM_MODEL
+      LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+      LLM_BASE_URL: "${LLM_BASE_URL:-https://api.openai.com/v1}"
+      LLM_MODEL: "${LLM_MODEL:-gpt-4o-mini}"
+      LLM_TIMEOUT_MS: "${LLM_TIMEOUT_MS:-30000}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5-3b-instruct-q8_0-baseline}"
       # ★ 限流分桶的可信代理白名单（阻断项 B 修复配套）：容器形态下后端看到的 TCP 对端是
       #   nginx「容器 IP」，默认值 127.0.0.1,::1 匹配不到 → XFF 被忽略 → 全站共用一个桶
       #   （正常用户互相挤成 429）。本值必须与文件末尾 networks.default.ipam.subnet 完全一致。
       #   注意：backend 不发布端口（见本服务末尾的安全约束），只在 compose 内部网络可达。
       APP_RATE_LIMIT_TRUSTED_PROXIES: "172.28.0.0/16"
     volumes:
-      - ./backend/target/exam-prep-backend-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
       # ★ 上传目录必须映射到宿主机，否则容器重建后上传文件全丢。
       #   与代码里的 app.upload.dir 保持一致（此前误写成 app.upload-root，导致该映射形同虚设）。
       - ./backend/uploads:/data/uploads
-    command: ["java", "-jar", "/app/app.jar", "--server.port=8080",
-              "--spring.datasource.url=jdbc:mysql://mysql:3306/exam_prep?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai",
+    command: ["--spring.datasource.url=jdbc:mysql://mysql:3306/exam_prep?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai",
               "--app.upload.dir=/data/uploads"]
     depends_on:
       mysql:
