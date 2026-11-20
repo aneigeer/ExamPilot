@@ -36,7 +36,7 @@ services:
 
   # ========== MinIO 对象存储 ==========
   # 桶：exam-prep（由 Java 侧启动时幂等自动创建，无需手动 mc mb）
-  # 密钥：生产必须用环境变量注入，默认值仅供本机使用
+  # 密钥：必须用环境变量注入（无默认值，缺失即启动失败）
   minio:
     image: minio/minio:RELEASE.2024-10-13T13-34-11Z
     container_name: examprep-minio
@@ -46,8 +46,8 @@ services:
     volumes:
       - minio-data:/data
     environment:
-      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-minioadmin}"
-      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?请先设置环境变量 MINIO_ROOT_USER}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?请先设置环境变量 MINIO_ROOT_PASSWORD}"
     command: server /data --console-address ":9001"
     restart: unless-stopped
 

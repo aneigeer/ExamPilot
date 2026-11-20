@@ -3,11 +3,14 @@ package com.examprep.controller;
 import com.examprep.common.Result;
 import com.examprep.dto.wiki.WikiHitVO;
 import com.examprep.entity.WikiPage;
+import com.examprep.mapper.AiEvalRunMapper;
 import com.examprep.mapper.WrongBookMapper;
 import com.examprep.service.QuestionService;
 import com.examprep.service.StudyPlanService;
 import com.examprep.service.ai.AiProperties;
+import com.examprep.service.ai.AiGradingService;
 import com.examprep.service.ai.AiQaService;
+import com.examprep.service.ai.AiStudyPlanService;
 import com.examprep.service.ai.AnswerPostProcessor;
 import com.examprep.service.ai.ExtractiveAnswerClient;
 import com.examprep.service.ai.HybridRetriever;
@@ -68,6 +71,9 @@ class AgentInternalControllerAnswerTest {
                 mock(AiQaService.class),
                 processor,
                 mock(AsyncJobService.class),
+                mock(AiGradingService.class),
+                mock(AiStudyPlanService.class),
+                mock(AiEvalRunMapper.class),
                 mock(AiProperties.class),
                 mock(ObjectMapper.class),
                 List.<LlmClient>of());

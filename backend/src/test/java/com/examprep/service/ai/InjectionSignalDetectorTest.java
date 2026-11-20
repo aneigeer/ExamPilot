@@ -143,7 +143,7 @@ class InjectionSignalDetectorTest {
         // 结构也没被改动
         assertThat(prompt).contains("[1] 标题：操作系统课件");
         assertThat(prompt).contains("【参考资料】");
-        assertThat(prompt).contains("请依据上述参考资料作答并在句末标注来源编号。");
+        assertThat(prompt).contains("请按「一句话结论 → 分点讲解 → 易错点/记忆提示 → 依据：[n]」的结构作答；每个事实性结论都要标注来源编号，资料没覆盖的部分明确写成「资料未覆盖：…」。");
     }
 
     @Test

@@ -91,11 +91,14 @@
         <el-menu-item index="users">👥 用户管理</el-menu-item>
         <el-menu-item index="announcements">📢 公告管理</el-menu-item>
         <el-menu-item index="question-admin">✍️ 题目管理</el-menu-item>
+        <el-menu-item index="papers">📄 试卷管理</el-menu-item>
         <el-menu-item index="upload-doc">📤 文件上传</el-menu-item>
         <el-menu-item index="data">🗂️ 基础数据</el-menu-item>
+        <el-menu-item index="import-stats">📥 题库导入</el-menu-item>
+        <el-menu-item index="data-hub">🗄️ 数据中台</el-menu-item>
         <el-menu-item index="logs">📜 操作日志</el-menu-item>
         <el-menu-item index="agent">🤖 AI 运行观测</el-menu-item>
-        <el-menu-item index="eval">🧪 离线评估</el-menu-item>
+        <el-menu-item index="eval">🎯 测评中台</el-menu-item>
         <el-menu-item index="wiki">📖 LLM Wiki</el-menu-item>
       </el-menu>
     </el-aside>
@@ -365,6 +368,8 @@
               <el-table-column prop="typeName" label="题型" width="90"/>
               <el-table-column label="题干" show-overflow-tooltip><template #default="s">{{ s.row.stem }}</template></el-table-column>
               <el-table-column prop="difficulty" label="难度" width="60"/>
+              <el-table-column label="年份" width="80"><template #default="s">{{ s.row.year != null ? s.row.year : '—' }}</template></el-table-column>
+              <el-table-column label="考试类别" width="140"><template #default="s">{{ examName(s.row.examCode) }}</template></el-table-column>
               <el-table-column prop="auditStatus" label="状态" width="90"/>
               <el-table-column label="操作" width="90" fixed="right">
                 <template #default="s">
@@ -418,6 +423,94 @@
           </el-dialog>
         </div>
 
+        <!-- ======== 题库导入（导入状态统计 + 题目总览） ======== -->
+        <div v-if="view==='import-stats'" class="page">
+          <el-card shadow="never" v-loading="importLoading">
+            <template #header>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <span>题库导入状态</span>
+                <el-button size="small" @click="loadImportStats" :loading="importLoading">刷新</el-button>
+                <span style="color:#8a94a6;font-size:12px" v-if="importStats.lastImportedAt">最近导入：{{ importStats.lastImportedAt }}</span>
+              </div>
+            </template>
+            <el-alert v-if="importError" :title="importError" type="error" :closable="false" show-icon style="margin-bottom:14px"/>
+            <div class="stat-row" v-if="!importError">
+              <div class="stat-card" v-for="c in importCards" :key="c.label">
+                <div class="stat-label">{{ c.label }}</div>
+                <div class="stat-num">{{ c.value }}</div>
+                <div class="stat-hint">{{ c.hint }}</div>
+              </div>
+            </div>
+            <el-row :gutter="14" v-if="!importError">
+              <el-col :span="8">
+                <div style="font-weight:700;font-size:13px;margin-bottom:8px">按导入状态</div>
+                <el-table :data="importStatusRows" size="small" empty-text="暂无状态统计">
+                  <el-table-column label="状态" show-overflow-tooltip><template #default="s">{{ statusName(s.row.key) }}</template></el-table-column>
+                  <el-table-column prop="count" label="数量" width="90"/>
+                </el-table>
+              </el-col>
+              <el-col :span="8">
+                <div style="font-weight:700;font-size:13px;margin-bottom:8px">按考试类别</div>
+                <el-table :data="importExamRows" size="small" empty-text="暂无类别统计">
+                  <el-table-column label="类别" show-overflow-tooltip><template #default="s">{{ examName(s.row.key) }}（{{ s.row.key }}）</template></el-table-column>
+                  <el-table-column prop="count" label="数量" width="90"/>
+                </el-table>
+              </el-col>
+              <el-col :span="8">
+                <div style="font-weight:700;font-size:13px;margin-bottom:8px">按年份</div>
+                <el-table :data="importYearRows" size="small" empty-text="暂无年份统计">
+                  <el-table-column prop="key" label="年份" width="90"/>
+                  <el-table-column prop="count" label="数量"/>
+                </el-table>
+              </el-col>
+            </el-row>
+            <el-alert type="info" :closable="false" show-icon title="待 OCR 与解析失败说明" style="margin-top:14px">
+              <template #default>
+                <div style="font-size:12px;line-height:1.9">
+                  <div><b>待 OCR</b>（PENDING_OCR / WAIT_OCR / OCR_PENDING / WAITING_OCR）：文件已登记但尚未完成文字识别，等待 OCR 任务执行；识别完成后进入解析队列。</div>
+                  <div><b>解析失败</b>（PARSE_FAILED / OCR_FAILED / FAILED / ERROR / PARSE_ERROR）：OCR 或结构化解析未通过，需检查源文件版式与日志后重新导入；这类记录不计入可作答题库。</div>
+                  <div v-if="importPendingOcr || importParseFailed">当前：待 OCR <b>{{ importPendingOcr }}</b> 条，解析失败 <b>{{ importParseFailed }}</b> 条。</div>
+                  <div>状态键以接口返回的 byStatus 为准，未识别的状态按原样展示，不做臆造映射。</div>
+                </div>
+              </template>
+            </el-alert>
+            <el-empty v-if="!importLoading && !importError && !importStatusRows.length && !importExamRows.length && !importYearRows.length"
+                      description="暂无导入统计数据（统计表可能尚未创建）" :image-size="60"/>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <span>题目总览（GET /questions）</span>
+                <el-select v-model="overview.examCode" placeholder="全部类别" clearable style="width:190px" :loading="overviewCatsLoading">
+                  <el-option label="全部类别" :value="null"/>
+                  <el-option v-for="c in overviewCats" :key="c.examCode" :label="examName(c.examCode) + '（' + c.examCode + '）' + (c.count != null ? ' · ' + c.count : '')" :value="c.examCode"/>
+                </el-select>
+                <el-select v-model="overview.year" placeholder="全部年份" clearable style="width:150px" :loading="overviewYearsLoading">
+                  <el-option label="全部年份" :value="null"/>
+                  <el-option v-for="y in overviewYears" :key="String(y.year)" :label="y.year + ' 年' + (y.count != null ? ' · ' + y.count : '')" :value="y.year"/>
+                </el-select>
+                <el-input v-model="overview.keyword" placeholder="题干关键词" style="width:200px" clearable @keyup.enter="loadOverview(1)"/>
+                <el-button type="primary" @click="loadOverview(1)" :loading="overviewLoading">查询</el-button>
+                <span style="color:#8a94a6;font-size:12px" v-if="overviewCatsError">{{ overviewCatsError }}</span>
+                <span style="color:#8a94a6;font-size:12px" v-if="overviewYearsError">{{ overviewYearsError }}</span>
+              </div>
+            </template>
+            <el-alert v-if="overviewError" :title="overviewError" type="error" :closable="false" show-icon style="margin-bottom:12px"/>
+            <el-table :data="overviewRows" stripe v-loading="overviewLoading" empty-text="暂无题目">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="typeName" label="题型" width="100"/>
+              <el-table-column label="题干" show-overflow-tooltip><template #default="s">{{ s.row.stem }}</template></el-table-column>
+              <el-table-column label="年份" width="80"><template #default="s">{{ s.row.year != null ? s.row.year : '—' }}</template></el-table-column>
+              <el-table-column label="考试类别" width="150"><template #default="s">{{ examName(s.row.examCode) }}</template></el-table-column>
+              <el-table-column prop="difficulty" label="难度" width="70"/>
+              <el-table-column prop="auditStatus" label="状态" width="100"/>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="overviewTotal" :page-size="overview.size"
+              :current-page="overview.page" @current-change="p => loadOverview(p)"/></div>
+          </el-card>
+        </div>
+
         <!-- ======== 文件上传（文档类唯一入口，大纲 8） ======== -->
         <div v-if="view==='upload-doc'" class="page">
           <el-card shadow="never">
@@ -425,10 +518,11 @@
             <el-form label-width="80px" style="max-width:560px">
               <el-form-item label="文件">
                 <el-upload :action="uploadUrl" :headers="uploadHeaders" :on-success="onDocUploaded"
-                           :on-error="onUploadError"
+                           :on-error="onUploadError" :before-upload="beforeDocUpload"
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt"
                            :limit="1" :auto-upload="true" drag style="width:100%">
                   <el-icon style="font-size:40px;color:#909399"><upload-filled /></el-icon>
-                  <div>拖拽文件或点击选择（PDF/DOCX/XLSX/PPTX/ZIP/MP4/MP3，≤200MB）</div>
+                  <div>拖拽文件或点击选择（PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX/ZIP/TXT，≤200MB）</div>
                 </el-upload>
                 <div v-if="docForm.fileId" style="color:#2E7D32">✓ 文件已上传，fileId = {{ docForm.fileId }}</div>
               </el-form-item>
@@ -445,7 +539,7 @@
               </el-form-item>
               <el-form-item label="简介"><el-input v-model="docForm.description" type="textarea" :rows="2"/></el-form-item>
               <el-form-item label="标签"><el-input v-model="docForm.tags" placeholder="重点必考,含答案"/></el-form-item>
-              <el-button type="primary" :disabled="!docForm.fileId" @click="submitDoc">提交审核</el-button>
+              <el-button type="primary" :loading="docSubmitting" :disabled="!docForm.fileId || docSubmitting" @click="submitDoc">提交审核</el-button>
             </el-form>
           </el-card>
         </div>
@@ -524,6 +618,363 @@
               </el-card>
             </el-col>
           </el-row>
+        </div>
+
+        <!-- ======== 试卷管理（固定套卷） ======== -->
+        <div v-if="view==='papers'" class="page">
+          <div class="dashboard-heading">
+            <div>
+              <h1>试卷管理</h1>
+              <p>人工编排固定套卷：选题 → 设分 → 发布；学生端只可见「已发布」的套卷</p>
+            </div>
+            <el-button type="primary" @click="openPaperDialog">新建固定试卷</el-button>
+          </div>
+
+          <el-card shadow="never">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+              <el-input v-model="paperFilter.keyword" placeholder="试卷名称关键词" clearable
+                        style="width:220px" @keyup.enter="loadPapers"/>
+              <el-select v-model="paperFilter.paperType" placeholder="全部类型" clearable style="width:150px" @change="loadPapers">
+                <el-option label="官方套卷 OFFICIAL" value="OFFICIAL"/>
+                <el-option label="自建套卷 CUSTOM" value="CUSTOM"/>
+                <el-option label="随机卷 RANDOM" value="RANDOM"/>
+              </el-select>
+              <el-select v-model="paperFilter.published" placeholder="全部状态" clearable style="width:130px" @change="loadPapers">
+                <el-option label="已发布" :value="1"/>
+                <el-option label="未发布" :value="0"/>
+              </el-select>
+              <el-button type="primary" @click="paperFilter.page=1; loadPapers()">查询</el-button>
+            </div>
+
+            <el-table :data="papers" stripe size="small">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="name" label="试卷名称" min-width="220" show-overflow-tooltip/>
+              <el-table-column prop="paperType" label="类型" width="100">
+                <template #default="s">
+                  <el-tag size="small" :type="s.row.paperType==='RANDOM' ? 'info' : (s.row.paperType==='OFFICIAL' ? 'success' : 'warning')">
+                    {{ s.row.paperType }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="examCode" label="类别" width="120"/>
+              <el-table-column prop="year" label="年份" width="80"/>
+              <el-table-column prop="questionCount" label="题数" width="70"/>
+              <el-table-column prop="totalScore" label="总分" width="70"/>
+              <el-table-column prop="durationMinutes" label="时长" width="70"/>
+              <el-table-column label="状态" width="90">
+                <template #default="s">
+                  <el-tag size="small" :type="s.row.published===1 ? 'success' : 'info'">
+                    {{ s.row.published===1 ? '已发布' : '未发布' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createdAt" label="创建时间" width="170"/>
+              <el-table-column label="操作" width="210" fixed="right">
+                <template #default="s">
+                  <el-button size="small" text type="primary" @click="viewPaper(s.row.id)">详情</el-button>
+                  <el-button v-if="s.row.paperType!=='RANDOM' && s.row.published!==1" size="small" text type="success"
+                             @click="setPaperPublished(s.row.id, true)">发布</el-button>
+                  <el-button v-if="s.row.paperType!=='RANDOM' && s.row.published===1" size="small" text type="danger"
+                             @click="setPaperPublished(s.row.id, false)">下架</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager">
+              <el-pagination layout="prev, pager, next, total" :total="paperTotal" :page-size="20"
+                             :current-page="paperFilter.page"
+                             @current-change="p => { paperFilter.page = p; loadPapers(); }"/>
+            </div>
+          </el-card>
+
+          <!-- 新建试卷 -->
+          <el-dialog v-model="paperDialog" title="新建固定试卷" width="960px">
+            <el-form label-width="96px" size="small">
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="试卷名称" required>
+                    <el-input v-model="paperForm.name" placeholder="如：2023 年 6 月四级真题（第一套）"/>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="试卷类型">
+                    <el-select v-model="paperForm.paperType" style="width:100%">
+                      <el-option label="官方套卷 OFFICIAL" value="OFFICIAL"/>
+                      <el-option label="自建套卷 CUSTOM" value="CUSTOM"/>
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="考试类别">
+                    <el-select v-model="paperForm.examCode" clearable placeholder="不限" style="width:100%">
+                      <el-option v-for="c in paperExamCodes" :key="c.code" :label="c.name" :value="c.code"/>
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="真题年份">
+                    <el-input v-model.number="paperForm.year" type="number" placeholder="非真题留空"/>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="时长(分钟)">
+                    <el-input v-model.number="paperForm.durationMinutes" type="number"/>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="24">
+                  <el-form-item label="试卷说明">
+                    <el-input v-model="paperForm.description" placeholder="可选，学生端展示用"/>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </el-form>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0 10px">
+              <span style="font-weight:700;font-size:13px">选题（仅客观题可入卷）</span>
+              <el-input v-model="paperSearch.keyword" placeholder="题干关键词" clearable style="width:200px"
+                        @keyup.enter="searchPaperQuestions"/>
+              <el-select v-model="paperSearch.type" placeholder="全部题型" clearable style="width:150px">
+                <el-option v-for="t in paperObjectiveTypes" :key="t.value" :label="t.label" :value="t.value"/>
+              </el-select>
+              <el-button @click="searchPaperQuestions">搜索题目</el-button>
+            </div>
+            <el-table :data="paperSearch.rows" size="small" max-height="200" border>
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="typeName" label="题型" width="90"/>
+              <el-table-column prop="stem" label="题干" show-overflow-tooltip/>
+              <el-table-column prop="auditStatus" label="状态" width="100"/>
+              <el-table-column label="操作" width="80">
+                <template #default="s">
+                  <el-button size="small" text type="primary"
+                             :disabled="paperPicked.some(p => p.questionId === s.row.id)"
+                             @click="addPaperQuestion(s.row)">加入</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager" style="margin-bottom:10px">
+              <el-pagination layout="prev, pager, next, total" :total="paperSearch.total" :page-size="10"
+                             :current-page="paperSearch.page"
+                             @current-change="p => { paperSearch.page = p; searchPaperQuestions(); }"/>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0">
+              <span style="font-weight:700;font-size:13px">已选题目（{{ paperPicked.length }} 题 / {{ paperDraftScore }} 分）</span>
+              <el-button size="small" text type="danger" :disabled="!paperPicked.length" @click="paperPicked=[]">清空</el-button>
+            </div>
+            <el-table :data="paperPicked" size="small" max-height="240" border>
+              <el-table-column label="#" width="55">
+                <template #default="s">{{ s.$index + 1 }}</template>
+              </el-table-column>
+              <el-table-column prop="typeName" label="题型" width="90"/>
+              <el-table-column prop="stem" label="题干" show-overflow-tooltip/>
+              <el-table-column label="分值" width="110">
+                <template #default="s">
+                  <el-input v-model.number="s.row.score" type="number" size="small" style="width:80px"/>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="150">
+                <template #default="s">
+                  <el-button size="small" text :disabled="s.$index===0" @click="movePaperQuestion(s.$index,-1)">上移</el-button>
+                  <el-button size="small" text :disabled="s.$index===paperPicked.length-1" @click="movePaperQuestion(s.$index,1)">下移</el-button>
+                  <el-button size="small" text type="danger" @click="removePaperQuestion(s.$index)">移除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <template #footer>
+              <el-button @click="paperDialog=false">取消</el-button>
+              <el-button type="primary" :loading="paperSubmitting" @click="submitPaper">创建（未发布）</el-button>
+            </template>
+          </el-dialog>
+
+          <!-- 试卷详情 -->
+          <el-dialog v-model="paperDetailDialog" title="试卷详情" width="820px">
+            <template v-if="paperDetail">
+              <div style="font-size:13px;color:#5c6472;line-height:1.9;margin-bottom:10px">
+                <b style="color:#182230">{{ paperDetail.name }}</b>
+                · {{ paperDetail.paperType }} · {{ paperDetail.examCode || '不限类别' }}
+                · {{ paperDetail.year ? paperDetail.year + ' 年' : '非真题' }}
+                · {{ paperDetail.questionCount }} 题 / {{ paperDetail.totalScore }} 分
+                · {{ paperDetail.durationMinutes }} 分钟
+                · <el-tag size="small" :type="paperDetail.published===1 ? 'success' : 'info'">
+                    {{ paperDetail.published===1 ? '已发布' : '未发布' }}</el-tag>
+              </div>
+              <el-table :data="paperDetail.questions || []" size="small" max-height="420" border>
+                <el-table-column prop="sort" label="题序" width="70"/>
+                <el-table-column prop="questionId" label="题目ID" width="90"/>
+                <el-table-column prop="typeName" label="题型" width="100"/>
+                <el-table-column prop="stem" label="题干" show-overflow-tooltip/>
+                <el-table-column prop="score" label="分值" width="70"/>
+                <el-table-column prop="auditStatus" label="状态" width="100"/>
+              </el-table>
+            </template>
+          </el-dialog>
+        </div>
+
+        <!-- ======== 数据中台 ======== -->
+        <div v-if="view==='data-hub'" class="page">
+          <div class="dashboard-heading">
+            <div>
+              <h1>数据中台</h1>
+              <p>资产治理、分层指标与质量巡检；所有数字可在「指标口径字典」中追溯到表与过滤条件</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <el-button :loading="dataHub.running==='etl'" @click="runDataHubEtl">重算日指标</el-button>
+              <el-button type="primary" :loading="dataHub.running==='scan'" @click="runQualityScan">质量巡检</el-button>
+            </div>
+          </div>
+
+          <div class="alert bad" v-if="dataHub.error" style="margin-bottom:12px">{{ dataHub.error }}</div>
+
+          <div class="stat-row">
+            <div class="stat-card"><div class="stat-label">存量题目</div>
+              <div class="stat-num">{{ dhNum('questionLive') }}</div>
+              <div class="stat-hint">物理总行 {{ dhNum('questionTotalPhysical') }} · 已删除 {{ dhNum('deletedQuestion') }}</div></div>
+            <div class="stat-card"><div class="stat-label">已过审存活题</div>
+              <div class="stat-num">{{ dhNum('questionApproved') }}</div>
+              <div class="stat-hint">待审核 {{ dhNum('questionPending') }}</div></div>
+            <div class="stat-card"><div class="stat-label">ACTIVE 向量块</div>
+              <div class="stat-num">{{ dhNum('chunkActive') }}</div>
+              <div class="stat-hint">待同步 {{ dhNum('chunkVectorUnsynced') }} · 总量 {{ dhNum('chunkTotal') }}</div></div>
+            <div class="stat-card" :class="{danger: dhHealth() < 60, warning: dhHealth() >= 60 && dhHealth() < 80}">
+              <div class="stat-label">质量健康分</div>
+              <div class="stat-num">{{ dhHealth() }}</div>
+              <div class="stat-hint">开放告警 {{ dhNum('openIssueTotal') }}（高危 {{ dhNum('openCriticalTotal') }}）</div></div>
+          </div>
+
+          <el-card shadow="never" style="margin-bottom:14px">
+            <template #header>
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <span>科目覆盖矩阵</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <el-select v-model="dataHub.coverageExamCode" clearable placeholder="全部考试类别" size="small" style="width:170px">
+                    <el-option v-for="c in dhExamCodes" :key="c" :label="c || '未归类'" :value="c"/>
+                  </el-select>
+                  <el-checkbox v-model="dataHub.gapOnly" size="small">只看缺口</el-checkbox>
+                </div>
+              </div>
+            </template>
+            <el-table :data="dhCoverageRows" size="small" stripe max-height="360">
+              <el-table-column prop="examCode" label="类别" width="120">
+                <template #default="s">{{ s.row.examCode || '未归类' }}</template>
+              </el-table-column>
+              <el-table-column prop="subjectId" label="科目ID" width="80"/>
+              <el-table-column prop="subjectName" label="科目" min-width="150"/>
+              <el-table-column prop="liveQuestionCount" label="存活题" width="80"/>
+              <el-table-column prop="approvedQuestionCount" label="已过审" width="80"/>
+              <el-table-column prop="pendingQuestionCount" label="待审核" width="80"/>
+              <el-table-column prop="chunkActiveCount" label="题目向量块" width="95"/>
+              <el-table-column prop="coursewareCount" label="课件" width="65"/>
+              <el-table-column prop="knowledgeCount" label="知识点" width="70"/>
+              <el-table-column label="覆盖健康度" width="150">
+                <template #default="s">
+                  <el-progress :percentage="dhScore(s.row.coverageScore)" :stroke-width="8"
+                               :status="dhScore(s.row.coverageScore) >= 80 ? 'success' : (dhScore(s.row.coverageScore) >= 50 ? 'warning' : 'exception')"/>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div style="margin-top:8px;font-size:12px;color:#7a8190">
+              共 {{ dhCoverageRows.length }} 个科目 · 缺口判据：0 题 / 0 已过审 / 题目向量覆盖率 &lt; 80%
+            </div>
+          </el-card>
+
+          <el-row :gutter="14">
+            <el-col :span="14">
+              <el-card shadow="never">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                    <span>数据质量告警</span>
+                    <div style="display:flex;gap:6px">
+                      <el-select v-model="dataHub.issueType" clearable placeholder="全部类型" size="small" style="width:150px" @change="dataHub.issuePage=1; loadDataHubIssues()">
+                        <el-option v-for="t in dhIssueTypes" :key="t" :label="t" :value="t"/>
+                      </el-select>
+                      <el-select v-model="dataHub.severity" clearable placeholder="全部级别" size="small" style="width:110px" @change="dataHub.issuePage=1; loadDataHubIssues()">
+                        <el-option label="CRITICAL" value="CRITICAL"/>
+                        <el-option label="WARN" value="WARN"/>
+                        <el-option label="INFO" value="INFO"/>
+                      </el-select>
+                      <el-select v-model="dataHub.issueStatus" placeholder="状态" size="small" style="width:100px" @change="dataHub.issuePage=1; loadDataHubIssues()">
+                        <el-option label="OPEN" value="OPEN"/>
+                        <el-option label="RESOLVED" value="RESOLVED"/>
+                        <el-option label="全部" value=""/>
+                      </el-select>
+                    </div>
+                  </div>
+                </template>
+                <el-table :data="dataHub.issues" size="small" stripe max-height="330">
+                  <el-table-column prop="issueType" label="类型" width="130"/>
+                  <el-table-column label="级别" width="90">
+                    <template #default="s">
+                      <el-tag size="small" :type="s.row.severity==='CRITICAL' ? 'danger' : (s.row.severity==='WARN' ? 'warning' : 'info')">
+                        {{ s.row.severity }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="detail" label="详情" show-overflow-tooltip/>
+                  <el-table-column label="对象" width="120">
+                    <template #default="s">{{ s.row.targetTable }}<span v-if="s.row.targetId">#{{ s.row.targetId }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="90">
+                    <template #default="s">
+                      <el-tag size="small" :type="s.row.status==='OPEN' ? 'warning' : 'success'">{{ s.row.status }}</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pager">
+                  <el-pagination layout="prev, pager, next, total" :total="dataHub.issueTotal" :page-size="20"
+                                 :current-page="dataHub.issuePage"
+                                 @current-change="p => { dataHub.issuePage = p; loadDataHubIssues(); }"/>
+                </div>
+              </el-card>
+            </el-col>
+            <el-col :span="10">
+              <el-card shadow="never">
+                <template #header>数据接入 / ETL 流水</template>
+                <el-table :data="dataHub.pipelines" size="small" max-height="330">
+                  <el-table-column prop="id" label="ID" width="60"/>
+                  <el-table-column prop="jobType" label="类型" width="120"/>
+                  <el-table-column label="状态" width="90">
+                    <template #default="s">
+                      <el-tag size="small" :type="s.row.status==='SUCCESS' ? 'success' : (s.row.status==='FAILED' ? 'danger' : 'warning')">
+                        {{ s.row.status }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="totalRows" label="行数" width="70"/>
+                  <el-table-column prop="finishedAt" label="完成时间" min-width="150"/>
+                </el-table>
+                <div style="margin-top:8px;font-size:12px;color:#7a8190">
+                  最近 ETL：{{ dataHub.overview && dataHub.overview.lastEtlAt ? dataHub.overview.lastEtlAt : '尚未执行' }}
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>近 30 天学习与 AI 调用趋势</template>
+            <el-table :data="dataHub.trends" size="small" max-height="300">
+              <el-table-column prop="statDate" label="日期" width="110"/>
+              <el-table-column prop="activeUsers" label="活跃用户" width="90"/>
+              <el-table-column prop="practiceCount" label="练习场次" width="90"/>
+              <el-table-column prop="mockCount" label="模考场次" width="90"/>
+              <el-table-column label="练习正确率" width="110">
+                <template #default="s">{{ s.row.avgAccuracy == null ? '-' : s.row.avgAccuracy + '%' }}</template>
+              </el-table-column>
+              <el-table-column prop="aiAskCount" label="AI 提问" width="90"/>
+              <el-table-column prop="aiRefusedCount" label="拒答" width="70"/>
+              <el-table-column prop="aiDegradedCount" label="降级" width="70"/>
+              <el-table-column prop="questionApprovedTotal" label="已过审题量" width="110"/>
+              <el-table-column prop="chunkActiveTotal" label="ACTIVE 块" width="100"/>
+            </el-table>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>指标口径字典</template>
+            <el-table :data="dataHub.dict" size="small" max-height="320">
+              <el-table-column prop="metric" label="指标" width="170"/>
+              <el-table-column prop="source" label="表来源" width="200"/>
+              <el-table-column prop="filter" label="过滤条件" min-width="230"/>
+              <el-table-column prop="formula" label="计算公式" min-width="230"/>
+              <el-table-column prop="note" label="说明" min-width="180"/>
+            </el-table>
+          </el-card>
         </div>
 
         <!-- ======== 操作日志 ======== -->
@@ -642,11 +1093,135 @@
           </el-dialog>
         </div>
 
-        <!-- ======== 离线评估 ======== -->
+        <!-- ======== 测评中台 ======== -->
         <div v-if="view==='eval'" class="page">
           <div class="dashboard-heading">
-            <div><h1>离线评估</h1><p>检索侧 Golden Set + Agent 侧合成任务集</p></div>
+            <div><h1>测评中台</h1>
+              <p>双轨测评：学生能力与题库标定 + AI 模型/RAG/Agent 评测与发布门禁</p></div>
           </div>
+
+          <el-tabs v-model="eval.section">
+
+            <!-- ===== 学生测评与题库标定 ===== -->
+            <el-tab-pane label="学生测评与题库标定" name="student">
+              <div class="stat-row">
+                <div class="stat-card"><div class="stat-label">已校准试题</div>
+                  <div class="stat-num">{{ evalAssessNum('calibratedTotal') }}</div>
+                  <div class="stat-hint">有作答记录的题 {{ evalAssessNum('attemptedQuestionTotal') }} 道</div></div>
+                <div class="stat-card"><div class="stat-label">校准覆盖率</div>
+                  <div class="stat-num">{{ evalAssessNum('calibrationRate') }}%</div>
+                  <div class="stat-hint">样本 ≥ 10 次才纳入校准</div></div>
+                <div class="stat-card"><div class="stat-label">近 30 天模考平均分</div>
+                  <div class="stat-num">{{ evalAssessNum('mockAvgScore') }}</div>
+                  <div class="stat-hint">平均得分率 {{ evalAssessNum('mockAvgRate') }}%</div></div>
+                <div class="stat-card"><div class="stat-label">模考完成率</div>
+                  <div class="stat-num">{{ evalAssessNum('mockFinishRate') }}%</div>
+                  <div class="stat-hint">已交卷 {{ evalAssessNum('mockFinished') }} / {{ evalAssessNum('mockTotal') }}</div></div>
+              </div>
+
+              <el-row :gutter="14">
+                <el-col :span="10">
+                  <el-card shadow="never">
+                    <template #header>
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span>难度分布（校准后）</span>
+                        <el-button size="small" type="primary" :loading="eval.assess.calibrating"
+                                   @click="runCalibration">重新校准</el-button>
+                      </div>
+                    </template>
+                    <div class="metrics-note" style="margin-bottom:8px">
+                      依据练习与模考真实作答重算；样本 ≥ 10 次才定难度，≥ 30 次且表现有区分才定区分度。
+                    </div>
+                    <div v-for="d in difficultyRows" :key="d.level" class="distribution-row">
+                      <span>{{ d.label }}</span>
+                      <div class="distribution-track"><i :style="{width: d.pct + '%'}"></i></div>
+                      <span>{{ d.count }}</span>
+                    </div>
+                  </el-card>
+                </el-col>
+                <el-col :span="14">
+                  <el-card shadow="never">
+                    <template #header>异常题预警（高错误率 / 负区分度）</template>
+                    <el-table :data="eval.assess.anomalies" size="small" max-height="300"
+                              empty-text="暂无异常题（或样本不足）">
+                      <el-table-column prop="questionId" label="题号" width="80"/>
+                      <el-table-column prop="stem" label="题干" show-overflow-tooltip/>
+                      <el-table-column prop="attemptCount" label="作答" width="70"/>
+                      <el-table-column label="正确率" width="90">
+                        <template #default="s">{{ evalPct(s.row.observedAccuracy) }}%</template>
+                      </el-table-column>
+                      <el-table-column prop="calibratedDifficulty" label="难度" width="70"/>
+                      <el-table-column label="区分度" width="90">
+                        <template #default="s">
+                          <span :style="{color: Number(s.row.discriminationIndex) < 0 ? '#c24145' : '#5c6472'}">
+                            {{ s.row.discriminationIndex == null ? '—' : s.row.discriminationIndex }}
+                          </span>
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </el-card>
+                </el-col>
+              </el-row>
+            </el-tab-pane>
+
+            <!-- ===== AI 评测与发布门禁 ===== -->
+            <el-tab-pane label="AI 评测与发布门禁" name="ai">
+              <el-card shadow="never" style="margin-bottom:14px">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                    <span>发布门禁总览（各层最新一次成功运行）</span>
+                    <el-button size="small" :loading="eval.gateLoading" @click="loadGateSummary">刷新门禁</el-button>
+                  </div>
+                </template>
+                <div v-if="!eval.gate" class="metrics-note">加载中…</div>
+                <template v-else>
+                  <el-alert v-if="eval.gate.allPassed" type="success" :closable="false" show-icon
+                            title="全部评测层通过，允许发布"></el-alert>
+                  <el-alert v-else type="error" :closable="false" show-icon
+                            :title="'未通过：' + (eval.gate.failedLayers || []).join(' / ')
+                              + ((eval.gate.missingLayers || []).length ? ('（缺少运行：' + eval.gate.missingLayers.join(' / ') + '）') : '')"></el-alert>
+                  <el-table :data="gateRows" size="small" style="margin-top:10px">
+                    <el-table-column prop="layer" label="层" width="110"></el-table-column>
+                    <el-table-column label="结论" width="90">
+                      <template #default="s">
+                        <el-tag size="small" :type="s.row.passed ? 'success' : 'danger'">
+                          {{ s.row.passed ? '绿灯' : (s.row.missing ? '未运行' : '红灯') }}</el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="检查项" min-width="360">
+                      <template #default="s">
+                        <span v-for="c in s.row.checks" :key="c.name" style="margin-right:12px;font-size:12px">
+                          <span :style="{color: c.ok ? '#1f7a4d' : '#c24145'}">{{ c.ok ? '✓' : '✗' }}</span>
+                          {{ c.name }}：{{ c.actual == null ? '—' : c.actual }}（{{ c.threshold }}）
+                        </span>
+                        <span v-if="!s.row.checks.length" class="metrics-note">该层暂无指标</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="runId" label="运行ID" width="80"></el-table-column>
+                    <el-table-column prop="createdAt" label="时间" width="170"></el-table-column>
+                  </el-table>
+                </template>
+              </el-card>
+
+              <el-card shadow="never" style="margin-bottom:14px">
+                <template #header>评测触发（5 类）</template>
+                <div class="eval-toolbar">
+                  <button type="button" class="btn-primary" :disabled="eval.running"
+                          @click="startEval('retrieval')">检索侧</button>
+                  <button type="button" class="btn-primary" :disabled="eval.running"
+                          @click="startEval('agent')">Agent 侧</button>
+                  <button type="button" class="btn-primary" :disabled="eval.running"
+                          @click="startEval('refusal')">拒答侧</button>
+                  <button type="button" class="btn-primary" :disabled="eval.running"
+                          @click="startEval('grading')">判分侧</button>
+                  <button type="button" class="btn-primary" :disabled="eval.running"
+                          @click="startEval('study-plan')">学习计划</button>
+                  <span class="tip" v-if="eval.running">评估运行中，请稍候…</span>
+                </div>
+                <div class="metrics-note" style="margin-top:8px">
+                  拒答/判分/学习计划走同一任务队列（Redis Stream → Python worker），完成后自动写入 ai_eval_run。
+                </div>
+              </el-card>
 
           <el-card shadow="never">
             <el-tabs v-model="eval.tab">
@@ -776,6 +1351,9 @@
             <el-alert v-if="eval.purge.notice" style="margin-top:12px" :closable="false" show-icon
                       :type="eval.purge.noticeType" :title="eval.purge.notice"></el-alert>
           </el-card>
+
+          </el-tab-pane>
+          </el-tabs>
 
           <el-dialog v-model="eval.detailDialog" title="评估详情" width="900px">
             <div v-if="eval.detail">
@@ -954,6 +1532,16 @@
 <script>
 const { createApp } = Vue;
 const API = '/api';
+// W-02：考试类别未加载时的兜底值；正常路径取 /admin/data/exams 返回的真实 ID
+const DEFAULT_EXAM_CATEGORY_ID = 1;
+// examCode 枚举 → 中文名（后端 /questions/exam-categories 契约取值，前端仅做展示映射）
+const EXAM_NAMES = {
+  CET4: '四级', CET6: '六级',
+  GUOKAO: '国考行测', GUOKAO_SHENLUN: '国考申论',
+  POSTGRAD_ENG1: '考研英语一', POSTGRAD_ENG2: '考研英语二',
+  POSTGRAD_MATH1: '考研数学一', POSTGRAD_MATH2: '考研数学二', POSTGRAD_MATH3: '考研数学三',
+  INTERVIEW: 'AI大模型面试'
+};
 
 async function api(method, path, body) {
   const token = localStorage.getItem('token') || '';
@@ -1246,12 +1834,30 @@ createApp({
       users: [], uTotal: 0, uPage: 1,
       announcements: [], annDialog: false,
       questionAdmin: [], qaTotal: 0, qaFilter: {page: 1, keyword: null}, qDialog: false,
+      // 试卷管理（固定套卷）：列表 / 新建 / 详情
+      papers: [], paperTotal: 0,
+      paperFilter: {page: 1, keyword: '', paperType: '', published: ''},
+      paperDialog: false, paperSubmitting: false, paperDetailDialog: false, paperDetail: null,
+      paperForm: {name: '', paperType: 'CUSTOM', examCode: null, year: null,
+        durationMinutes: 120, description: ''},
+      paperPicked: [],
+      paperSearch: {keyword: '', type: null, page: 1, size: 10, rows: [], total: 0},
+      // 数据中台
+      dataHub: {
+        loading: false, error: '', overview: null, running: '',
+        coverage: [], gapOnly: false, coverageExamCode: '',
+        issues: [], issueTotal: 0, issuePage: 1,
+        issueType: '', severity: '', issueStatus: 'OPEN',
+        trends: [], pipelines: [], dict: []
+      },
       qForm: {subjectId: null, type: 'SINGLE_CHOICE', stem: '', difficulty: 3, analysis: '',
         options: [
           {key: 'A', content: '', isAnswer: true}, {key: 'B', content: '', isAnswer: false},
           {key: 'C', content: '', isAnswer: false}, {key: 'D', content: '', isAnswer: false}],
         blanksText: '', reference: ''},
       docForm: {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''},
+      // W-06：提交期间锁定按钮，避免连点创建多份资料
+      docSubmitting: false,
       uploadUrl: '/api/files/document',
       resourceTypes2: [],
       knowledgeAdmin: [], knowledgeSubjectId: '5',
@@ -1264,8 +1870,10 @@ createApp({
       metrics: {days: 7, data: null, loading: false, error: ''},
       agent: {question: '', running: false, steps: [], page: 1, runs: [], runTotal: 0,
         replayDialog: false, replay: null},
-      eval: {tab: 'retrieval', running: false, task: null, runs: [], total: 0, page: 1,
+      eval: {tab: 'retrieval', section: 'student', running: false, task: null, runs: [], total: 0, page: 1,
         detailDialog: false, detail: null,
+        gate: null, gateLoading: false,
+        assess: {summary: null, anomalies: [], loading: false, calibrating: false},
         // 评估对比：baseId / targetId 取自当前页运行记录
         compareBase: null, compareTarget: null, compare: null, compareLoading: false,
         compareError: '',
@@ -1274,10 +1882,68 @@ createApp({
       wiki: {tab: 'revisions', stats: {}, revisions: [], revTotal: 0, revPage: 1,
         pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null,
         running: false, task: null, graph: {nodes: [], edges: []},
-        revisionDialog: false, revision: null, pageDialog: false, page: null}
+        revisionDialog: false, revision: null, pageDialog: false, page: null},
+
+      // 题库导入状态（GET /admin/data/import-stats）+ 题目总览（GET /questions）
+      importStats: {byStatus: {}, byExamCode: {}, byYear: {}, lastImportedAt: null},
+      importLoading: false, importError: '',
+      overviewCats: [], overviewCatsLoading: false, overviewCatsError: '',
+      overviewYears: [], overviewYearsLoading: false, overviewYearsError: '',
+      overview: {examCode: null, year: null, keyword: '', page: 1, size: 20},
+      overviewRows: [], overviewTotal: 0, overviewLoading: false, overviewError: ''
     };
   },
   computed: {
+    // ---------- 试卷管理 ----------
+    /** 可入卷题型：模拟考试要求交卷即出分，只允许客观题 */
+    paperObjectiveTypes() {
+      return [
+        {value: 'SINGLE_CHOICE', label: '单选题'},
+        {value: 'MULTI_CHOICE', label: '多选题'},
+        {value: 'TRUE_FALSE', label: '判断题'},
+        {value: 'FILL_BLANK', label: '填空题'},
+        {value: 'MATCHING', label: '匹配题'},
+        {value: 'ORDERING', label: '排序题'}
+      ];
+    },
+    paperExamCodes() {
+      return Object.keys(EXAM_NAMES).map(function (code) {
+        return {code: code, name: EXAM_NAMES[code]};
+      });
+    },
+    /** 已选题目总分（随分值输入实时汇总） */
+    paperDraftScore() {
+      return (this.paperPicked || []).reduce(function (sum, p) {
+        const n = Number(p.score);
+        return sum + (isFinite(n) && n > 0 ? n : 0);
+      }, 0);
+    },
+    // ---------- 数据中台 ----------
+    dhIssueTypes() {
+      return ['DUPLICATE_STEM', 'MISSING_ANSWER', 'NO_CHUNK', 'ORPHAN_VECTOR', 'OCR_BACKLOG', 'EMPTY_SUBJECT'];
+    },
+    dhExamCodes() {
+      const codes = [];
+      (this.dataHub.coverage || []).forEach(function (r) {
+        const c = r.examCode || '';
+        if (codes.indexOf(c) < 0) codes.push(c);
+      });
+      return codes.sort();
+    },
+    /** 覆盖矩阵本地筛选：与后端 gapOnly 判据保持一致 */
+    dhCoverageRows() {
+      const f = this.dataHub;
+      return (f.coverage || []).filter(function (r) {
+        const code = r.examCode || '';
+        if (f.coverageExamCode !== '' && f.coverageExamCode != null && code !== f.coverageExamCode) return false;
+        if (!f.gapOnly) return true;
+        const live = Number(r.liveQuestionCount) || 0;
+        const approved = Number(r.approvedQuestionCount) || 0;
+        const chunk = Number(r.chunkActiveCount) || 0;
+        if (live <= 0 || approved <= 0) return true;
+        return chunk * 100 / approved < 80;
+      });
+    },
     // 上传头改为计算属性：每次上传时实时读取 localStorage 里的最新 token。
     // 原先在 data() 初始化时一次性读取，登录后不更新，导致上传永远带空 token 而 401。
     uploadHeaders() {
@@ -1321,6 +1987,42 @@ createApp({
       const c = this.eval.compare || {};
       const note = c.note ? String(c.note) : '';
       return note ? ('跨 layer 不可直接比较，仅作参考：' + note) : '跨 layer 不可直接比较，仅作参考';
+    },
+    // ---------- 测评中台 ----------
+    /** 难度 1-5 的条形数据：宽度按最大值归一，避免长尾把条形压扁 */
+    difficultyRows() {
+      const dist = (this.eval.assess.summary || {}).difficultyDistribution || {};
+      const labels = {1: '1 易', 2: '2 较易', 3: '3 中等', 4: '4 较难', 5: '5 难'};
+      const rows = [1, 2, 3, 4, 5].map(function (level) {
+        return {level: level, label: labels[level], count: Number(dist[String(level)] || 0)};
+      });
+      const max = Math.max(1, ...rows.map(function (r) { return r.count; }));
+      rows.forEach(function (r) { r.pct = Math.round(r.count / max * 100); });
+      return rows;
+    },
+    gateRows() {
+      return (this.eval.gate && this.eval.gate.layers) || [];
+    },
+    // ---------- 题库导入 ----------
+    importStatusRows() { return this.distRows(this.importStats.byStatus); },
+    importExamRows() { return this.distRows(this.importStats.byExamCode); },
+    importYearRows() { return this.distRows(this.importStats.byYear); },
+    importPendingOcr() {
+      return this.sumKeys(this.importStats.byStatus,
+        ['PENDING_OCR', 'WAIT_OCR', 'OCR_PENDING', 'WAITING_OCR', 'OCR']);
+    },
+    importParseFailed() {
+      return this.sumKeys(this.importStats.byStatus,
+        ['PARSE_FAILED', 'OCR_FAILED', 'FAILED', 'ERROR', 'PARSE_ERROR']);
+    },
+    importCards() {
+      const total = this.importStatusRows.reduce((n, r) => n + (Number(r.count) || 0), 0);
+      return [
+        {label: '导入记录合计', value: total, hint: '按状态汇总'},
+        {label: '待 OCR', value: this.importPendingOcr, hint: '等待文字识别'},
+        {label: '解析失败', value: this.importParseFailed, hint: '需检查后重新导入'},
+        {label: '类别 / 年份', value: this.importExamRows.length + ' / ' + this.importYearRows.length, hint: '已覆盖维度'}
+      ];
     }
   },
   methods: {
@@ -1371,14 +2073,24 @@ createApp({
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(this.loginForm)
         });
-        const json = await resp.json();
-        if (json.code !== 200) throw new Error(json.message);
-        if (!['AUDITOR', 'ADMIN'].includes(json.data.user.role)) {
+        // W-07：先判 HTTP 状态，再解析 JSON，避免把 SyntaxError 原文弹给用户
+        if (!resp.ok) {
+          throw new Error('登录服务暂不可用（HTTP ' + resp.status + '）');
+        }
+        let json;
+        try {
+          json = await resp.json();
+        } catch (parseErr) {
+          throw new Error('登录响应格式异常，请稍后重试');
+        }
+        if (json.code !== 200) throw new Error(json.message || '登录失败');
+        const user = json.data && json.data.user ? json.data.user : null;
+        if (!user || !['AUDITOR', 'ADMIN'].includes(user.role)) {
           throw new Error('该账号无管理端权限（需 AUDITOR / ADMIN）');
         }
         this.token = json.data.token;
         localStorage.setItem('token', this.token);
-        this.whoami = json.data.user.nickname + '（' + json.data.user.role + '）';
+        this.whoami = user.nickname + '（' + user.role + '）';
         localStorage.setItem('whoami', this.whoami);
         ElementPlus.ElMessage.success('登录成功');
         this.loadView();
@@ -1392,18 +2104,205 @@ createApp({
       localStorage.removeItem('token');
       localStorage.removeItem('whoami');
       this.token = '';
+      // W-01：重载页面以销毁整个 JS 上下文，清空 data() 里 users/questions/logs/eval/wiki 等
+      //       上一账号的业务缓存，避免换账号登录后看到旧数据
+      location.reload();
     },
+    // ---------- 试卷管理（固定套卷） ----------
+    async loadPapers() {
+      const f = this.paperFilter;
+      const qs = '?page=' + f.page + '&size=20'
+        + (f.keyword ? '&keyword=' + encodeURIComponent(f.keyword) : '')
+        + (f.paperType ? '&paperType=' + encodeURIComponent(f.paperType) : '')
+        + (f.published === 0 || f.published === 1 ? '&published=' + f.published : '');
+      const data = await api('GET', '/admin/exam-papers' + qs);
+      this.papers = data.list || [];
+      this.paperTotal = data.total || 0;
+    },
+    openPaperDialog() {
+      this.paperForm = {name: '', paperType: 'CUSTOM', examCode: null, year: null,
+        durationMinutes: 120, description: ''};
+      this.paperPicked = [];
+      this.paperSearch = {keyword: '', type: null, page: 1, size: 10, rows: [], total: 0};
+      this.paperDialog = true;
+      this.searchPaperQuestions();
+    },
+    async searchPaperQuestions() {
+      const s = this.paperSearch;
+      const qs = '?page=' + s.page + '&size=10&auditStatus=APPROVED'
+        + (s.keyword ? '&keyword=' + encodeURIComponent(s.keyword) : '')
+        + (s.type ? '&type=' + encodeURIComponent(s.type) : '');
+      const data = await api('GET', '/admin/questions' + qs);
+      s.rows = data.list || [];
+      s.total = data.total || 0;
+    },
+    addPaperQuestion(row) {
+      if (!row || row.id == null) return;
+      if (this.paperPicked.some(function (p) { return p.questionId === row.id; })) return;
+      this.paperPicked.push({
+        questionId: row.id,
+        typeName: row.typeName || row.type,
+        stem: row.stem,
+        score: row.score == null ? 1 : row.score
+      });
+    },
+    removePaperQuestion(index) {
+      this.paperPicked.splice(index, 1);
+    },
+    movePaperQuestion(index, delta) {
+      const target = index + delta;
+      if (target < 0 || target >= this.paperPicked.length) return;
+      const rows = this.paperPicked;
+      const tmp = rows[index];
+      rows.splice(index, 1);
+      rows.splice(target, 0, tmp);
+    },
+    async submitPaper() {
+      if (this.paperSubmitting) return;
+      if (!this.paperForm.name || !this.paperForm.name.trim()) {
+        ElementPlus.ElMessage.warning('请填写试卷名称');
+        return;
+      }
+      if (!this.paperPicked.length) {
+        ElementPlus.ElMessage.warning('请至少选择一道题');
+        return;
+      }
+      const badScore = this.paperPicked.find(function (p) {
+        const n = Number(p.score);
+        return !isFinite(n) || n < 1 || n > 100;
+      });
+      if (badScore) {
+        ElementPlus.ElMessage.warning('每题分值需在 1–100 之间');
+        return;
+      }
+      this.paperSubmitting = true;
+      try {
+        const body = {
+          name: this.paperForm.name.trim(),
+          paperType: this.paperForm.paperType,
+          examCode: this.paperForm.examCode || null,
+          year: this.paperForm.year ? Number(this.paperForm.year) : null,
+          durationMinutes: Number(this.paperForm.durationMinutes) || 30,
+          description: this.paperForm.description || null,
+          questions: this.paperPicked.map(function (p, i) {
+            return {questionId: p.questionId, score: Number(p.score)};
+          })
+        };
+        await api('POST', '/admin/exam-papers', body);
+        ElementPlus.ElMessage.success('试卷已创建（未发布），确认无误后点「发布」');
+        this.paperDialog = false;
+        this.paperFilter.page = 1;
+        this.loadPapers();
+      } finally {
+        this.paperSubmitting = false;
+      }
+    },
+    async setPaperPublished(id, published) {
+      const action = published ? '发布' : '下架';
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '确定' + action + '试卷 #' + id + ' 吗？' + (published ? '发布后学生端立即可见。' : '下架后学生端不再展示，已开考记录不受影响。'),
+          action + '试卷', {type: 'warning'});
+      } catch (e) {
+        return;
+      }
+      await api('POST', '/admin/exam-papers/' + id + '/' + (published ? 'publish' : 'unpublish'));
+      ElementPlus.ElMessage.success('已' + action);
+      this.loadPapers();
+    },
+    async viewPaper(id) {
+      this.paperDetail = await api('GET', '/admin/exam-papers/' + id);
+      this.paperDetailDialog = true;
+    },
+
+    // ---------- 数据中台 ----------
+    async loadDataHub() {
+      const d = this.dataHub;
+      d.loading = true;
+      d.error = '';
+      try {
+        const ov = await api('GET', '/admin/data-hub/overview');
+        const cov = await api('GET', '/admin/data-hub/coverage');
+        const tr = await api('GET', '/admin/data-hub/trends?days=30');
+        const pl = await api('GET', '/admin/data-hub/pipelines?limit=20');
+        const dict = await api('GET', '/admin/data-hub/metric-dictionary');
+        d.overview = ov;
+        d.coverage = cov || [];
+        d.trends = tr || [];
+        d.pipelines = pl || [];
+        d.dict = dict || [];
+        await this.loadDataHubIssues();
+      } catch (e) {
+        d.error = e.message || '数据中台加载失败';
+      } finally {
+        d.loading = false;
+      }
+    },
+    async loadDataHubIssues() {
+      const d = this.dataHub;
+      const qs = '?page=' + d.issuePage + '&size=20'
+        + (d.issueType ? '&issueType=' + encodeURIComponent(d.issueType) : '')
+        + (d.severity ? '&severity=' + encodeURIComponent(d.severity) : '')
+        + (d.issueStatus ? '&status=' + encodeURIComponent(d.issueStatus) : '');
+      const data = await api('GET', '/admin/data-hub/quality-issues' + qs);
+      d.issues = data.list || [];
+      d.issueTotal = data.total || 0;
+    },
+    async runDataHubEtl() {
+      const d = this.dataHub;
+      if (d.running) return;
+      d.running = 'etl';
+      try {
+        const r = await api('POST', '/admin/data-hub/run-etl');
+        ElementPlus.ElMessage.success('指标已刷新：日指标 ' + (r.dailyRows || 0)
+          + ' 天 / 覆盖 ' + (r.coverageRows || 0) + ' 行');
+        await this.loadDataHub();
+      } finally {
+        d.running = '';
+      }
+    },
+    async runQualityScan() {
+      const d = this.dataHub;
+      if (d.running) return;
+      d.running = 'scan';
+      try {
+        const r = await api('POST', '/admin/data-hub/run-quality-scan');
+        ElementPlus.ElMessage.success('巡检完成：活跃 ' + (r.active || 0) + ' 条，新增 '
+          + (r.created || 0) + '，重新打开 ' + (r.reopened || 0) + '，销号 ' + (r.resolved || 0));
+        await this.loadDataHub();
+      } finally {
+        d.running = '';
+      }
+    },
+    dhNum(key) {
+      const o = this.dataHub.overview || {};
+      const v = Number(o[key]);
+      return isFinite(v) ? v : 0;
+    },
+    dhHealth() {
+      const o = this.dataHub.overview || {};
+      const v = Number(o.qualityHealthScore);
+      return isFinite(v) ? Math.round(v * 10) / 10 : 0;
+    },
+    dhScore(v) {
+      const n = Number(v);
+      return isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
+    },
+
     loadView() {
       const map = {
         dashboard: 'loadDashboard', questions: 'loadQuestions', resources: 'loadResources',
         reports: 'loadReports', appeals: 'loadAppeals', users: 'loadUsers',
         announcements: 'loadAnnouncements', data: 'loadData', logs: 'loadLogs',
         'question-admin': 'loadQuestionAdmin', 'upload-doc': 'loadUploadDoc',
-        agent: 'loadAgentRuns', eval: 'loadEvalRuns', wiki: 'loadWiki'
+        'import-stats': 'loadImportStats', papers: 'loadPapers', 'data-hub': 'loadDataHub',
+        agent: 'loadAgentRuns', eval: 'loadEvalPage', wiki: 'loadWiki'
       };
       if (map[this.view]) this[map[this.view]]();
       // 「AI 运行观测」页含「运行指标」区：进入该页时与历史会话一起加载，而不是只在切换时加载
       if (this.view === 'agent') this.loadMetrics();
+      // 「题库导入」页首屏同时拉取题目总览
+      if (this.view === 'import-stats') this.loadOverview(1);
     },
 
     async loadDashboard() {
@@ -1569,6 +2468,110 @@ createApp({
       this.qDialog = false;
       this.loadQuestionAdmin();
     },
+    // ---------- 题库导入状态 / 题目总览 ----------
+    examName(code) {
+      return EXAM_NAMES[code] || code || '—';
+    },
+    statusName(k) {
+      const m = {PENDING_OCR: '待 OCR', WAIT_OCR: '待 OCR', OCR_PENDING: '待 OCR', WAITING_OCR: '待 OCR',
+        OCR: 'OCR 中', PENDING: '待解析', PARSING: '解析中',
+        PARSE_FAILED: '解析失败', OCR_FAILED: 'OCR 失败', FAILED: '失败', ERROR: '错误', PARSE_ERROR: '解析失败',
+        DONE: '已完成', SUCCESS: '成功', APPROVED: '已入库', IMPORTED: '已导入'};
+      return m[k] || k || '—';
+    },
+    /** byStatus / byExamCode / byYear 兼容 {k:count} 对象与 [{key,count}] 数组两种返回 */
+    distRows(v) {
+      if (!v) return [];
+      const out = [];
+      if (Array.isArray(v)) {
+        v.forEach(it => {
+          if (!it) return;
+          const key = (it.examCode != null ? it.examCode : (it.year != null ? String(it.year) :
+            (it.status != null ? it.status : (it.key != null ? it.key : it.name))));
+          const count = (it.count != null ? it.count : (it.total != null ? it.total : it.value));
+          if (key == null) return;
+          out.push({key: String(key), count: Number(count) || 0});
+        });
+      } else if (typeof v === 'object') {
+        Object.keys(v).forEach(k => out.push({key: k, count: Number(v[k]) || 0}));
+      }
+      return out;
+    },
+    sumKeys(v, keys) {
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return 0;
+      let n = 0;
+      keys.forEach(k => { if (v[k] != null) n += Number(v[k]) || 0; });
+      return n;
+    },
+    async loadImportStats() {
+      this.loadOverviewCats();
+      this.loadOverviewYears();
+      this.importLoading = true;
+      this.importError = '';
+      try {
+        const d = await api('GET', '/admin/data/import-stats');
+        this.importStats = {
+          byStatus: (d && (d.byStatus || d.byParseStatus)) || {},
+          byExamCode: (d && d.byExamCode) || {},
+          byYear: (d && d.byYear) || {},
+          lastImportedAt: (d && (d.lastImportedAt || d.lastImportAt)) || null
+        };
+      } catch (e) {
+        this.importError = (e && e.message) ? e.message : '导入统计加载失败';
+      } finally {
+        this.importLoading = false;
+      }
+    },
+    async loadOverviewCats() {
+      if (this.overviewCats.length || this.overviewCatsLoading) return;
+      this.overviewCatsLoading = true;
+      this.overviewCatsError = '';
+      try {
+        const d = await api('GET', '/questions/exam-categories');
+        this.overviewCats = Array.isArray(d) ? d.filter(c => c && c.examCode) : [];
+      } catch (e) {
+        this.overviewCats = [];
+        this.overviewCatsError = '类别加载失败：' + ((e && e.message) || '未知错误');
+      } finally {
+        this.overviewCatsLoading = false;
+      }
+    },
+    async loadOverviewYears() {
+      if (this.overviewYears.length || this.overviewYearsLoading) return;
+      this.overviewYearsLoading = true;
+      this.overviewYearsError = '';
+      try {
+        const d = await api('GET', '/questions/years');
+        this.overviewYears = Array.isArray(d) ? d.filter(y => y && y.year != null) : [];
+      } catch (e) {
+        this.overviewYears = [];
+        this.overviewYearsError = '年份加载失败：' + ((e && e.message) || '未知错误');
+      } finally {
+        this.overviewYearsLoading = false;
+      }
+    },
+    async loadOverview(page) {
+      const p = Number(page) || 1;
+      this.overview.page = p;
+      this.overviewLoading = true;
+      this.overviewError = '';
+      const f = this.overview;
+      let path = '/questions?page=' + p + '&size=' + f.size;
+      if (f.examCode) path += '&examCode=' + encodeURIComponent(f.examCode);
+      if (f.year) path += '&year=' + encodeURIComponent(String(f.year));
+      if (f.keyword) path += '&keyword=' + encodeURIComponent(f.keyword);
+      try {
+        const d = await api('GET', path);
+        this.overviewRows = (d && Array.isArray(d.list)) ? d.list : (Array.isArray(d) ? d : []);
+        this.overviewTotal = (d && d.total != null) ? Number(d.total) : this.overviewRows.length;
+      } catch (e) {
+        this.overviewRows = [];
+        this.overviewTotal = 0;
+        this.overviewError = (e && e.message) ? e.message : '题目总览加载失败';
+      } finally {
+        this.overviewLoading = false;
+      }
+    },
     // ---------- 文件上传 ----------
     async loadResourceTypes2() {
       if (!this.resourceTypes2.length) this.resourceTypes2 = await api('GET', '/resources/types');
@@ -1585,16 +2588,42 @@ createApp({
       // el-upload 网络层失败（4xx/5xx/断网）不会走 on-success，必须单独提示
       ElementPlus.ElMessage.error('上传失败');
     },
+    // W-03：按现有文案做类型与 200MB 前置校验，避免任意文件先上传再被后端拒绝
+    beforeDocUpload(file) {
+      // D14（2026-11-12）：按 docs/大纲-v2.md:45「视频、音频 P0 不开放」移除 mp4/mp3，
+      // 与后端 FileStorageService.allowedDocTypes 保持一致（文档接口只收文档与压缩包）
+      const allow = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt'];
+      const ext = String(file.name || '').split('.').pop().toLowerCase();
+      if (!allow.includes(ext)) {
+        ElementPlus.ElMessage.error('仅支持 PDF/DOC/DOCX/XLS/XLSX/PPT/PPTX/ZIP/TXT');
+        return false;
+      }
+      if (file.size > 200 * 1024 * 1024) {
+        ElementPlus.ElMessage.error('文件不能超过 200MB');
+        return false;
+      }
+      return true;
+    },
     async submitDoc() {
+      // W-06：请求在途时禁止重复提交
+      if (this.docSubmitting) return;
       const f = this.docForm;
       if (!f.title || !f.subjectId) {
         ElementPlus.ElMessage.warning('请填写标题与科目');
         return;
       }
-      f.examCategoryId = 1;
-      await api('POST', '/resources', f);
-      ElementPlus.ElMessage.success('资料已提交审核');
-      this.docForm = {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''};
+      // W-02：取 loadUploadDoc() 已加载的 exams 首个真实 ID，不再写死 1
+      // 局限：上传页没有考试类别选择器（范围问题 R-07）；无数据时回退默认常量，见「已知限制」
+      const firstExam = this.exams.length ? this.exams[0] : null;
+      this.docSubmitting = true;
+      try {
+        f.examCategoryId = (firstExam && firstExam.id) ? firstExam.id : DEFAULT_EXAM_CATEGORY_ID;
+        await api('POST', '/resources', f);
+        ElementPlus.ElMessage.success('资料已提交审核');
+        this.docForm = {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''};
+      } finally {
+        this.docSubmitting = false;
+      }
     },
     // ---------- 基础数据扩展 ----------
     async loadKnowledgeAdmin() {
@@ -1789,6 +2818,53 @@ createApp({
         if (el) el.scrollTop = el.scrollHeight;
       });
     },
+    async loadEvalPage() {
+      await Promise.all([this.loadEvalRuns(), this.loadGateSummary(), this.loadAssessmentSummary()]);
+    },
+    async loadGateSummary() {
+      this.eval.gateLoading = true;
+      try {
+        this.eval.gate = await api('GET', '/admin/ai/eval/gate-summary');
+      } finally {
+        this.eval.gateLoading = false;
+      }
+    },
+    async loadAssessmentSummary() {
+      const a = this.eval.assess;
+      a.loading = true;
+      try {
+        const summary = await api('GET', '/admin/assessment/summary?mockDays=30');
+        const anomalies = await api('GET', '/admin/assessment/anomalies?limit=50');
+        a.summary = summary;
+        a.anomalies = anomalies || [];
+      } finally {
+        a.loading = false;
+      }
+    },
+    async runCalibration() {
+      const a = this.eval.assess;
+      if (a.calibrating) return;
+      a.calibrating = true;
+      try {
+        const r = await api('POST', '/admin/assessment/calibrate');
+        ElementPlus.ElMessage.success('校准完成：' + r.calibrated + ' 题（新增 ' + r.inserted
+          + ' / 更新 ' + r.updated + ' / 清理 ' + r.removed + '）');
+        await this.loadAssessmentSummary();
+      } finally {
+        a.calibrating = false;
+      }
+    },
+    evalAssessNum(key) {
+      const s = this.eval.assess.summary || {};
+      const v = Number(s[key]);
+      return isFinite(v) ? v : 0;
+    },
+    evalPct(v) {
+      const n = Number(v);
+      if (!isFinite(n)) return 0;
+      return Math.round(n * 1000) / 10;
+    },
+
     async loadEvalRuns() {
       const data = await api('GET', '/admin/ai/eval/runs?page=' + this.eval.page + '&size=20');
       this.eval.runs = data.list || [];
@@ -1899,6 +2975,7 @@ createApp({
           ElementPlus.ElMessage.warning('评估未成功：' + (this.eval.task ? this.eval.task.status : 'UNKNOWN'));
         }
         await this.loadEvalRuns();
+        await this.loadGateSummary();
       } finally {
         this.eval.running = false;
       }

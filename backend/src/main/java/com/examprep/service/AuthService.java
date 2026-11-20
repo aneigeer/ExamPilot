@@ -2,6 +2,7 @@ package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.examprep.common.BizException;
+import com.examprep.common.LogMaskUtils;
 import com.examprep.common.ResultCode;
 import com.examprep.dto.ChangePasswordRequest;
 import com.examprep.dto.LoginRequest;
@@ -64,7 +65,7 @@ public class AuthService {
         }
 
         String token = jwtUtil.generate(user.getId(), user.getStudentNo(), user.getRole());
-        log.info("用户登录成功: {} ({})", user.getStudentNo(), user.getRole());
+        log.info("用户登录成功: {} ({})", LogMaskUtils.maskAccount(user.getStudentNo()), user.getRole());
         return LoginResponse.of(token, jwtUtil.getExpireMillis(), user);
     }
 
@@ -105,7 +106,7 @@ public class AuthService {
         user.setRole("STUDENT");
         user.setStatus(1);
         userMapper.insert(user);
-        log.info("新用户注册成功: {} (schoolId={})", user.getStudentNo(), user.getSchoolId());
+        log.info("新用户注册成功: {} (schoolId={})", LogMaskUtils.maskAccount(user.getStudentNo()), user.getSchoolId());
 
         // 注册成功后自动登录（复用登录逻辑，省一次请求）
         LoginRequest loginReq = new LoginRequest();
@@ -147,7 +148,7 @@ public class AuthService {
         update.setId(userId);
         update.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         userMapper.updateById(update);
-        log.info("用户 {} 修改密码成功", user.getStudentNo());
+        log.info("用户 {} 修改密码成功", LogMaskUtils.maskAccount(user.getStudentNo()));
     }
 
     /**
@@ -157,7 +158,7 @@ public class AuthService {
     public void logout() {
         LoginUser loginUser = SecurityUtils.getLoginUserOrNull();
         if (loginUser != null) {
-            log.info("用户登出: {}", loginUser.getStudentNo());
+            log.info("用户登出: {}", LogMaskUtils.maskAccount(loginUser.getStudentNo()));
         }
     }
 }

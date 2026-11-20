@@ -39,25 +39,45 @@ public class QuestionService {
 
     /**
      * 题目分页列表（不含答案与解析）
+     *
+     * <p>2026-11-11 新增三个可选筛选：{@code year}（真题年份）、{@code examCode}（考试类别）、
+     * {@code keyword}（题干模糊）。三者和原有条件一律 AND 叠加；不传 = 不加条件。
      */
     public PageResult<QuestionVO> pageQuestions(long page, long size,
                                                 Long subjectId,
                                                 Long knowledgeId,
                                                 String type,
-                                                Integer difficulty) {
+                                                Integer difficulty,
+                                                Integer year,
+                                                String examCode,
+                                                String keyword) {
         if (StringUtils.hasText(type) && !QuestionType.isOpen(type)) {
             throw new BizException(ResultCode.QUESTION_TYPE_NOT_OPEN);
         }
 
+        var wrapper = Wrappers.<Question>lambdaQuery()
+                .eq(Question::getAuditStatus, "APPROVED")
+                .eq(Question::getParentId, 0L)
+                .eq(subjectId != null, Question::getSubjectId, subjectId)
+                .eq(StringUtils.hasText(type), Question::getType, type)
+                .eq(difficulty != null, Question::getDifficulty, difficulty)
+                // 按真题年份筛选（year 为 null 时不加条件 = 不限年份）；与 examCode 同时生效即 AND
+                .eq(year != null, Question::getYear, year);
+
+        // exam_code 列由 sql/migration-question-exam-code.sql 新增，刻意不映射到 Question 实体 /
+        // QuestionVO（保持现有列表返回结构不变），故用列名片段按条件追加。
+        // {0} 是 MyBatis-Plus 的预编译占位符，值作为参数绑定而非字符串拼接，无 SQL 注入风险。
+        if (StringUtils.hasText(examCode)) {
+            wrapper.apply("exam_code = {0}", examCode.trim());
+        }
+        // 关键词：按题干模糊匹配（stem LIKE %keyword%）。不转义 % / _ ，
+        // 前端若需字面量匹配自行处理；这是功能语义而非注入面（值仍是预编译参数）。
+        if (StringUtils.hasText(keyword)) {
+            wrapper.like(Question::getStem, keyword.trim());
+        }
+
         IPage<Question> p = new Page<>(page, size);
-        IPage<Question> result = questionMapper.selectPage(p,
-                Wrappers.<Question>lambdaQuery()
-                        .eq(Question::getAuditStatus, "APPROVED")
-                        .eq(Question::getParentId, 0L)
-                        .eq(subjectId != null, Question::getSubjectId, subjectId)
-                        .eq(StringUtils.hasText(type), Question::getType, type)
-                        .eq(difficulty != null, Question::getDifficulty, difficulty)
-                        .orderByDesc(Question::getId));
+        IPage<Question> result = questionMapper.selectPage(p, wrapper.orderByDesc(Question::getId));
 
         List<Question> records = result.getRecords();
         if (records.isEmpty()) {
@@ -182,5 +202,73 @@ public class QuestionService {
             }
         }
         return vo;
+    }
+
+    // ==================================================================
+    // 年份 / 考试类别 / 题库统计（2026-11-11）
+    //
+    // 口径统一：只算 APPROVED + 独立题(parent_id=0) + 未逻辑删除，
+    // 与 pageQuestions 的候选集一致，避免清单里的数字和列表对不上。
+    // ==================================================================
+
+    /** 年份项：年份 + 该年题目数 */
+    public record YearItem(Integer year, Long count) {
+    }
+
+    /** 考试类别项：exam_code + 中文名 + 题目数 */
+    public record ExamCategoryItem(String examCode, String name, Long count) {
+    }
+
+    /** 题库统计：总题数 / 按类别分布 / 按年份分布 */
+    public record QuestionStats(Long total,
+                                List<ExamCategoryItem> byExamCode,
+                                List<YearItem> byYear) {
+    }
+
+    /** exam_code → 中文名。取值与 question_source 契约一致；未知编码原样回退 */
+    private static final Map<String, String> EXAM_CODE_NAMES = Map.ofEntries(
+            Map.entry("CET4", "英语四级"),
+            Map.entry("CET6", "英语六级"),
+            Map.entry("GUOKAO", "国考（行测）"),
+            Map.entry("GUOKAO_SHENLUN", "国考（申论）"),
+            Map.entry("POSTGRAD_ENG1", "考研英语（一）"),
+            Map.entry("POSTGRAD_ENG2", "考研英语（二）"),
+            Map.entry("POSTGRAD_MATH1", "考研数学（一）"),
+            Map.entry("POSTGRAD_MATH2", "考研数学（二）"),
+            Map.entry("POSTGRAD_MATH3", "考研数学（三）"),
+            Map.entry("INTERVIEW", "面试"));
+
+    /** 有题目的年份清单（倒序），含每年题数；无年份题（year IS NULL）不列入 */
+    public List<YearItem> listYears() {
+        return questionMapper.selectYearDistribution().stream()
+                .map(m -> new YearItem(intVal(m.get("yr")), longVal(m.get("cnt"))))
+                .toList();
+    }
+
+    /** 考试类别清单（含中文名与题目数），按题数倒序 */
+    public List<ExamCategoryItem> listExamCategories() {
+        return questionMapper.selectExamCodeDistribution().stream()
+                .map(m -> {
+                    String code = String.valueOf(m.get("exam_code"));
+                    return new ExamCategoryItem(code,
+                            EXAM_CODE_NAMES.getOrDefault(code, code), longVal(m.get("cnt")));
+                })
+                .toList();
+    }
+
+    /** 题库统计：总题数 + 按类别 + 按年份分布（复用上面两个聚合，口径天然一致） */
+    public QuestionStats questionStats() {
+        Long total = questionMapper.selectApprovedCount();
+        return new QuestionStats(total == null ? 0L : total,
+                listExamCategories(), listYears());
+    }
+
+    /** JDBC 聚合返回数值类型不固定（BIGINT/DECIMAL/Integer），统一按 Number 读取 */
+    private static long longVal(Object v) {
+        return v instanceof Number n ? n.longValue() : 0L;
+    }
+
+    private static int intVal(Object v) {
+        return v instanceof Number n ? n.intValue() : 0;
     }
 }

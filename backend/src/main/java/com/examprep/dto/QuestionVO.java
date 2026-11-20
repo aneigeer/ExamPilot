@@ -42,6 +42,15 @@ public class QuestionVO {
     @Schema(description = "来源")
     private String source;
 
+    @Schema(description = "真题年份，如 2023；非真题为 null", example = "2023")
+    private Integer year;
+
+    @Schema(description = "考试类别编码：CET4/CET6/GUOKAO/POSTGRAD_*/INTERVIEW", example = "CET4")
+    private String examCode;
+
+    @Schema(description = "试卷/资料来源名称")
+    private String paperName;
+
     @Schema(description = "标签")
     private String tags;
 
@@ -127,6 +136,9 @@ public class QuestionVO {
         vo.setMaterial(q.getMaterial());
         vo.setDifficulty(q.getDifficulty());
         vo.setSource(q.getSource());
+        vo.setYear(q.getYear());
+        vo.setExamCode(q.getExamCode());
+        vo.setPaperName(q.getPaperName());
         vo.setTags(q.getTags());
         vo.setScore(q.getScore());
         vo.setObjective(QuestionType.isObjective(q.getType()));

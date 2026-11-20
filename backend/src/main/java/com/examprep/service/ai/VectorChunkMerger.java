@@ -90,27 +90,37 @@ public class VectorChunkMerger {
                 .mapToDouble(ChunkContext::ftScore)
                 .max().orElse(0.0);
 
-        // ---------- ② 按 chunkId 去重，合并两路分数 ----------
-        // 保留插入顺序：向量路在前（它语义更准），ngram 路补齐
+        // ---------- ② 按 chunkId 去重，两路分数各自归一化到 [0,1] ----------
+        // ★ 2026-11-15 修复：两路 ftScore 量纲不同 —— 向量路是余弦 [0,1]，
+        //   ngram 路是 BM25 原始分（实测 maxFt=167）。旧实现拿同一个 maxFt 除两路、
+        //   且 dualHit 时用未归一化的原始分取均值，导致 finalScore 出现 79/114 量级，
+        //   reject-threshold=0.15 彻底失效、向量余弦被压到 0.004。
+        //   现在合并阶段就归一化；dualHit 保留两路中较高者（「两路都相关」的设计意图），
+        //   可信度加成仍由下方 dualHitBoost 提供。
         Map<Long, ChunkContext> merged = new LinkedHashMap<>();
+        Map<Long, Double> normFt = new HashMap<>();
         Set<Long> dualHitIds = new HashSet<>();
 
         for (ChunkContext ctx : vectorContexts) {
             if (ctx.chunkId() != null) {
                 merged.put(ctx.chunkId(), ctx);
+                // 余弦本身已归一化，只做钳位
+                normFt.put(ctx.chunkId(), Math.min(1.0, Math.max(0.0, ctx.ftScore())));
             }
         }
         for (ChunkContext ctx : ngramContexts) {
             if (ctx.chunkId() == null) {
                 continue;
             }
-            ChunkContext existing = merged.get(ctx.chunkId());
-            if (existing == null) {
+            double n = maxFt > 0
+                    ? Math.min(1.0, Math.max(0.0, ctx.ftScore() / maxFt))
+                    : 0.0;
+            if (!merged.containsKey(ctx.chunkId())) {
                 merged.put(ctx.chunkId(), ctx);
+                normFt.put(ctx.chunkId(), n);
             } else {
-                // 双通道命中：标记之，并在合并分里取两路较大值
                 dualHitIds.add(ctx.chunkId());
-                merged.put(ctx.chunkId(), maxOf(existing, ctx));
+                normFt.merge(ctx.chunkId(), n, (a, b) -> Math.max(a, b));
             }
         }
 
@@ -124,15 +134,8 @@ public class VectorChunkMerger {
             ChunkContext ctx = entry.getValue();
             boolean dualHit = dualHitIds.contains(entry.getKey());
 
-            // 相关度：向量路用归一化分，ngram 路用 ft/maxFt；双通道取较大者
-            double ftNorm = ctx.ftScore();
-            if (!dualHit && maxFt > 0 && ctx.sourceType() != null) {
-                ftNorm = Math.min(1.0, ctx.ftScore() / maxFt);
-            } else if (dualHit && maxFt > 0) {
-                // 融合分：两路归一化分的均值（双路都相关，可信度更高）
-                double ngramNorm = Math.min(1.0, ctx.ftScore() / maxFt);
-                ftNorm = (ftNorm + ngramNorm) / 2.0;
-            }
+            // 相关度：直接用合并阶段归一化后的值（两路量纲已统一到 [0,1]）
+            double ftNorm = normFt.getOrDefault(ctx.chunkId(), 0.0);
 
             double titleHit = titleHitRatio(ctx.title(), queryTerms);
             double kpBoost = kpBoost(ctx.knowledgeId(), weak);
@@ -149,6 +152,8 @@ public class VectorChunkMerger {
             if (dualHit) {
                 score += properties.getVector().getDualHitBoost();
             }
+            log.debug("[AI][融合] id={} ft={} ftNorm={} dual={} score={}",
+                    ctx.chunkId(), ctx.ftScore(), ftNorm, dualHit, score);
             ranked.add(ctx.withFinalScore(score));
         }
 

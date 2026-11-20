@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Wiki 热层检索（问答与 Agent 共用）
@@ -99,19 +100,29 @@ public class WikiQueryService {
         }
 
         // ---------- ② ngram + 字面覆盖率通道 ----------
+        // ★ 问句先归一化再算覆盖率（2026-11-11 修「答非所问」）：
+        //   问句里大量 bigram 是提问脚手架（"什么""是什""么？""有什""么用"），
+        //   不剥掉的话真实实体词只占很小比例 —— 实测「MCP 是什么？有什么用？」
+        //   10 个 bigram 里 7 个是脚手架，正确页面标题覆盖率被稀释到 0.20，
+        //   反而让只靠 ft_score 刷分的无关页面抢答。
+        String normalizedQuestion = normalizeQuery(question);
+        String lexicalQuery = StringUtils.hasText(normalizedQuestion) ? normalizedQuestion : question;
+        Set<String> queryGrams = bigrams(lexicalQuery);
         List<WikiPage> rows = pageMapper.searchFulltext(
-                question, subjectId, Math.max(10, properties.getVectorLimit()));
+                lexicalQuery, subjectId, Math.max(10, properties.getVectorLimit()));
         for (WikiPage row : rows) {
             double ft = row.getFtScore() == null ? 0.0 : row.getFtScore();
-            double titleCoverage = bigramCoverage(question, row.getTitle());
-            double summaryCoverage = bigramCoverage(question, row.getSummary());
-            double pointCoverage = bigramCoverage(question, row.getKeyPoints());
+            double titleCoverage = coverageOf(queryGrams, row.getTitle());
+            double summaryCoverage = coverageOf(queryGrams, row.getSummary());
+            double pointCoverage = coverageOf(queryGrams, row.getKeyPoints());
             double literal = 0.6 * titleCoverage + 0.25 * summaryCoverage + 0.15 * pointCoverage;
 
-            // ★ 两个独立判据取并集：
-            //   ft_score：语料足够大时有效；
-            //   覆盖率：语料很少时 MATCH 的 IDF 接近 0，只能靠字面覆盖率兜住冷启动。
-            boolean hit = ft >= properties.getNgramMinScore()
+            // ★ ft_score 只是「入场券」，不能单独判定命中。
+            //   它是原始 BM25 分，不可跨查询比较：一篇通篇写通用词（如 Agent）的页面
+            //   能刷到 14 分，真正切题的页面只有 6 分，被 ngramMinScore=8.0 直接淘汰。
+            //   因此 ft 通道必须再叠加标题覆盖率下限，与另外两个判据一起把关。
+            boolean hit = (ft >= properties.getNgramMinScore()
+                            && titleCoverage >= properties.getFtGateTitleFloor())
                     || titleCoverage >= properties.getTitleCoverageThreshold()
                     || literal >= properties.getLiteralCoverageThreshold();
             if (!hit) {
@@ -181,16 +192,44 @@ public class WikiQueryService {
     }
 
     /**
-     * 字符 bigram 覆盖率：问题中有多大比例的二字符片段出现在目标文本里
+     * 问句归一化：剥掉提问脚手架与虚词，只留实体词。
      *
-     * <p>与语料规模无关，专门解决「Wiki 页面很少时 MATCH 的 IDF 接近 0」问题。
+     * <p>例：{@code "LangChain 里 Agent 和 Chain 有什么区别？"} → {@code "LangChain Agent Chain"}，
+     * {@code "MCP 是什么？有什么用？"} → {@code "MCP"}。
+     *
+     * <p>★ 为什么要做这一步：覆盖率是「问题的 bigram 有多大比例出现在页面里」。
+     * 中文提问句里「是什么 / 有什么用 / 有什么区别」占掉大量 bigram，
+     * 真实实体词（MCP、LangChain）只占一两片，覆盖率天然被压低，
+     * 于是切题页面进不了热层、无关页面靠 BM25 刷分抢答。
+     * 剥掉脚手架后，实体词占比回到真实水平（MCP 页从 0.20 → 0.67）。
+     *
+     * <p>词表按「长的在前」排列，保证「有什么用」先于「什么」被替换。
+     *
+     * @return 归一化后的问句（可能是空串，调用方需回退到原句）
      */
-    static double bigramCoverage(String query, String text) {
-        if (!StringUtils.hasText(query) || !StringUtils.hasText(text)) {
-            return 0.0;
+    static String normalizeQuery(String question) {
+        if (!StringUtils.hasText(question)) {
+            return "";
         }
-        Set<String> queryGrams = bigrams(query);
-        if (queryGrams.isEmpty()) {
+        String text = question;
+        for (String word : QUESTION_SCAFFOLD) {
+            text = text.replace(word, " ");
+        }
+        text = PUNCT.matcher(text).replaceAll(" ");
+        for (String word : QUESTION_PARTICLES) {
+            text = text.replace(word, " ");
+        }
+        return text.trim().replaceAll("\\s+", " ");
+    }
+
+    /**
+     * 预切好的问句 bigram 对目标文本的覆盖率
+     *
+     * <p>把问句 bigram 提到循环外只算一次：原实现对每一行都重算一次
+     * {@code bigrams(question)}，页面数增长后是无谓开销。
+     */
+    static double coverageOf(Set<String> queryGrams, String text) {
+        if (queryGrams == null || queryGrams.isEmpty() || !StringUtils.hasText(text)) {
             return 0.0;
         }
         Set<String> textGrams = bigrams(text);
@@ -201,6 +240,34 @@ public class WikiQueryService {
             }
         }
         return (double) hit / queryGrams.size();
+    }
+
+    /** 提问脚手架词表（长的在前，避免「什么」先吃掉「有什么用」） */
+    private static final String[] QUESTION_SCAFFOLD = {
+            "用来做什么", "是做什么的", "有什么区别", "能做什么", "干什么用", "有什么用",
+            "我想知道", "告诉我", "请问",
+            "什么是", "是什么", "什么叫", "怎么样", "怎样", "怎么", "如何", "为什么",
+            "有哪些", "哪些", "哪个", "有什么", "什么",
+            "一下", "介绍", "解释", "说明", "讲讲", "说说"
+    };
+
+    /** 虚词 / 连接词（剥掉后实体词之间的 bigram 更集中） */
+    private static final String[] QUESTION_PARTICLES = {
+            "的", "了", "吗", "呢", "吧", "啊", "和", "与", "及", "是", "有", "里", "它"
+    };
+
+    private static final Pattern PUNCT = Pattern.compile("[\\s,，。、；;：:！!？?（）()\\[\\]【】\"'“”‘’/\\\\|]+");
+
+    /**
+     * 字符 bigram 覆盖率：问题中有多大比例的二字符片段出现在目标文本里
+     *
+     * <p>与语料规模无关，专门解决「Wiki 页面很少时 MATCH 的 IDF 接近 0」问题。
+     *
+     * @deprecated 循环内请改用 {@link #coverageOf(Set, String)}，避免重复切分问句
+     */
+    @Deprecated
+    static double bigramCoverage(String query, String text) {
+        return coverageOf(bigrams(query), text);
     }
 
     private static Set<String> bigrams(String text) {

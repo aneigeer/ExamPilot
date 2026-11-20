@@ -277,6 +277,10 @@ public class ResourceService {
         if (file == null) {
             throw new BizException("上传的文件不存在，请重新上传");
         }
+        // E1-02：fileId 必须属于当前用户，否则任意登录用户可绑走他人文件并生成预览/下载
+        if (!userId.equals(file.getUploaderId())) {
+            throw new BizException(ResultCode.FORBIDDEN, "不能绑定其他用户上传的文件");
+        }
 
         Resource resource = new Resource();
         resource.setTitle(req.getTitle());
@@ -299,6 +303,11 @@ public class ResourceService {
 
         // 生成预览图（PDF 转图片 / 图片直存）
         int pageCount = fileStorageService.buildPreviewPages(file, resource.getId());
+        // E1-03：可预览类型（PDF/图片）却渲染出 0 页 = 真实失败，拒绝提交让事务回滚；
+        // docx/zip 等本就不支持自动预览的类型仍允许 pageCount=0（不破坏管理端文档上传链路）
+        if (pageCount == 0 && fileStorageService.supportsPreview(file.getExt())) {
+            throw new BizException("预览图生成失败，资料未提交，请重新上传或联系管理员");
+        }
         Resource update = new Resource();
         update.setId(resource.getId());
         update.setPageCount(pageCount);
@@ -337,8 +346,16 @@ public class ResourceService {
             if (file == null) {
                 throw new BizException("换绑的文件不存在");
             }
+            // E1-02：换绑同样校验文件归属
+            if (!userId.equals(file.getUploaderId())) {
+                throw new BizException(ResultCode.FORBIDDEN, "不能绑定其他用户上传的文件");
+            }
             fileId = file.getId();
             pageCount = fileStorageService.buildPreviewPages(file, resourceId);
+            // E1-03：换了可预览文件却 0 页 = 渲染失败，拒绝提交（不删旧页、事务回滚）
+            if (pageCount == 0 && fileStorageService.supportsPreview(file.getExt())) {
+                throw new BizException("预览图生成失败，资料未提交，请重新上传或联系管理员");
+            }
         }
 
         Resource update = new Resource();

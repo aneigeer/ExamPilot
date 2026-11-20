@@ -148,6 +148,7 @@
   }
   .chip:hover{border-color:#cfd9e8;color:var(--text)}
   .chip.on{background:#eaf1ff;border-color:#bcd2ff;color:var(--primary);font-weight:700}
+  .chip.done{background:var(--ok-bg);border-color:#bfe6cf;color:var(--ok)}
   .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
 
   /* ---------- 答题 ---------- */
@@ -477,7 +478,33 @@
         <!-- 开始练习 -->
         <div class="card" v-else>
           <div class="card-title">开始一组练习</div>
-          <div class="sub">先选考试类别，再选科目，系统随机抽题</div>
+          <div class="sub">先选考试类别与科目，再按需选择练习模式、年份和题数；也可一键从全部题目随机抽题</div>
+
+          <!-- 全库随机一键入口 + 题库总览统计 -->
+          <div style="background:#eef4ff;border:1px solid #d6e3ff;border-radius:12px;padding:14px 16px;margin-bottom:18px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <button class="btn primary" :disabled="starting" @click="startRandomAll">
+                {{ starting ? '正在抽题…' : '全库随机练习' }}
+              </button>
+              <span class="small muted">不限科目 / 类别 / 年份，mode=RANDOM，从全部题目随机抽题</span>
+            </div>
+            <div class="small" style="margin-top:10px" v-if="qStatsLoading">题库统计加载中…</div>
+            <div class="alert bad" style="margin-top:10px" v-else-if="qStatsError">
+              {{ qStatsError }} <button class="btn ghost sm" @click="loadQStats">重试</button>
+            </div>
+            <template v-else-if="qStats">
+              <div class="small" style="margin-top:10px">题库共 <b>{{ qStats.total != null ? qStats.total : 0 }}</b> 道题</div>
+              <div class="chips" style="margin-top:8px" v-if="qStatsByExamCode.length">
+                <span class="chip" v-for="s in qStatsByExamCode" :key="s.key" style="cursor:default">{{ s.label }} {{ s.count }}</span>
+              </div>
+              <div class="chips" style="margin-top:6px" v-if="qStatsByYear.length">
+                <span class="chip" v-for="s in qStatsByYear" :key="s.key" style="cursor:default">{{ s.key }} 年 {{ s.count }}</span>
+              </div>
+              <div class="empty sm" v-if="!qStatsByExamCode.length && !qStatsByYear.length">暂无分布数据</div>
+            </template>
+            <div class="empty sm" v-else>暂未获取到题库统计</div>
+          </div>
+
           <div class="form-grid">
             <label class="field">
               <span>考试类别</span>
@@ -495,12 +522,49 @@
                 </option>
               </select>
             </label>
-            <div class="field full">
-              <span>本次题数</span>
-              <div class="chips">
-                <button class="chip" v-for="n in [5,10,20]" :key="n" :class="{ on: count === n }" @click="count = n">{{ n }} 题</button>
-              </div>
-            </div>
+            <label class="field">
+              <span>练习模式</span>
+              <select v-model="practiceMode">
+                <option v-for="m in practiceModes" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </select>
+            </label>
+            <label class="field" v-if="practiceMode === 'BY_TYPE'">
+              <span>题型</span>
+              <select v-model="practiceType">
+                <option :value="null">请选择题型</option>
+                <option v-for="t in practiceTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>考试类别（题库）</span>
+              <select v-model="practiceExamCode" :disabled="examCategoriesLoading">
+                <option :value="null">{{ examCategoriesLoading ? '类别加载中…' : '全部类别' }}</option>
+                <option v-for="c in examCategories" :key="c.examCode" :value="c.examCode">
+                  {{ examName(c.examCode) }}{{ c.count != null ? '（' + c.count + ' 题）' : '' }}
+                </option>
+              </select>
+              <span class="subtip" v-if="examCategoriesError" style="color:var(--bad)">
+                {{ examCategoriesError }} <button class="btn ghost sm" @click="loadExamCategories">重试</button>
+              </span>
+              <span class="subtip" v-else-if="!examCategoriesLoading && !examCategories.length">暂无类别数据，可留空表示全部类别</span>
+            </label>
+            <label class="field">
+              <span>真题年份</span>
+              <select v-model="practiceYear" :disabled="yearsLoading">
+                <option :value="null">{{ yearsLoading ? '年份加载中…' : '全部年份' }}</option>
+                <option v-for="y in yearOptions" :key="y.year" :value="y.year">
+                  {{ y.year }} 年{{ y.count != null ? '（' + y.count + ' 题）' : '' }}
+                </option>
+              </select>
+              <span class="subtip" v-if="yearsError" style="color:var(--bad)">
+                {{ yearsError }} <button class="btn ghost sm" @click="loadYears">重试</button>
+              </span>
+              <span class="subtip" v-else-if="!yearsLoading && !yearOptions.length">暂无年份数据，可留空表示全部年份</span>
+            </label>
+            <label class="field">
+              <span>本次题数（1–200）</span>
+              <input type="number" min="1" max="200" v-model.number="count">
+            </label>
           </div>
           <div class="actions">
             <button class="btn primary" :disabled="starting || !subjectId" @click="startPractice">
@@ -510,6 +574,362 @@
             <span class="muted small" v-else-if="exams.length === 0">暂无可选考试类别</span>
           </div>
           <div class="alert bad" v-if="setupError">{{ setupError }}</div>
+        </div>
+      </section>
+
+      <!-- ---------------- AI 学习计划 ---------------- -->
+      <section v-else-if="tab === 'plan'">
+        <div class="page-head">
+          <h2>AI 学习计划</h2>
+          <p>结合你的错题本与学情薄弱点，定制分日复习与提分排期</p>
+        </div>
+
+        <div class="card" v-if="todayPlanLoading">
+          <div class="empty sm">今日基础计划加载中…</div>
+        </div>
+        <div class="card" v-else-if="todayPlan">
+          <div class="q-top">
+            <div>
+              <div class="card-title" style="margin-bottom:2px">今日打卡进度</div>
+              <div class="sub" style="margin:0">已完成 {{ todayPlan.doneCount || 0 }} / {{ todayPlan.plannedCount || 0 }} 题（{{ todayPlan.completionPercent || 0 }}%）</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" min="5" max="100" v-model.number="planConfig.dailyTarget" style="width:76px;border:1px solid var(--line);border-radius:8px;padding:6px 8px">
+              <button class="btn sm" :disabled="planTargetSaving" @click="savePlanTarget">{{ planTargetSaving ? '保存中…' : '更新每日目标' }}</button>
+            </div>
+          </div>
+          <div class="progressbar"><i :style="{ width: clampPct(todayPlan.completionPercent) + '%' }"></i></div>
+          <div class="subtip" v-for="(n, idx) in (todayPlan.notes || [])" :key="idx">· {{ n }}</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">根据我的错题 AI 制定学习计划</div>
+          <div class="sub">系统会读取你错题本中未掌握的高频错题、错因与知识点分布来排期；若大模型繁忙会自动降级为规则引擎</div>
+          <div class="form-grid">
+            <label class="field">
+              <span>规划天数（1–14 天）</span>
+              <input type="number" min="1" max="14" v-model.number="planConfig.days">
+            </label>
+            <label class="field">
+              <span>每日目标题量（5–100）</span>
+              <input type="number" min="5" max="100" v-model.number="planConfig.dailyTarget">
+            </label>
+            <label class="field">
+              <span>限定科目（可选）</span>
+              <select v-model="planConfig.subjectId">
+                <option :value="null">综合全部科目错题</option>
+                <option v-for="s in subjects" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </label>
+            <label class="field full">
+              <span>备考目标补充（可选，不超过 120 字）</span>
+              <input v-model.trim="planConfig.goalNote" maxlength="120" placeholder="例如：下周考四级，重点攻克阅读长难句与错题二刷">
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" :disabled="aiPlanLoading" @click="generateAiPlan">
+              {{ aiPlanLoading ? 'AI 规划中…' : '生成 AI 错题学习计划' }}
+            </button>
+          </div>
+          <div class="loading" v-if="aiPlanLoading">
+            <span class="spinner"></span>
+            <span>正在分析你的错题记录并生成分日学习计划，通常需要 10–45 秒…</span>
+          </div>
+          <div class="alert bad" v-if="aiPlanError">{{ aiPlanError }}</div>
+        </div>
+
+        <template v-if="aiPlan">
+          <div class="card">
+            <div class="ai-top">
+              <span class="tag">{{ aiPlan.generator === 'rule-fallback' ? '规则引擎计划' : genLabel(aiPlan.generator) }}</span>
+              <span class="tag ghost">错题 {{ aiPlan.wrongTotal || 0 }} 道</span>
+              <span class="tag ghost">到期复习 {{ aiPlan.dueReviewCount || 0 }} 道</span>
+              <span class="tag warn" v-if="aiPlan.degraded">降级生成</span>
+              <span class="muted small" v-if="aiPlan.generatedAt">{{ aiPlan.generatedAt }}</span>
+            </div>
+            <div class="subtip" v-if="aiPlan.degraded && aiPlan.degradedReason" style="margin-bottom:8px">降级说明：{{ aiPlan.degradedReason }}</div>
+            <div class="card-title" style="font-size:15px">错题诊断</div>
+            <div class="answer">{{ aiPlan.diagnosis }}</div>
+
+            <div v-if="(aiPlan.weakPoints || []).length" style="margin-top:16px">
+              <div class="card-title" style="font-size:15px">高频薄弱点（{{ aiPlan.weakPoints.length }}）</div>
+              <div class="w-analysis" v-for="(w, i) in aiPlan.weakPoints" :key="i" style="margin-top:8px">
+                <strong>{{ w.knowledgeName }} · 错题 {{ w.wrongQuestionCount || 0 }} 道（最高错 {{ w.maxWrongCount || 1 }} 次）</strong>
+                <p>{{ w.suggestion }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" v-for="day in (aiPlan.dailySchedule || [])" :key="day.day">
+            <div class="q-top">
+              <div class="card-title" style="margin:0">{{ day.title || ('第 ' + day.day + ' 天') }}</div>
+              <span class="tag ghost">Day {{ day.day }}</span>
+            </div>
+            <div class="sub" style="margin-top:4px">{{ day.focus }}</div>
+            <div class="w-analysis" v-for="(tk, j) in (day.tasks || [])" :key="j" style="margin-top:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                <strong>[{{ planTaskTypeLabel(tk.type) }}] {{ tk.title }} · {{ tk.targetCount }} 题（约 {{ tk.estimatedMinutes }} 分钟）</strong>
+                <button class="btn ghost sm" @click="goPlanTask(tk)">去完成</button>
+              </div>
+              <p>{{ tk.reason }}</p>
+              <div class="subtip" v-if="(tk.questionIds || []).length">关联错题 ID：{{ tk.questionIds.join(', ') }}</div>
+            </div>
+          </div>
+
+          <div class="card" v-if="(aiPlan.tips || []).length">
+            <div class="card-title" style="font-size:15px">备考建议</div>
+            <div class="subtip" v-for="(tp, k) in aiPlan.tips" :key="k" style="font-size:14px;color:var(--text);margin-top:6px">· {{ tp }}</div>
+          </div>
+        </template>
+      </section>
+
+      <!-- ---------------- 模拟考试 ---------------- -->
+      <section v-else-if="tab === 'mock'">
+        <div class="page-head">
+          <h2>模拟考试</h2>
+          <p>按考试规格组卷、限时作答、交卷出分</p>
+        </div>
+
+        <!-- 成绩报告 -->
+        <div class="card" v-if="mockReport">
+          <div class="card-title">模拟考试成绩报告</div>
+          <div class="sub">
+            <span v-if="mockReport.status === 'FINISHED'">已交卷</span>
+            <span v-if="mockReport.expired"> · 超时自动交卷</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat"><div class="n">{{ fmtScore(mockReport.gotScore) }}</div><div class="l">得分 / {{ mockReport.totalScore == null ? '-' : mockReport.totalScore }}</div></div>
+            <div class="stat ok"><div class="n">{{ fmtRate(mockReport.scoreRate) }}%</div><div class="l">得分率</div></div>
+            <div class="stat"><div class="n">{{ mockReport.correctCount || 0 }}</div><div class="l">答对</div></div>
+            <div class="stat"><div class="n">{{ mockReport.answeredCount || 0 }} / {{ mockReport.totalCount || 0 }}</div><div class="l">已答 / 总题数</div></div>
+          </div>
+          <div v-if="mockWrongList.length" style="margin-top:14px">
+            <div class="card-title" style="font-size:15px">错题（{{ mockWrongList.length }}）</div>
+            <div class="ref-box" v-for="(it, i) in mockWrongList" :key="i" style="margin-top:8px">
+              <b>{{ i + 1 }}. [{{ it.typeName || it.type }}]</b>
+              <p style="margin:4px 0 0">{{ it.stem }}</p>
+              <div class="subtip">你的答案：{{ it.userAnswer || '—' }} · 正确答案：{{ it.correctAnswer || '—' }}</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" @click="resetMock">返回组卷</button>
+          </div>
+        </div>
+
+        <!-- 答题 -->
+        <div class="card" v-else-if="mockPaper && mockPaper.questions && mockPaper.questions.length">
+          <div class="q-top">
+            <div class="q-meta">
+              <span class="tag">{{ mockCurrent.typeName || mockCurrent.type }}</span>
+              <span class="tag ghost">{{ mockPaper.paperName || '模拟卷' }}</span>
+            </div>
+            <div class="q-progress" :style="{ color: mockRemainSec <= 60 ? '#c0392b' : '' }">剩余 {{ mockTimeText }}</div>
+          </div>
+          <div class="progressbar"><i :style="{ width: mockProgressPct + '%' }"></i></div>
+          <div class="q-meta" style="margin-top:8px">第 {{ mockIndex + 1 }} / {{ mockPaper.questions.length }} 题</div>
+
+          <div class="material" v-if="mockCurrent.material">{{ mockCurrent.material }}</div>
+          <div class="stem">{{ mockCurrent.stem }}</div>
+
+          <div class="options" v-if="mockCurrent.options && mockCurrent.options.length">
+            <label class="opt" v-for="o in mockCurrent.options" :key="o.key"
+                   :class="{ sel: mockIsSelected(o.key) }">
+              <input v-if="mockCurrent.type === 'MULTI_CHOICE'" type="checkbox" :value="o.key" v-model="mockMulti">
+              <input v-else type="radio" :value="o.key" v-model="mockAnswer">
+              <span class="opt-key">{{ o.key }}</span>
+              <span class="opt-content">{{ o.content }}</span>
+            </label>
+          </div>
+          <div class="options" v-else-if="mockCurrent.type === 'TRUE_FALSE'">
+            <label class="opt" v-for="v in ['正确','错误']" :key="v" :class="{ sel: mockAnswer === v }">
+              <input type="radio" :value="v" v-model="mockAnswer">
+              <span class="opt-key">{{ v === '正确' ? 'T' : 'F' }}</span>
+              <span class="opt-content">{{ v }}</span>
+            </label>
+          </div>
+          <div class="answer-area" v-else>
+            <input class="ai-input" style="min-height:0;padding:11px 12px" v-model="mockAnswer"
+                   placeholder="填空多个空用竖线分隔；主观题请在此作答">
+          </div>
+
+          <div class="actions">
+            <button class="btn" :disabled="mockIndex === 0" @click="mockPrev">上一题</button>
+            <button class="btn" :disabled="mockIndex >= mockPaper.questions.length - 1" @click="mockNext">下一题</button>
+            <button class="btn primary" :disabled="mockSubmitting" @click="confirmMockSubmit">{{ mockSubmitting ? '交卷中…' : '交卷' }}</button>
+          </div>
+          <div class="chips" style="margin-top:12px">
+            <button class="chip" v-for="(q, i) in mockPaper.questions" :key="q.id"
+                    :class="{ on: i === mockIndex, done: !!mockAnswers[q.id] }"
+                    @click="mockIndex = i; fillMockInput()">{{ i + 1 }}</button>
+          </div>
+          <div class="subtip" style="margin-top:6px">答题卡：绿色为已作答，蓝色为当前题</div>
+          <div class="alert bad" v-if="mockError">{{ mockError }}</div>
+        </div>
+
+        <!-- 智能诊断测评 -->
+        <div class="card" v-if="!mockPaper && !mockReport">
+          <div class="card-title">智能诊断测评</div>
+          <div class="sub">按薄弱知识点优先 + 难度梯度（基础 30% / 中等 50% / 拔高 20%）自动组卷，并避开近 14 天已掌握题</div>
+          <div class="actions">
+            <button class="btn primary" :disabled="diagStarting || mockStarting" @click="startDiagnostic">
+              {{ diagStarting ? '组卷中…' : '生成诊断卷（20 题 / 30 分钟）' }}
+            </button>
+            <button class="btn ghost" @click="loadAssessmentProfile">查看能力画像</button>
+          </div>
+          <div class="alert bad" v-if="diagError">{{ diagError }}</div>
+
+          <div v-if="assessmentProfile" style="margin-top:12px">
+            <div class="stat-grid">
+              <div class="stat"><div class="n">{{ assessmentProfile.overview.practiceSessions || 0 }}</div><div class="l">近30天练习场次</div></div>
+              <div class="stat ok"><div class="n">{{ fmtRate(assessmentProfile.overview.accuracy) }}%</div><div class="l">近30天正确率</div></div>
+              <div class="stat"><div class="n">{{ assessmentProfile.interview.finishedCount || 0 }}</div><div class="l">已完成 AI 面试</div></div>
+              <div class="stat"><div class="n">{{ (assessmentProfile.weakTop5 || []).length }}</div><div class="l">薄弱知识点</div></div>
+            </div>
+            <div v-if="(assessmentProfile.weakTop5 || []).length" style="margin-top:10px">
+              <div class="card-title" style="font-size:15px">薄弱知识点 Top5</div>
+              <div class="kv" v-for="w in assessmentProfile.weakTop5" :key="w.knowledgeId">
+                <span>{{ w.knowledgeName || ('知识点 ' + w.knowledgeId) }}</span>
+                <b class="bad-text">掌握度 {{ fmtRate(Number(w.mastery) * 100) }}% · 作答 {{ w.attempts }} 次</b>
+              </div>
+            </div>
+            <div v-if="(assessmentProfile.subjects || []).length" style="margin-top:10px">
+              <div class="card-title" style="font-size:15px">科目掌握度</div>
+              <div class="kv" v-for="sub in assessmentProfile.subjects" :key="sub.subjectId">
+                <span>{{ sub.subjectName || ('科目 ' + sub.subjectId) }}</span>
+                <b>{{ fmtRate(sub.accuracy) }}%（{{ sub.correct }}/{{ sub.answered }}）</b>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn primary sm" @click="goPlanFromProfile">据此生成提分计划</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 固定套卷 -->
+        <div class="card" v-if="!mockPaper && !mockReport">
+          <div class="q-top">
+            <div class="card-title" style="margin:0">固定套卷</div>
+            <button class="btn ghost sm" @click="loadMockPapers">刷新</button>
+          </div>
+          <div class="sub">管理员发布的成套试卷，题序与分值按卷面固定</div>
+          <div class="empty sm" v-if="mockPapersLoading">加载中…</div>
+          <div class="alert bad" v-else-if="mockPapersError">{{ mockPapersError }}</div>
+          <template v-else-if="mockPapers.length">
+            <div class="w-item" v-for="p in mockPapers" :key="p.id">
+              <div class="w-top">
+                <span class="tag">{{ p.paperType === 'OFFICIAL' ? '官方套卷' : '自建套卷' }}</span>
+                <span class="tag ghost" v-if="p.examCode">{{ examName(p.examCode) }}</span>
+                <span class="tag ghost" v-if="p.year">{{ p.year }} 年</span>
+              </div>
+              <div class="w-stem">{{ p.name }}</div>
+              <div class="kv"><span>题量 / 总分 / 时长</span>
+                <b>{{ p.questionCount }} 题 · {{ p.totalScore }} 分 · {{ p.durationMinutes }} 分钟</b></div>
+              <div class="actions">
+                <button class="btn primary sm" :disabled="mockStarting" @click="startPaperMock(p)">开始考试</button>
+              </div>
+            </div>
+          </template>
+          <div class="empty sm" v-else>暂无已发布套卷，可先用下方随机组卷</div>
+        </div>
+
+        <!-- 我的模考历史 -->
+        <div class="card" v-if="!mockPaper && !mockReport">
+          <div class="q-top">
+            <div class="card-title" style="margin:0">我的模考历史</div>
+            <button class="btn ghost sm" @click="loadMockHistory(mockHistoryPage)">刷新</button>
+          </div>
+          <div class="sub">按开考时间倒序，只展示你自己的记录</div>
+          <div class="empty sm" v-if="mockHistoryLoading">加载中…</div>
+          <div class="alert bad" v-else-if="mockHistoryError">{{ mockHistoryError }}</div>
+          <template v-else-if="mockHistory.length">
+            <div class="w-item" v-for="h in mockHistory" :key="h.recordId">
+              <div class="w-top">
+                <span class="tag">{{ h.paperType === 'OFFICIAL' ? '官方套卷' : (h.paperType === 'CUSTOM' ? '自建套卷' : '随机卷') }}</span>
+                <span class="tag ghost">{{ h.status === 'ONGOING' ? '进行中' : (h.status === 'EXPIRED' ? '超时交卷' : '已交卷') }}</span>
+                <button class="btn ghost sm" @click="openMockHistory(h)">
+                  {{ h.status === 'ONGOING' ? '继续作答' : '查看报告' }}
+                </button>
+              </div>
+              <div class="w-stem">{{ h.paperName || ('模拟卷 #' + h.paperId) }}</div>
+              <div class="kv"><span>得分</span>
+                <b>{{ fmtScore(h.gotScore) }} / {{ h.totalScore == null ? '-' : h.totalScore }}（{{ fmtRate(h.scoreRate) }}%）</b></div>
+              <div class="kv"><span>时间</span>
+                <b>{{ h.startedAt || '-' }} → {{ h.submittedAt || '未交卷' }}</b></div>
+            </div>
+            <div class="foot">共 {{ mockHistoryTotal }} 场 · 第 {{ mockHistoryPage }} 页</div>
+            <div class="actions" v-if="mockHistoryTotal > 10">
+              <button class="btn sm" :disabled="mockHistoryPage <= 1" @click="loadMockHistory(mockHistoryPage - 1)">上一页</button>
+              <button class="btn sm" :disabled="mockHistoryPage * 10 >= mockHistoryTotal"
+                      @click="loadMockHistory(mockHistoryPage + 1)">下一页</button>
+            </div>
+          </template>
+          <div class="empty sm" v-else>还没有模考记录，先开一场试试</div>
+        </div>
+
+        <!-- 组卷表单 -->
+        <div class="card" v-else>
+          <div class="card-title">开始一场模拟考试</div>
+          <div class="sub">按考试类别、真题年份、题数与时长组卷，系统随机抽题并限时作答</div>
+          <div class="form-grid">
+            <label class="field">
+              <span>考试类别</span>
+              <select v-model="examId" @change="onExamChange">
+                <option :value="null">请选择考试类别</option>
+                <option v-for="e in exams" :key="e.id" :value="e.id">{{ e.name }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>科目</span>
+              <select v-model="subjectId" :disabled="!examId || subjectsLoading">
+                <option :value="null">{{ !examId ? '请先选考试类别' : (subjectsLoading ? '加载中…' : '请选择科目') }}</option>
+                <option v-for="s in subjects" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>考试类别（题库）</span>
+              <select v-model="mockConfig.examCode" :disabled="examCategoriesLoading">
+                <option :value="null">{{ examCategoriesLoading ? '类别加载中…' : '全部类别' }}</option>
+                <option v-for="c in examCategories" :key="c.examCode" :value="c.examCode">{{ examName(c.examCode) }}</option>
+              </select>
+              <span class="subtip" v-if="examCategoriesError" style="color:var(--bad)">
+                {{ examCategoriesError }} <button class="btn ghost sm" @click="loadExamCategories">重试</button>
+              </span>
+              <span class="subtip" v-else-if="!examCategoriesLoading && !examCategories.length">暂无类别数据，可留空表示全部类别</span>
+            </label>
+            <label class="field">
+              <span>真题年份</span>
+              <select v-model="mockConfig.year" :disabled="yearsLoading">
+                <option :value="null">{{ yearsLoading ? '年份加载中…' : '全部年份' }}</option>
+                <option v-for="y in yearOptions" :key="y.year" :value="y.year">{{ y.year }} 年</option>
+              </select>
+              <span class="subtip" v-if="yearsError" style="color:var(--bad)">
+                {{ yearsError }} <button class="btn ghost sm" @click="loadYears">重试</button>
+              </span>
+              <span class="subtip" v-else-if="!yearsLoading && !yearOptions.length">暂无年份数据，可留空表示全部年份</span>
+            </label>
+            <label class="field">
+              <span>题数（1–100）</span>
+              <input type="number" min="1" max="100" v-model.number="mockConfig.count">
+            </label>
+            <label class="field">
+              <span>时长（分钟，5–180）</span>
+              <input type="number" min="5" max="180" v-model.number="mockConfig.durationMinutes">
+            </label>
+            <label class="field">
+              <span>题型</span>
+              <select v-model="mockConfig.questionType">
+                <option :value="null">混合全部客观题</option>
+                <option v-for="t in practiceTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" :disabled="mockStarting" @click="startMock">
+              {{ mockStarting ? '组卷中…' : '开始考试' }}
+            </button>
+            <span class="muted small" v-if="examsLoading">考试类别加载中…</span>
+          </div>
+          <div class="alert bad" v-if="mockSetupError">{{ mockSetupError }}</div>
         </div>
       </section>
 
@@ -527,6 +947,10 @@
           <div class="actions"><button class="btn sm" @click="loadWrong">重新加载</button></div>
         </div>
         <template v-else-if="wrongList.length">
+          <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <span class="muted small">共 {{ wrongList.length }} 道未掌握错题，可让 AI 结合你的错题与薄弱点生成专属提分计划</span>
+            <button class="btn primary sm" @click="goAiPlanFromWrong">AI 制定错题学习计划</button>
+          </div>
           <div class="card w-item" v-for="it in wrongList" :key="it.questionId">
             <div class="w-top">
               <span class="tag">{{ it.typeName || it.type }}</span>
@@ -671,6 +1095,154 @@
         </div>
       </section>
 
+      <!-- ---------------- 模拟面试（对接 /ai/interview/* 真实接口） ---------------- -->
+      <section v-else-if="tab === 'interview'">
+        <div class="page-head">
+          <h2>模拟面试</h2>
+          <p>AI 面试官逐题追问并评分，题源来自「AI 大模型面试」（INTERVIEW）题库</p>
+        </div>
+
+        <!-- 整场报告 -->
+        <div class="card" v-if="ivView === 'report' && ivReport">
+          <div class="card-title">本场面试报告</div>
+          <div class="sub">
+            <span class="tag">{{ ivReport.level || '—' }}</span>
+            <span v-if="ivReport.degraded"> · 评分由降级模型给出（仍依据语料，非编造）</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat"><div class="n">{{ fmtScore(ivReport.total_score) }}</div><div class="l">总分</div></div>
+            <div class="stat ok"><div class="n">{{ (ivReport.per_question || []).length }}</div><div class="l">已评题数</div></div>
+          </div>
+          <div v-if="(ivReport.per_question || []).length" style="margin-top:14px">
+            <div class="card-title" style="font-size:15px">逐题评语</div>
+            <div class="ref-box" v-for="(it, i) in ivReport.per_question" :key="i" style="margin-top:8px">
+              <b>{{ i + 1 }}. {{ it.question || '题目' }}（{{ fmtScore(it.score) }} 分）</b>
+              <p style="margin:4px 0 0">{{ it.comment || '—' }}</p>
+            </div>
+          </div>
+          <div class="ref-box" v-if="(ivReport.strengths || []).length" style="margin-top:12px"><b>亮点</b>{{ (ivReport.strengths || []).join('、') }}</div>
+          <div class="ref-box" v-if="(ivReport.weaknesses || []).length"><b>薄弱点</b>{{ (ivReport.weaknesses || []).join('、') }}</div>
+          <div class="ref-box" v-if="(ivReport.suggestions || []).length"><b>改进建议</b>{{ (ivReport.suggestions || []).join('、') }}</div>
+          <div class="actions">
+            <button class="btn primary" @click="resetInterview">再来一场</button>
+            <button class="btn" @click="loadInterviewHistory">刷新历史</button>
+          </div>
+        </div>
+
+        <!-- 作答中 -->
+        <div class="card" v-else-if="ivView === 'running' && ivSessionId">
+          <div class="q-top">
+            <div class="q-meta">
+              <span class="tag">模拟面试</span>
+              <span class="tag ghost" v-if="ivTopicLabel">{{ ivTopicLabel }}</span>
+            </div>
+            <div class="q-progress">第 {{ ivQuestionNo || 1 }} / {{ ivTotalQ || ivTotal }} 题</div>
+          </div>
+          <div class="progressbar"><i :style="{ width: ivProgressPct + '%' }"></i></div>
+          <div class="stem">{{ ivQuestion || '面试官正在出题…' }}</div>
+          <div class="subtip" v-if="ivSource && (ivSource.title || ivSource.source_file)">
+            出处：{{ ivSource.title || ivSource.source_file }}<span v-if="ivSource.page_no"> · 第 {{ ivSource.page_no }} 页</span>
+          </div>
+          <div class="feedback" :class="ivFeedback && Number(ivFeedback.score) >= 6 ? 'ok' : 'warn'" v-if="ivFeedback">
+            <div class="fb-head">
+              <span class="fb-badge" :class="Number(ivFeedback.score) >= 6 ? 'ok' : 'warn'">上一题 {{ fmtScore(ivFeedback.score) }} 分 · {{ ivFeedback.verdict || '—' }}</span>
+            </div>
+            <div class="ref-box" v-if="(ivFeedback.hit_points || []).length"><b>命中要点</b>{{ (ivFeedback.hit_points || []).join('、') }}</div>
+            <div class="ref-box" v-if="(ivFeedback.miss_points || []).length"><b>遗漏要点</b>{{ (ivFeedback.miss_points || []).join('、') }}</div>
+            <div class="ref-box" v-if="ivFeedback.reference"><b>参考答案</b>{{ ivFeedback.reference }}</div>
+            <div class="ref-box" v-if="ivFeedback.follow_up"><b>面试官追问</b>{{ ivFeedback.follow_up }}</div>
+          </div>
+          <div class="answer-area" style="margin-top:14px">
+            <textarea v-model="ivAnswer" :disabled="ivSubmitting" placeholder="请作答（不超过 2000 字）"></textarea>
+            <div class="subtip">{{ (ivAnswer || '').length }}/2000 字</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" :disabled="ivSubmitting || !ivAnswer.trim()" @click="submitInterviewAnswer">
+              {{ ivSubmitting ? '评分中…' : '提交作答' }}
+            </button>
+            <button class="btn" :disabled="ivSubmitting" @click="resetInterview">结束本场</button>
+          </div>
+          <div class="alert bad" v-if="ivError">{{ ivError }}</div>
+        </div>
+
+        <!-- 配置 -->
+        <div class="card" v-else>
+          <div class="card-title">开始一场模拟面试</div>
+          <div class="sub">专题来自 INTERVIEW 题库（前端本地提取），未取到时可手动填写主题</div>
+          <div class="form-grid">
+            <label class="field">
+              <span>面试专题</span>
+              <select v-model="ivTopic" :disabled="ivTopicsLoading">
+                <option value="">{{ ivTopicsLoading ? '专题加载中…' : '随机主题' }}</option>
+                <option v-for="t in ivTopics" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
+              <span class="subtip" v-if="ivTopicsError" style="color:var(--bad)">
+                {{ ivTopicsError }} <button class="btn ghost sm" @click="loadInterviewTopics">重试</button>
+              </span>
+              <span class="subtip" v-else-if="!ivTopicsLoading && !ivTopics.length">暂无可选专题，可直接填写自定义主题</span>
+            </label>
+            <label class="field">
+              <span>题数（1–10）</span>
+              <input type="number" min="1" max="10" v-model.number="ivTotal">
+            </label>
+            <label class="field full">
+              <span>自定义主题（可选，优先于上方选择）</span>
+              <input v-model.trim="ivTopicInput" placeholder="如：RAG、Transformer、向量检索">
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" :disabled="ivStarting" @click="startInterview">{{ ivStarting ? '正在开始…' : '开始面试' }}</button>
+            <button class="btn sm" :disabled="ivTopicsLoading" @click="loadInterviewTopics">刷新专题</button>
+          </div>
+          <div class="alert bad" v-if="ivError">{{ ivError }}</div>
+        </div>
+
+        <!-- 历史 -->
+        <div class="card">
+          <div class="card-title">面试历史</div>
+          <div class="sub">仅展示本人记录，点击「复盘」查看逐题问答</div>
+          <div v-if="ivHistoryLoading" class="empty sm">加载中…</div>
+          <div v-else-if="ivHistoryError" class="alert bad">
+            {{ ivHistoryError }} <button class="btn ghost sm" @click="loadInterviewHistory">重试</button>
+          </div>
+          <template v-else-if="ivHistory.length">
+            <div class="w-item" v-for="h in ivHistory" :key="h.id" style="border-bottom:1px dashed var(--line);padding-bottom:10px">
+              <div class="w-top">
+                <span class="tag">{{ h.topic || '随机主题' }}</span>
+                <button class="btn ghost sm" @click="loadInterviewDetail(h.id)">复盘</button>
+              </div>
+              <div class="kv">
+                <span>状态</span><b>{{ h.finished === 1 ? '已结束' : '进行中' }}</b>
+                <span>题数</span><b>{{ h.answeredCount || 0 }} / {{ h.totalQuestions || 0 }}</b>
+                <span>总分</span><b>{{ h.totalScore == null ? '—' : fmtScore(h.totalScore) }}</b>
+                <span>等级</span><b>{{ h.level || '—' }}</b>
+              </div>
+              <div class="subtip">{{ h.startedAt || '' }}</div>
+            </div>
+          </template>
+          <div class="empty sm" v-else>暂无面试记录</div>
+        </div>
+
+        <!-- 复盘详情 -->
+        <div class="card" v-if="ivDetail">
+          <div class="card-title">面试复盘 · {{ ivDetail.topic || '随机主题' }}</div>
+          <div class="sub"><button class="btn ghost sm" @click="ivDetail = null">收起</button></div>
+          <div v-if="ivDetailLoading" class="empty sm">加载中…</div>
+          <div v-else-if="ivDetailError" class="alert bad">{{ ivDetailError }}</div>
+          <template v-else>
+            <div class="ref-box" v-for="(qa, i) in (ivDetail.qaList || [])" :key="qa.id || i" style="margin-top:10px">
+              <b>第 {{ qa.questionNo }} 题{{ qa.isFollowUp === 1 ? ' · 追问' : '' }}（{{ fmtScore(qa.score) }} 分 · {{ qa.verdict || '—' }}）</b>
+              <p style="margin:4px 0 0">问：{{ qa.question }}</p>
+              <p style="margin:4px 0 0">答：{{ qa.answer }}</p>
+              <div class="subtip" v-if="(qa.hitPoints || []).length">命中：{{ (qa.hitPoints || []).join('、') }}</div>
+              <div class="subtip" v-if="(qa.missPoints || []).length">遗漏：{{ (qa.missPoints || []).join('、') }}</div>
+              <div class="subtip" v-if="qa.reference">参考：{{ qa.reference }}</div>
+            </div>
+            <div class="empty sm" v-if="!(ivDetail.qaList || []).length">该记录暂无逐题明细</div>
+          </template>
+        </div>
+      </section>
+
       <div class="foot">备考助手 · 学生端演示页 · 数据实时来自后端</div>
     </main>
   </template>
@@ -685,6 +1257,15 @@
 
   var API = '/api';
   var STORE_KEY = 'exam_prep_student_auth';
+
+  /* examCode 枚举 → 中文名（后端 /questions/exam-categories 契约取值，前端仅做展示映射） */
+  var EXAM_NAMES = {
+    CET4: '四级', CET6: '六级',
+    GUOKAO: '国考行测', GUOKAO_SHENLUN: '国考申论',
+    POSTGRAD_ENG1: '考研英语一', POSTGRAD_ENG2: '考研英语二',
+    POSTGRAD_MATH1: '考研数学一', POSTGRAD_MATH2: '考研数学二', POSTGRAD_MATH3: '考研数学三',
+    INTERVIEW: 'AI大模型面试'
+  };
 
   /* ---------------- 轻量提示（Element Plus 不可用时自动回退） ---------------- */
   function toast(message, type) {
@@ -788,8 +1369,11 @@
         tabs: [
           { key: 'practice', label: '题库练习' },
           { key: 'wrong', label: '错题本' },
+          { key: 'plan', label: 'AI 学习计划' },
+          { key: 'mock', label: '模拟考试' },
           { key: 'stats', label: '学习统计' },
-          { key: 'ai', label: 'AI 答疑' }
+          { key: 'ai', label: 'AI 答疑' },
+          { key: 'interview', label: '模拟面试' }
         ],
         tab: 'practice',
 
@@ -797,7 +1381,33 @@
         subjects: [],
         examId: null,
         subjectId: null,
-        count: 10,
+        count: 20,
+        practiceMode: 'RANDOM',
+        practiceType: null,
+        practiceYear: null,
+        practiceModes: [
+          { value: 'SEQUENCE', label: '顺序练习' },
+          { value: 'RANDOM', label: '随机练习' },
+          { value: 'BY_TYPE', label: '按题型' },
+          { value: 'WRONG_BOOK', label: '错题重做' }
+        ],
+        practiceTypes: [
+          { value: 'SINGLE_CHOICE', label: '单选题' },
+          { value: 'MULTI_CHOICE', label: '多选题' },
+          { value: 'TRUE_FALSE', label: '判断题' },
+          { value: 'FILL_BLANK', label: '填空题' }
+        ],
+        /* 年份 / 类别选项全部来自接口动态加载，禁止硬编码 2015~2026 */
+        yearOptions: [],
+        yearsLoading: false,
+        yearsError: '',
+        examCategories: [],
+        examCategoriesLoading: false,
+        examCategoriesError: '',
+        practiceExamCode: null,
+        qStats: null,
+        qStatsLoading: false,
+        qStatsError: '',
         examsLoading: false,
         subjectsLoading: false,
         setupError: '',
@@ -832,7 +1442,73 @@
         aiLoading: false,
         aiError: '',
         aiResult: null,
-        aiCostMillis: 0
+        aiCostMillis: 0,
+
+        /* ---------- AI 学习计划 ---------- */
+        todayPlan: null,
+        todayPlanLoading: false,
+        planTargetSaving: false,
+        planConfig: { days: 7, dailyTarget: 20, subjectId: null, goalNote: '' },
+        aiPlan: null,
+        aiPlanLoading: false,
+        aiPlanError: '',
+
+        /* ---------- 模拟考试 ---------- */
+        mockConfig: { count: 20, durationMinutes: 60, year: null, examCode: null, questionType: null },
+        mockStarting: false,
+        mockSetupError: '',
+        mockPaper: null,
+        mockReport: null,
+        mockIndex: 0,
+        mockAnswers: {},
+        mockAnswer: '',
+        mockMulti: [],
+        mockRemainSec: 0,
+        mockTimerId: null,
+        mockSubmitting: false,
+        mockError: '',
+
+        /* ---------- 智能诊断测评 ---------- */
+        diagStarting: false,
+        diagError: '',
+        assessmentProfile: null,
+
+        /* ---------- 固定套卷 / 模考历史 ---------- */
+        mockPapers: [],
+        mockPapersLoading: false,
+        mockPapersError: '',
+        mockHistory: [],
+        mockHistoryTotal: 0,
+        mockHistoryPage: 1,
+        mockHistoryLoading: false,
+        mockHistoryError: '',
+
+        /* ---------- 模拟面试 ---------- */
+        ivView: 'setup',
+        ivTopics: [],
+        ivTopicsLoading: false,
+        ivTopicsError: '',
+        ivTopic: '',
+        ivTopicInput: '',
+        ivTopicLabel: '',
+        ivTotal: 3,
+        ivStarting: false,
+        ivError: '',
+        ivSessionId: '',
+        ivQuestion: '',
+        ivQuestionNo: 0,
+        ivTotalQ: 0,
+        ivSource: null,
+        ivAnswer: '',
+        ivSubmitting: false,
+        ivFeedback: null,
+        ivReport: null,
+        ivHistory: [],
+        ivHistoryLoading: false,
+        ivHistoryError: '',
+        ivDetail: null,
+        ivDetailLoading: false,
+        ivDetailError: ''
       };
     },
 
@@ -867,6 +1543,37 @@
         if (!ms) return '';
         if (ms < 1000) return '耗时 ' + ms + ' 毫秒';
         return '耗时 ' + (ms / 1000).toFixed(1) + ' 秒';
+      },
+      mockCurrent: function () {
+        if (!this.mockPaper || !this.mockPaper.questions) return {};
+        return this.mockPaper.questions[this.mockIndex] || {};
+      },
+      mockTimeText: function () {
+        var s = Math.max(0, Number(this.mockRemainSec) || 0);
+        var m = Math.floor(s / 60);
+        var ss = s % 60;
+        return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
+      },
+      mockProgressPct: function () {
+        var total = this.mockPaper && this.mockPaper.questions ? this.mockPaper.questions.length : 0;
+        if (!total) return 0;
+        var done = Object.keys(this.mockAnswers || {}).length;
+        return Math.max(0, Math.min(100, Math.round(done / total * 100)));
+      },
+      mockWrongList: function () {
+        var list = this.mockReport && this.mockReport.details ? this.mockReport.details : [];
+        return list.filter(function (it) { return it && it.correct === false; });
+      },
+      qStatsByExamCode: function () {
+        return this.distRows(this.qStats && this.qStats.byExamCode, true);
+      },
+      qStatsByYear: function () {
+        return this.distRows(this.qStats && this.qStats.byYear, false);
+      },
+      ivProgressPct: function () {
+        var total = Number(this.ivTotalQ) || Number(this.ivTotal) || 1;
+        var cur = Number(this.ivQuestionNo) || 1;
+        return Math.max(0, Math.min(100, Math.round((cur - 1) / total * 100)));
       }
     },
 
@@ -876,7 +1583,15 @@
       if (this.token) {
         this.loadExams();
         this.refreshMe();
+        this.tryResumeMock();
+        this.loadExamCategories();
+        this.loadYears();
+        this.loadQStats();
       }
+    },
+
+    beforeUnmount: function () {
+      this.stopMockTimer();
     },
 
     methods: {
@@ -898,6 +1613,9 @@
         this.trend = [];
         this.masteryItems = [];
         this.aiResult = null;
+        this.todayPlan = null;
+        this.aiPlan = null;
+        this.aiPlanError = '';
         this.tab = 'practice';
         if (!silent) toast('登录已失效，请重新登录', 'error');
       },
@@ -927,6 +1645,9 @@
           writeAuth(data.token, data.user || null);
           toast('欢迎回来，' + ((data.user && data.user.nickname) || no));
           self.loadExams();
+          self.loadExamCategories();
+          self.loadYears();
+          self.loadQStats();
         }).catch(function (e) {
           self.loginError = e.message || '登录失败';
         }).then(function () {
@@ -988,6 +1709,10 @@
       /* ---------- 练习 ---------- */
       startPractice: function () {
         if (!this.subjectId || this.starting) return;
+        if (this.practiceMode === 'BY_TYPE' && !this.practiceType) {
+          this.setupError = '按题型练习请先选择题型';
+          return;
+        }
         var self = this;
         this.starting = true;
         this.setupError = '';
@@ -1001,9 +1726,17 @@
         var subject = this.subjects.filter(function (s) { return s.id === self.subjectId; })[0];
         this.currentSubjectName = subject ? subject.name : '';
 
+        var reqBody = {
+          subjectId: this.subjectId,
+          mode: this.practiceMode || 'RANDOM',
+          count: Math.max(1, Math.min(200, Number(this.count) || 20))
+        };
+        if (this.practiceMode === 'BY_TYPE' && this.practiceType) reqBody.questionType = this.practiceType;
+        if (this.practiceYear) reqBody.year = Number(this.practiceYear);
+        if (this.practiceExamCode) reqBody.examCode = this.practiceExamCode;
         this.request('/practice/start', {
           method: 'POST',
-          body: { subjectId: this.subjectId, mode: 'RANDOM', count: Number(this.count) || 10 }
+          body: reqBody
         }).then(function (data) {
           if (!data || !data.question) {
             self.setupError = '该科目暂无可用题目，请换一个科目试试';
@@ -1234,11 +1967,661 @@
         });
       },
 
+      /* ---------- 智能诊断测评 ---------- */
+      startDiagnostic: function () {
+        if (this.diagStarting || this.mockStarting) return;
+        var self = this;
+        this.diagStarting = true;
+        this.diagError = '';
+        this.request('/assessment/diagnostic-paper', {
+          method: 'POST',
+          body: { count: 20, durationMinutes: 30 }
+        }).then(function (data) {
+          if (!data || !data.questions || !data.questions.length) {
+            self.diagError = '当前没有可用于诊断的题目，请先完成一些练习';
+            return;
+          }
+          self.applyMockPaper(data);
+          toast('诊断卷已生成');
+        }).catch(function (e) {
+          self.diagError = e.message || '诊断卷生成失败';
+        }).then(function () {
+          self.diagStarting = false;
+        });
+      },
+
+      loadAssessmentProfile: function () {
+        var self = this;
+        this.request('/assessment/profile').then(function (data) {
+          self.assessmentProfile = data || {};
+        }).catch(function (e) {
+          toast(e.message || '能力画像加载失败', 'error');
+        });
+      },
+
+      goPlanFromProfile: function () {
+        this.switchTab('plan');
+        this.generateAiPlan();
+      },
+
+      /* ---------- 模拟考试 ---------- */
+      startMock: function () {
+        // 不选科目也允许组卷：subjectId 为空时后端按「全库 / 类别 / 年份」抽取
+        if (this.mockStarting) return;
+        var self = this;
+        this.mockStarting = true;
+        this.mockSetupError = '';
+        var cfg = this.mockConfig || {};
+        var body = {
+          subjectId: this.subjectId || null,
+          count: Math.max(1, Math.min(100, Number(cfg.count) || 20)),
+          durationMinutes: Math.max(5, Math.min(180, Number(cfg.durationMinutes) || 60))
+        };
+        if (cfg.year) body.year = Number(cfg.year);
+        if (cfg.examCode) body.examCode = cfg.examCode;
+        if (cfg.questionType) body.questionType = cfg.questionType;
+        this.request('/exams/mock/start', { method: 'POST', body: body }).then(function (data) {
+          if (!data || !data.questions || !data.questions.length) {
+            self.mockSetupError = '当前筛选条件下暂无可组卷题目，请调整科目 / 类别 / 年份';
+            return;
+          }
+          self.applyMockPaper(data);
+        }).catch(function (e) {
+          self.mockSetupError = e.message || '开始考试失败';
+        }).then(function () {
+          self.mockStarting = false;
+        });
+      },
+
+      /** 固定套卷：已发布套卷列表（未发布套卷后端按 404 拦截） */
+      loadMockPapers: function () {
+        var self = this;
+        this.mockPapersLoading = true;
+        this.mockPapersError = '';
+        this.request('/exams/papers').then(function (data) {
+          self.mockPapers = data || [];
+        }).catch(function (e) {
+          self.mockPapersError = e.message || '套卷加载失败';
+        }).then(function () {
+          self.mockPapersLoading = false;
+        });
+      },
+
+      /** 「我的模考历史」：服务端按 userId 隔离，刷新/清缓存后仍可回看 */
+      loadMockHistory: function (page) {
+        var self = this;
+        var p = Math.max(1, Number(page) || 1);
+        this.mockHistoryLoading = true;
+        this.mockHistoryError = '';
+        this.request('/exams/mock/history?page=' + p + '&size=10').then(function (data) {
+          self.mockHistory = (data && data.list) || [];
+          self.mockHistoryTotal = (data && data.total) || 0;
+          self.mockHistoryPage = p;
+        }).catch(function (e) {
+          self.mockHistoryError = e.message || '历史记录加载失败';
+        }).then(function () {
+          self.mockHistoryLoading = false;
+        });
+      },
+
+      /** 统一装载一张试卷（随机卷与固定套卷共用） */
+      applyMockPaper: function (data) {
+        this.mockPaper = data;
+        this.mockReport = null;
+        this.mockIndex = 0;
+        this.mockAnswers = {};
+        this.mockMulti = [];
+        this.mockAnswer = '';
+        this.mockError = '';
+        this.mockRemainSec = Number(data.remainingSeconds || (Number(data.durationMinutes) || 60) * 60) || 3600;
+        this.saveMockRecordId(data.recordId);
+        this.startMockTimer();
+        this.fillMockInput();
+      },
+
+      startPaperMock: function (paper) {
+        if (!paper || this.mockStarting) return;
+        var self = this;
+        this.mockStarting = true;
+        this.mockSetupError = '';
+        this.request('/exams/papers/' + paper.id + '/start', { method: 'POST' }).then(function (data) {
+          if (!data || !data.questions || !data.questions.length) {
+            self.mockSetupError = '该套卷暂无题目，请换一套';
+            return;
+          }
+          self.applyMockPaper(data);
+        }).catch(function (e) {
+          self.mockSetupError = e.message || '开考失败';
+        }).then(function () {
+          self.mockStarting = false;
+        });
+      },
+
+      /** 历史记录回看：进行中的直接续考，已交卷的打开成绩报告 */
+      openMockHistory: function (h) {
+        if (!h || !h.recordId) return;
+        var self = this;
+        var ongoing = h.status === 'ONGOING';
+        var url = '/exams/mock/' + h.recordId + (ongoing ? '' : '/report');
+        this.request(url).then(function (data) {
+          if (ongoing) {
+            self.applyMockPaper(data);
+          } else {
+            self.mockReport = data || {};
+            self.mockPaper = null;
+          }
+          if (typeof window !== 'undefined' && window.scrollTo) window.scrollTo(0, 0);
+        }).catch(function (e) {
+          toast(e.message || '记录加载失败', 'error');
+        });
+      },
+
+      startMockTimer: function () {
+        this.stopMockTimer();
+        var self = this;
+        this.mockTimerId = setInterval(function () {
+          if (self.mockRemainSec > 0) {
+            self.mockRemainSec -= 1;
+          }
+          if (self.mockRemainSec <= 0) {
+            self.stopMockTimer();
+            toast('考试时间到，正在自动交卷', 'error');
+            self.doSelfMockSubmit();
+          }
+        }, 1000);
+      },
+
+      stopMockTimer: function () {
+        if (this.mockTimerId) {
+          clearInterval(this.mockTimerId);
+          this.mockTimerId = null;
+        }
+      },
+
+      fillMockInput: function () {
+        var q = this.mockCurrent || {};
+        var saved = (this.mockAnswers || {})[q.id];
+        if (q.type === 'MULTI_CHOICE') {
+          this.mockMulti = saved ? String(saved).split(',').filter(Boolean) : [];
+          this.mockAnswer = '';
+        } else {
+          this.mockAnswer = saved || '';
+          this.mockMulti = [];
+        }
+      },
+
+      mockIsSelected: function (key) {
+        if ((this.mockCurrent || {}).type === 'MULTI_CHOICE') {
+          return (this.mockMulti || []).indexOf(key) >= 0;
+        }
+        return this.mockAnswer === key;
+      },
+
+      mockBuildAnswer: function () {
+        if ((this.mockCurrent || {}).type === 'MULTI_CHOICE') {
+          return (this.mockMulti || []).slice().sort().join(',');
+        }
+        return String(this.mockAnswer || '').trim();
+      },
+
+      saveMockAnswer: function () {
+        var q = this.mockCurrent || {};
+        if (!q.id || !this.mockPaper) return Promise.resolve();
+        var ans = this.mockBuildAnswer();
+        if (!ans) return Promise.resolve();
+        this.mockAnswers[q.id] = ans;
+        return this.request('/exams/mock/' + this.mockPaper.recordId + '/answer', {
+          method: 'POST',
+          body: { questionId: q.id, userAnswer: ans }
+        }).catch(function (e) {
+          // 单题保存失败不阻断作答：交卷前 doSelfMockSubmit 会再保存当前题一次
+          console.warn('mock answer save failed:', e && e.message);
+        });
+      },
+
+      mockPrev: function () {
+        if (this.mockIndex <= 0) return;
+        var self = this;
+        this.saveMockAnswer().then(function () {
+          self.mockIndex -= 1;
+          self.fillMockInput();
+        });
+      },
+
+      mockNext: function () {
+        if (!this.mockPaper || this.mockIndex >= this.mockPaper.questions.length - 1) return;
+        var self = this;
+        this.saveMockAnswer().then(function () {
+          self.mockIndex += 1;
+          self.fillMockInput();
+        });
+      },
+
+      confirmMockSubmit: function () {
+        if (this.mockSubmitting || !this.mockPaper) return;
+        var total = this.mockPaper.questions ? this.mockPaper.questions.length : 0;
+        var unanswered = Math.max(0, total - Object.keys(this.mockAnswers || {}).length);
+        var msg = unanswered > 0
+          ? ('还有 ' + unanswered + ' 题未作答，确定交卷吗？交卷后不可修改。')
+          : '确定交卷吗？交卷后不可修改。';
+        if (window.confirm(msg)) {
+          this.doSelfMockSubmit();
+        }
+      },
+
+      doSelfMockSubmit: function () {
+        if (!this.mockPaper || this.mockSubmitting) return;
+        var self = this;
+        this.mockSubmitting = true;
+        this.mockError = '';
+        this.stopMockTimer();
+        this.saveMockAnswer().then(function () {
+          return self.request('/exams/mock/' + self.mockPaper.recordId + '/submit', { method: 'POST' });
+        }).then(function () {
+          return self.request('/exams/mock/' + self.mockPaper.recordId + '/report');
+        }).then(function (report) {
+          self.mockReport = report || {};
+          self.mockPaper = null;
+          self.saveMockRecordId(null);
+          toast('已交卷');
+          self.loadMockHistory(1);
+        }).catch(function (e) {
+          self.mockError = e.message || '交卷失败';
+        }).then(function () {
+          self.mockSubmitting = false;
+        });
+      },
+
+      resetMock: function () {
+        this.stopMockTimer();
+        this.saveMockRecordId(null);
+        this.mockPaper = null;
+        this.mockReport = null;
+        this.mockIndex = 0;
+        this.mockAnswers = {};
+        this.mockMulti = [];
+        this.mockAnswer = '';
+        this.mockRemainSec = 0;
+        this.mockError = '';
+        this.mockSetupError = '';
+      },
+
+      /** 记录未完成考试的 recordId，刷新后可凭 GET /exams/mock/{recordId} 恢复 */
+      saveMockRecordId: function (rid) {
+        try {
+          if (rid) localStorage.setItem('mockRecordId', String(rid));
+          else localStorage.removeItem('mockRecordId');
+        } catch (e) {}
+      },
+
+      /** 刷新/重进页面时恢复进行中的模拟考试（第 5 个接口 GET /exams/mock/{recordId}） */
+      tryResumeMock: function () {
+        var rid = null;
+        try { rid = localStorage.getItem('mockRecordId'); } catch (e) {}
+        if (!rid || this.mockPaper) return;
+        var self = this;
+        this.request('/exams/mock/' + encodeURIComponent(rid)).then(function (data) {
+          if (!data || data.status !== 'ONGOING' || !data.questions || !data.questions.length) {
+            self.saveMockRecordId(null);
+            return;
+          }
+          self.mockPaper = data;
+          self.mockIndex = 0;
+          self.mockAnswers = {};
+          self.mockMulti = [];
+          self.mockAnswer = '';
+          self.mockRemainSec = Number(data.remainingSeconds) || 1;
+          self.tab = 'mock';
+          self.startMockTimer();
+          self.fillMockInput();
+        }).catch(function () {
+          self.saveMockRecordId(null);
+        });
+      },
+
+      fmtScore: function (v) {
+        if (v === null || v === undefined || v === '') return '0';
+        var n = Number(v);
+        if (isNaN(n)) return String(v);
+        return (Math.round(n * 10) / 10).toString();
+      },
+
+      /* ---------- 考试类别 / 年份 / 题库统计（均来自接口动态加载） ---------- */
+      examName: function (code) {
+        return EXAM_NAMES[code] || code || '—';
+      },
+      /** 把 {k:count} 对象或 [{key,count}] 数组归一化成 [{key,label,count}] */
+      distRows: function (v, isExam) {
+        if (!v) return [];
+        var self = this;
+        var out = [];
+        if (Array.isArray(v)) {
+          v.forEach(function (it) {
+            if (!it) return;
+            var key = it.examCode != null ? it.examCode
+              : (it.year != null ? String(it.year)
+                : (it.key != null ? it.key : (it.name != null ? it.name : it.status)));
+            var count = it.count != null ? it.count : (it.total != null ? it.total : it.value);
+            if (key == null) return;
+            out.push({ key: String(key), label: isExam ? self.examName(String(key)) : String(key), count: Number(count) || 0 });
+          });
+        } else if (typeof v === 'object') {
+          Object.keys(v).forEach(function (k) {
+            out.push({ key: k, label: isExam ? self.examName(k) : k, count: Number(v[k]) || 0 });
+          });
+        }
+        return out;
+      },
+      loadExamCategories: function () {
+        var self = this;
+        this.examCategoriesLoading = true;
+        this.examCategoriesError = '';
+        this.request('/questions/exam-categories').then(function (list) {
+          self.examCategories = Array.isArray(list) ? list.filter(function (c) { return c && c.examCode; }) : [];
+        }).catch(function (e) {
+          self.examCategories = [];
+          self.examCategoriesError = e.message || '考试类别加载失败';
+        }).then(function () {
+          self.examCategoriesLoading = false;
+        });
+      },
+      loadYears: function () {
+        var self = this;
+        this.yearsLoading = true;
+        this.yearsError = '';
+        this.request('/questions/years').then(function (list) {
+          self.yearOptions = Array.isArray(list) ? list.filter(function (y) { return y && y.year != null; }) : [];
+        }).catch(function (e) {
+          self.yearOptions = [];
+          self.yearsError = e.message || '年份加载失败';
+        }).then(function () {
+          self.yearsLoading = false;
+        });
+      },
+      loadQStats: function () {
+        var self = this;
+        this.qStatsLoading = true;
+        this.qStatsError = '';
+        this.request('/questions/stats').then(function (d) {
+          self.qStats = d || null;
+        }).catch(function (e) {
+          self.qStats = null;
+          self.qStatsError = e.message || '题库统计加载失败';
+        }).then(function () {
+          self.qStatsLoading = false;
+        });
+      },
+
+      /** 全库随机：不传 subjectId / examCode / year，仅 mode=RANDOM + count */
+      startRandomAll: function () {
+        if (this.starting) return;
+        var self = this;
+        this.starting = true;
+        this.setupError = '';
+        this.report = null;
+        this.allDone = false;
+        this.feedback = null;
+        this.answer = '';
+        this.multi = [];
+        this.practiceError = '';
+        this.currentSubjectName = '全库随机';
+        var reqBody = {
+          mode: 'RANDOM',
+          count: Math.max(1, Math.min(200, Number(this.count) || 20))
+        };
+        this.request('/practice/start', { method: 'POST', body: reqBody }).then(function (data) {
+          if (!data || !data.question) {
+            self.setupError = '题库暂无可用题目，或后端尚未开放「不限科目」抽题';
+            return;
+          }
+          self.practice = {
+            practiceId: data.practiceId,
+            totalCount: data.totalCount || 1,
+            answeredCount: data.answeredCount || 0
+          };
+          self.question = data.question;
+          self.answer = '';
+          self.multi = [];
+          self.feedback = null;
+          self.selfEvalDone = false;
+        }).catch(function (e) {
+          self.setupError = e.message || '全库随机练习失败';
+        }).then(function () {
+          self.starting = false;
+        });
+      },
+
+      /* ---------- 模拟面试（/ai/interview/*，字段严格按 AiInterviewController 契约） ---------- */
+      /** 专题来自 INTERVIEW 题库，前端本地提取；接口不支持 examCode 时降级为手动输入 */
+      loadInterviewTopics: function () {
+        var self = this;
+        this.ivTopicsLoading = true;
+        this.ivTopicsError = '';
+        this.request('/questions?examCode=INTERVIEW&page=1&size=50').then(function (data) {
+          var list = (data && Array.isArray(data.list)) ? data.list : (Array.isArray(data) ? data : []);
+          var seen = {}, topics = [];
+          list.forEach(function (q) {
+            if (!q) return;
+            if (q.examCode && q.examCode !== 'INTERVIEW') return;
+            var raw = q.tags || q.source || '';
+            String(raw).split(/[,，;；|、]/).forEach(function (t) {
+              var v = t.trim();
+              if (v && v.length <= 30 && !seen[v]) { seen[v] = 1; topics.push({ value: v, label: v }); }
+            });
+          });
+          self.ivTopics = topics.slice(0, 30);
+          if (!self.ivTopics.length) self.ivTopicsError = '未从 INTERVIEW 题库提取到专题，可在下方手动填写主题';
+        }).catch(function (e) {
+          self.ivTopics = [];
+          self.ivTopicsError = '面试题库专题加载失败（' + (e.message || '未知错误') + '），可手动填写主题';
+        }).then(function () {
+          self.ivTopicsLoading = false;
+        });
+      },
+      /** POST /ai/interview/start {topic, total, subject_id} */
+      startInterview: function () {
+        if (this.ivStarting) return;
+        var self = this;
+        var topic = (this.ivTopicInput || '').trim() || this.ivTopic || null;
+        var total = Math.max(1, Math.min(10, Number(this.ivTotal) || 3));
+        this.ivStarting = true;
+        this.ivError = '';
+        this.request('/ai/interview/start', {
+          method: 'POST',
+          timeout: 120000,
+          body: { topic: topic, total: total, subject_id: null }
+        }).then(function (d) {
+          if (!d || !d.session_id || !d.question) {
+            self.ivError = '面试服务未返回题目，请稍后重试';
+            return;
+          }
+          self.ivSessionId = d.session_id;
+          self.ivQuestion = d.question;
+          self.ivQuestionNo = d.question_no || 1;
+          self.ivTotalQ = d.total || total;
+          self.ivSource = d.source || null;
+          self.ivTopicLabel = d.topic || topic || '随机主题';
+          self.ivAnswer = '';
+          self.ivFeedback = null;
+          self.ivReport = null;
+          self.ivView = 'running';
+        }).catch(function (e) {
+          self.ivError = e.message || '开始面试失败';
+        }).then(function () {
+          self.ivStarting = false;
+        });
+      },
+      /** POST /ai/interview/answer {session_id, answer} */
+      submitInterviewAnswer: function () {
+        if (!this.ivSessionId || this.ivSubmitting) return;
+        var ans = (this.ivAnswer || '').trim();
+        if (!ans) { this.ivError = '请先作答再提交'; return; }
+        var self = this;
+        this.ivSubmitting = true;
+        this.ivError = '';
+        this.request('/ai/interview/answer', {
+          method: 'POST',
+          timeout: 120000,
+          body: { session_id: this.ivSessionId, answer: ans }
+        }).then(function (d) {
+          var data = d || {};
+          if (data.finished === true || data.finished === 'true' || data.finished === 1) {
+            self.ivReport = data.report || {};
+            self.ivView = 'report';
+            self.ivSessionId = '';
+            self.loadInterviewHistory();
+            return;
+          }
+          self.ivFeedback = data;
+          self.ivQuestion = data.next_question || '';
+          self.ivQuestionNo = data.question_no || self.ivQuestionNo;
+          self.ivTotalQ = data.total || self.ivTotalQ;
+          self.ivAnswer = '';
+        }).catch(function (e) {
+          self.ivError = e.message || '作答提交失败';
+        }).then(function () {
+          self.ivSubmitting = false;
+        });
+      },
+      /** GET /ai/interview/history?page=&size=&all= */
+      loadInterviewHistory: function () {
+        var self = this;
+        this.ivHistoryLoading = true;
+        this.ivHistoryError = '';
+        this.request('/ai/interview/history?page=1&size=10&all=false').then(function (d) {
+          self.ivHistory = (d && Array.isArray(d.list)) ? d.list : (Array.isArray(d) ? d : []);
+        }).catch(function (e) {
+          self.ivHistory = [];
+          self.ivHistoryError = e.message || '面试历史加载失败';
+        }).then(function () {
+          self.ivHistoryLoading = false;
+        });
+      },
+      /** GET /ai/interview/history/{id} */
+      loadInterviewDetail: function (id) {
+        var self = this;
+        this.ivDetailLoading = true;
+        this.ivDetailError = '';
+        this.ivDetail = {};
+        this.request('/ai/interview/history/' + encodeURIComponent(id)).then(function (d) {
+          self.ivDetail = d || {};
+        }).catch(function (e) {
+          self.ivDetailError = e.message || '复盘加载失败';
+        }).then(function () {
+          self.ivDetailLoading = false;
+        });
+      },
+      resetInterview: function () {
+        this.ivView = 'setup';
+        this.ivSessionId = '';
+        this.ivQuestion = '';
+        this.ivAnswer = '';
+        this.ivFeedback = null;
+        this.ivReport = null;
+        this.ivError = '';
+        this.ivDetail = null;
+      },
+
+      /* ---------- AI 学习计划 ---------- */
+      loadTodayPlan: function () {
+        var self = this;
+        this.todayPlanLoading = true;
+        this.request('/me/study-plan').then(function (d) {
+          self.todayPlan = d || null;
+          if (d && d.dailyTarget) self.planConfig.dailyTarget = d.dailyTarget;
+        }).catch(function () {
+          self.todayPlan = null;
+        }).then(function () {
+          self.todayPlanLoading = false;
+        });
+      },
+
+      savePlanTarget: function () {
+        if (this.planTargetSaving) return;
+        var self = this;
+        var t = Math.max(5, Math.min(100, Number(this.planConfig.dailyTarget) || 20));
+        this.planConfig.dailyTarget = t;
+        this.planTargetSaving = true;
+        this.request('/me/study-plan/target', {
+          method: 'PUT',
+          body: { dailyTarget: t, subjectId: this.planConfig.subjectId || null }
+        }).then(function (d) {
+          self.todayPlan = d || null;
+          toast('每日目标已更新为 ' + (d && d.dailyTarget ? d.dailyTarget : t) + ' 题');
+        }).catch(function (e) {
+          toast(e.message || '更新目标失败', 'error');
+        }).then(function () {
+          self.planTargetSaving = false;
+        });
+      },
+
+      generateAiPlan: function () {
+        if (this.aiPlanLoading) return;
+        var self = this;
+        this.aiPlanLoading = true;
+        this.aiPlanError = '';
+        var cfg = this.planConfig || {};
+        var body = {
+          days: Math.max(1, Math.min(14, Number(cfg.days) || 7)),
+          dailyTarget: Math.max(5, Math.min(100, Number(cfg.dailyTarget) || 20)),
+          subjectId: cfg.subjectId || null,
+          goalNote: (cfg.goalNote || '').trim() || null
+        };
+        this.request('/me/study-plan/ai', {
+          method: 'POST',
+          body: body,
+          timeout: 180000
+        }).then(function (d) {
+          self.aiPlan = d || null;
+          toast('学习计划已生成');
+        }).catch(function (e) {
+          self.aiPlanError = e.message || '生成 AI 学习计划失败';
+        }).then(function () {
+          self.aiPlanLoading = false;
+        });
+      },
+
+      goAiPlanFromWrong: function () {
+        this.switchTab('plan');
+        this.generateAiPlan();
+      },
+
+      goPlanTask: function (tk) {
+        var type = tk && tk.type;
+        if (type === 'WRONG_REVIEW') {
+          this.switchTab('wrong');
+        } else if (type === 'MOCK_CHECK') {
+          this.switchTab('mock');
+        } else {
+          this.switchTab('practice');
+        }
+      },
+
+      planTaskTypeLabel: function (t) {
+        var map = { WRONG_REVIEW: '错题复习', WEAK_PRACTICE: '薄弱练习', MOCK_CHECK: '模拟检验' };
+        return map[t] || '学习任务';
+      },
+
       /* ---------- 导航 ---------- */
       switchTab: function (key) {
         this.tab = key;
         if (key === 'wrong') this.loadWrong();
+        if (key === 'plan') {
+          this.loadTodayPlan();
+          if (!this.subjects.length && this.exams.length) {
+            this.examId = this.exams[0].id;
+            this.onExamChange();
+          }
+        }
         if (key === 'stats') this.loadStats();
+        if (key === 'mock') {
+          this.loadMockPapers();
+          this.loadMockHistory(1);
+        }
+        if (key === 'interview') {
+          if (!this.ivTopics.length && !this.ivTopicsLoading) this.loadInterviewTopics();
+          this.loadInterviewHistory();
+        }
       },
 
       /* ---------- 展示辅助 ---------- */

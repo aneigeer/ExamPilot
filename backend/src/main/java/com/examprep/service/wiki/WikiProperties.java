@@ -60,6 +60,19 @@ public class WikiProperties {
     /** 标题 + 摘要 + 要点的综合字面覆盖率阈值 */
     private double literalCoverageThreshold = 0.50;
 
+    /**
+     * 仅靠 ft_score 过线时，标题覆盖率必须同时达到的下限
+     *
+     * <p>★ 为什么需要它（2026-11-11 实测暴露的答非所问根因）：
+     * ft_score 是**原始 BM25 分，不能跨查询比较**。问句里出现一个高频通用词
+     * （例如「LangChain 里 Agent 和 Chain 有什么区别」中的 Agent），
+     * 一篇通篇写 Agent 的页面就能刷出 14 分，而真正讲 LangChain 的页面只有 6 分，
+     * 于是被 {@code ngramMinScore=8.0} 直接淘汰 —— 结果是热层拿错页抢答。
+     * 所以 ft_score 只能作为「候选入场券」，必须叠加一个与语料规模无关的
+     * 标题覆盖率下限，才能判定为热层命中。
+     */
+    private double ftGateTitleFloor = 0.20;
+
     /** 是否允许沿链接扩展 1 跳（图遍历） */
     private boolean linkExpand = true;
 

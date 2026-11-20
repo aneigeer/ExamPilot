@@ -1,6 +1,8 @@
 package com.examprep.controller;
 
+import com.examprep.common.PageResult;
 import com.examprep.common.Result;
+import com.examprep.dto.ExamHistoryVO;
 import com.examprep.dto.MockAnswerRequest;
 import com.examprep.dto.MockPaperVO;
 import com.examprep.dto.MockReportVO;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -41,6 +44,21 @@ public class MockExamController {
     public Result<MockPaperVO> start(@Valid @RequestBody MockStartRequest request) {
         Long userId = SecurityUtils.requireUserId();
         return Result.success(mockExamService.start(userId, request));
+    }
+
+    @Operation(summary = "我的模考历史",
+            description = """
+                    **访问级别：AUTH**。返回当前登录用户历次模拟考试，按开考时间倒序。
+
+                    - 含试卷名、试卷类型、状态、得分/总分、得分率、开考/交卷时间
+                    - 严格按 `userId` 隔离，只能看到自己的记录
+                    """)
+    @GetMapping("/history")
+    public Result<PageResult<ExamHistoryVO>> history(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long size) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(mockExamService.history(userId, page, size));
     }
 
     @Operation(summary = "取当前试卷", description = "**访问级别：AUTH**。含剩余时间与已答进度；超时会自动交卷。")

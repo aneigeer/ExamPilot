@@ -3,10 +3,19 @@
 -- 执行前提：先执行 schema.sql
 -- 版本：v1.0    日期：2026-09-23
 --
--- 示例账号（密码为明文，登录时直接输入）：
---   超管   学号 admin    密码 admin123
---   审核员 学号 auditor  密码 audit123
+-- 示例账号（第 10 周 P0-1 起：**仓库内不保存任何明文口令**）：
+--   超管   学号 admin    初始口令见本机 config/secrets.local.yml（admin.password），首次登录必须修改
+--   审核员 学号 auditor  ★ F1 / E1-06：默认禁用（status=0）且密码列置为禁用哨兵，
+--                        不是哈希、不是任何人的口令。仓库里不再保留历史弱口令对应的可用凭据。
+--                        启用方式（由部署人执行，口令不入库、不写进仓库）：
+--                          1) 用后端同套 BCrypt 现场生成强口令哈希（或直接调用改密接口）；
+--                          2) UPDATE `user` SET password_hash='<现场生成的哈希>', status=1
+--                             WHERE student_no='auditor';
+--                        也可先 status=1 后立刻用 PUT /api/auth/password 改密。
+--                        注意：本文件只影响全新初始化；已运行的库需由部署人单独轮换/禁用 auditor 账号。
 --   学生   学号 2021001  口令为种子口令（首次登录后应改密；不在文档中记录明文）
+-- 说明：超管/学生列的 password_hash 是 BCrypt（$2a$10$）单向哈希，不可逆；即使被看到也无法还原口令。
+--       修改口令请走接口 PUT /api/auth/password，或用后端同一套 BCrypt 重新生成哈希后 UPDATE。
 -- ============================================================
 
 USE `exam_prep`;
@@ -152,8 +161,9 @@ INSERT INTO `knowledge_point` (`id`, `subject_id`, `parent_id`, `name`, `level`,
 -- ============================================================
 
 INSERT INTO `user` (`id`, `student_no`, `nickname`, `password_hash`, `real_name`, `college_id`, `major_id`, `grade`, `role`, `status`) VALUES
-(1, 'admin',   '系统管理员', '$2a$10$ayO9SGLDP5Y8TbdVwQ1r9eDhuimjSCJ4Rr29GXtbEct2yCxTWSPYG', '管理员', 1, 2, '2021', 'ADMIN',   1),
-(2, 'auditor', '资料审核员', '$2a$10$L2Os5jPQUuA857ldn8jaaur5tVtapIEFo1GIZKHUE70Z246qFu6Ri', '审核员', 1, 2, '2021', 'AUDITOR', 1),
+(1, 'admin',   '系统管理员', '$2a$10$qn1zlFiO1bjKHR4ROYtSmuyG/RJBg.C3hYupu4uf9Uk83CAQspzP2', '管理员', 1, 2, '2021', 'ADMIN',   1),
+-- E1-06：禁用哨兵（非 BCrypt、非口令）+ status=0，账号默认不可登录；启用步骤见文件头
+(2, 'auditor', '资料审核员', '!DISABLED_SET_BY_DEPLOYER', '审核员', 1, 2, '2021', 'AUDITOR', 0),
 (3, '2021001', '李同学',     '$2a$10$PNF10coQSTlib87sd/oPDeEJUQaCzzsWS01iwRFY4VRDm0XZSLxIm', '李四',   1, 2, '2021', 'STUDENT', 1);
 
 -- ============================================================

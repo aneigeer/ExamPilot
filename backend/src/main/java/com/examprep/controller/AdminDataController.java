@@ -15,6 +15,7 @@ import com.examprep.mapper.ExamCategoryMapper;
 import com.examprep.mapper.KnowledgePointMapper;
 import com.examprep.mapper.SubjectMapper;
 import com.examprep.mapper.TeacherMapper;
+import com.examprep.service.ImportStatsService;
 import com.examprep.service.OperationLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 管理端基础数据维护（考试类别 / 科目 / 知识点 / 课程 / 教师 / 学院）
@@ -52,6 +54,7 @@ public class AdminDataController {
     private final TeacherMapper teacherMapper;
     private final CollegeMapper collegeMapper;
     private final OperationLogService logService;
+    private final ImportStatsService importStatsService;
 
     // ==================================================================
     // 考试类别
@@ -317,6 +320,23 @@ public class AdminDataController {
         logService.record(OperationLogService.MODULE_EXAM, "CREATE", "COLLEGE", entity.getId(),
                 "新增学院：" + entity.getName());
         return Result.success(entity);
+    }
+
+    // ==================================================================
+    // 导入状态统计
+    // ==================================================================
+
+    @Operation(summary = "导入统计（question_source 聚合）",
+            description = """
+                    **访问级别：ROLE:ADMIN**。供管理端展示导入状态。
+
+                    返回 question_source 按 parse_status / exam_code / year 的聚合计数与最近导入时间。
+                    **question_source 表不存在或列未就绪时返回空结构（available=false），不报 500**，
+                    这样在另一 agent 的建表 SQL 尚未执行时管理端也不会白屏。
+                    """)
+    @GetMapping("/import-stats")
+    public Result<Map<String, Object>> importStats() {
+        return Result.success(importStatsService.stats());
     }
 
     private void requireExists(Object entity, String label) {

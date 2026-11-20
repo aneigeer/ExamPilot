@@ -99,6 +99,11 @@ public class HybridRetriever {
     public Outcome retrieve(String question, Long subjectId, Long examCategoryId,
                            Set<Long> weakKpIds, int topK, boolean applyGate,
                            Set<String> sourceTypes) {
+        if (applyGate && retrievalService.outOfScopeHit(question)) {
+            log.info("[AI] 能力边界越界拒答：命中 out-of-scope-keywords，问题「{}」", question);
+            return new Outcome(List.of(), RetrievalService.MODE_NONE, 0,
+                    0.0, true, "OUT_OF_SCOPE", 0.0);
+        }
         int safeTopK = Math.max(1, topK);
         Set<String> typeFilter = normalizeSourceTypes(sourceTypes);
         VectorChannel.Scan scan = scanByVector(question, subjectId, safeTopK, applyGate);
@@ -157,7 +162,13 @@ public class HybridRetriever {
             log.debug("[AI] 语义闸门使用过滤后 top1 余弦 {}（未过滤上界 {}）",
                     String.format("%.4f", vectorBest), String.format("%.4f", vectorBestUnfiltered));
         }
+        // ★ 2026-11-15：曾尝试取消 lexicalHasEvidence 旁路让语义闸门始终生效，
+        //   但 214 条全量评测误拒率飙升到 55.7%（域内题余弦偏低、词法证据很强却被拒），
+        //   远超 T2 判据的 ≤10%，故回滚为原设计。
+        //   分数口径问题已由 VectorChunkMerger 独立修复（finalScore 79/114 → 1.09），
+        //   reject-threshold 现在对归一化后的分有意义，无需再动这道旁路。
         boolean lexicalHasEvidence = !ngram.contexts().isEmpty()
+                && RetrievalService.MODE_FULLTEXT_AND.equals(ngram.mode())
                 && ngram.bestScore() >= properties.getRetrieval().getRejectThreshold();
         boolean semanticReject = applyGate
                 && properties.getVector().isEnabled()
@@ -170,6 +181,10 @@ public class HybridRetriever {
                     properties.getRetrieval().getSemanticRejectScore(), question);
             return new Outcome(List.of(), mode, ngram.recallCount() + vectorContexts.size(),
                     0.0, true, "SEMANTIC_LOW_SIMILARITY", vectorBest);
+        }
+        if (vectorContexts.isEmpty() && ngram.refused()) {
+            return new Outcome(contexts, mode, ngram.recallCount(),
+                    best, true, "LEXICAL_GATE", vectorBest);
         }
         return Outcome.of(contexts, mode, ngram.recallCount() + vectorContexts.size(), best,
                 vectorBest);

@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +28,12 @@ import java.util.regex.Pattern;
  * 受控子进程执行：临时目录 → 编译 → 带 stdin 运行 → 捕获输出 → 超时强杀 → 清理。
  * 支持语言：C（gcc）/ Java（JDK 11+ 单文件运行）。
  * 安全边界：本服务执行用户提交的代码，仅适合本机单人使用环境，公网部署必须接独立判题沙箱。
+ *
+ * <p><b>★ E1-05 / F1 收尾：隔离未实现，禁止开启。</b>
+ * 本轮只做了子进程环境变量白名单化（{@link #sandboxProcess}），
+ * CPU / 内存 / PID / 网络 / 文件系统隔离仍为零，仍不具备沙箱语义；
+ * {@code app.code-run.enabled} 必须保持 {@code false}，nginx 侧另加 {@code /api/run deny all;}。
+ * 完整沙箱（容器 / nsjail + 配额 + 只读 rootfs）需架构决策，超出本次收尾范围。
  */
 @Slf4j
 @Service
@@ -35,6 +42,14 @@ public class CodeRunService {
 
     private static final long TIMEOUT_SECONDS = 10;
     private static final Pattern JAVA_CLASS = Pattern.compile("public\\s+class\\s+([A-Za-z_][A-Za-z0-9_]*)");
+
+    /**
+     * E1-05：子进程环境变量白名单。ProcessBuilder 默认继承后端全部环境变量
+     * （含 JWT_SECRET / DB_PASSWORD / AI_INTERNAL_TOKEN），必须清空后按需回填。
+     * 只保留编译器/JVM 定位与临时目录所必需的项，不注入任何凭据。
+     */
+    private static final List<String> CHILD_ENV_WHITELIST = List.of(
+            "PATH", "Path", "TEMP", "TMP", "TMPDIR", "SystemRoot", "windir");
 
     private final QuestionMapper questionMapper;
     private final QuestionAnswerMapper questionAnswerMapper;
@@ -91,6 +106,29 @@ public class CodeRunService {
         }
     }
 
+    /**
+     * E1-05：构造「已清空继承环境变量」的子进程。
+     * 仅回填 {@link #CHILD_ENV_WHITELIST} 中的 PATH / 临时目录 / Windows 系统根目录，
+     * 防止用户提交的代码通过 {@code System.getenv()} 读到后端密钥。
+     * 注意：这只是最小凭据收口，<b>不是隔离</b>——网络、文件系统、CPU/内存仍无边界。
+     */
+    private static ProcessBuilder sandboxProcess(List<String> command, Path dir) {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        if (dir != null) {
+            pb.directory(dir.toFile());
+        }
+        Map<String, String> env = pb.environment();
+        env.clear();
+        Map<String, String> parent = System.getenv();
+        for (String key : CHILD_ENV_WHITELIST) {
+            String value = parent.get(key);
+            if (value != null) {
+                env.put(key, value);
+            }
+        }
+        return pb;
+    }
+
     private CodeRunResultVO runC(Path dir, String code, String stdin, String expected) throws Exception {
         Path src = dir.resolve("main.c");
         Files.writeString(src, code, StandardCharsets.UTF_8);
@@ -98,8 +136,9 @@ public class CodeRunService {
         // 编译（本机未装 gcc 时给出明确提示，而不是 500）
         Process compile;
         try {
-            compile = new ProcessBuilder("gcc", "main.c", "-o", "main.exe")
-                    .directory(dir.toFile()).redirectErrorStream(true).start();
+            // E1-05：编译器子进程同样清空继承的环境变量
+            compile = sandboxProcess(List.of("gcc", "main.c", "-o", "main.exe"), dir)
+                    .redirectErrorStream(true).start();
         } catch (IOException e) {
             log.info("本机未安装 gcc：{}", e.getMessage());
             return new CodeRunResultVO("", "本机未安装 gcc，无法运行 C 代码（可安装 MinGW 后重试，或改用 Java）",
@@ -140,7 +179,8 @@ public class CodeRunService {
     private static final int MAX_OUTPUT_CHARS = 1_000_000;
 
     private CodeRunResultVO execute(Path dir, List<String> command, String stdin, String expected) throws Exception {
-        ProcessBuilder pb = new ProcessBuilder(command).directory(dir.toFile());
+        // E1-05：运行用户代码的子进程不再继承 JWT_SECRET / DB_PASSWORD 等后端环境变量
+        ProcessBuilder pb = sandboxProcess(command, dir);
         Process process = pb.start();
 
         // P2-8①：起独立线程排空 stdout/stderr。若在 waitFor 之后才读输出，
@@ -216,7 +256,8 @@ public class CodeRunService {
         process.destroyForcibly();
         if (System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
             try {
-                new ProcessBuilder("taskkill", "/PID", String.valueOf(process.pid()), "/T", "/F")
+                // E1-05：系统兜底进程也走同一白名单，保持子进程环境口径一致
+                sandboxProcess(List.of("taskkill", "/PID", String.valueOf(process.pid()), "/T", "/F"), null)
                         .start().waitFor(5, TimeUnit.SECONDS);
             } catch (Exception e) {
                 log.debug("taskkill 兜底失败：{}", e.getMessage());

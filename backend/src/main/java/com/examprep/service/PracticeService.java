@@ -1,6 +1,7 @@
 package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.examprep.common.AnswerTextUtils;
 import com.examprep.common.BizException;
 import com.examprep.common.QuestionType;
 import com.examprep.common.ResultCode;
@@ -77,6 +78,7 @@ public class PracticeService {
     private final SubjectMapper subjectMapper;
     private final JudgeService judgeService;
     private final QuestionService questionService;
+    private final WrongBookService wrongBookService;
 
     // ==================================================================
     // 开始练习
@@ -95,7 +97,12 @@ public class PracticeService {
             }
         }
 
-        int count = req.getCount() == null ? 10 : req.getCount();
+        // 默认题数与 DTO 声明保持一致（20）；DTO 的 @Min/@Max 已做范围校验，
+        // 这里再来一层兜底，防止内部调用绕过 Bean Validation 传入 0 或负数
+        int count = req.getCount() == null ? 20 : req.getCount();
+        if (count <= 0) {
+            throw new BizException("题数必须大于 0");
+        }
         List<Long> questionIds = pickQuestionIds(userId, req, mode, count);
         if (questionIds.isEmpty()) {
             throw new BizException("没有符合条件的题目，请调整筛选条件");
@@ -128,17 +135,34 @@ public class PracticeService {
 
     /** 取候选题目 ID */
     private List<Long> pickQuestionIds(Long userId, StartPracticeRequest req, String mode, int count) {
+        // 错题本模式走独立查询（pickFromWrongBook），**刻意不套用年份筛选**。
+        // 理由：错题本是「历史欠账清单」，用户复习的是自己做错的题；
+        // 按年份再切一刀会让同一次复习凭空少掉一批错题，且与错题本页面的总数对不上。
         if (MODE_WRONG_BOOK.equals(mode)) {
             return pickFromWrongBook(userId, req.getSubjectId(), count);
         }
 
+        // 「全库随机」语义：subjectId 为 null 时条件构造里不加 subject_id 过滤，
+        // 候选集 = 全部 APPROVED + parent_id=0 的有效题目（不默认取任何单一 subject_id）；
+        // RANDOM 模式随后 Collections.shuffle + limit(count) 等概率抽取，题数上限由 DTO @Max(200) 守住。
         var wrapper = Wrappers.<Question>lambdaQuery()
                 .eq(Question::getAuditStatus, AUDIT_APPROVED)
                 .eq(Question::getParentId, 0L)
                 .eq(req.getSubjectId() != null, Question::getSubjectId, req.getSubjectId())
+                // 按真题年份筛选（2026-11-11 新增）：year 为 null 时不加条件，保持原有「全量随机」行为。
+                // 过滤发生在「取候选集」阶段，早于 SEQUENCE 的 orderBy 与 RANDOM 的 shuffle，
+                // 因此 SEQUENCE / RANDOM / BY_TYPE 三种模式都自动受年份约束，无需各写一份。
+                .eq(req.getYear() != null, Question::getYear, req.getYear())
                 .eq(req.getDifficulty() != null, Question::getDifficulty, req.getDifficulty())
                 .eq(MODE_BY_TYPE.equals(mode) && StringUtils.hasText(req.getQuestionType()),
                         Question::getType, req.getQuestionType());
+
+        // 按考试类别筛选（2026-11-11 新增）：year 与 examCode 两个条件同时存在即 AND。
+        // exam_code 列未在 Question 实体映射，用列名片段 + 预编译占位符按条件追加；
+        // 不传则不加条件 = 不限类别。WRONG_BOOK 走上面的独立分支，刻意不套 year / examCode。
+        if (StringUtils.hasText(req.getExamCode())) {
+            wrapper.apply("exam_code = {0}", req.getExamCode().trim());
+        }
 
         // 只刷客观题 / 只刷主观题 / 混合（大纲 6.3）
         String objFilter = req.getObjectiveFilter() == null ? "MIXED" : req.getObjectiveFilter().toUpperCase();
@@ -304,9 +328,9 @@ public class PracticeService {
             record.setAnsweredCount(record.getAnsweredCount() + 1);
             if (judgeResult.correct()) {
                 record.setCorrectCount(record.getCorrectCount() + 1);
-                markMastered(userId, question.getId());
+                wrongBookService.markMastered(userId, question.getId());
             } else {
-                addToWrongBook(userId, question.getId(), "PRACTICE");
+                wrongBookService.recordWrong(userId, question.getId(), "PRACTICE");
             }
         } else {
             // ---------- 主观题：返回参考答案，等自评 ----------
@@ -421,9 +445,9 @@ public class PracticeService {
 
         if (correct) {
             record.setCorrectCount(record.getCorrectCount() + 1);
-            markMastered(userId, question.getId());
+            wrongBookService.markMastered(userId, question.getId());
         } else if (EVAL_DONT_KNOW.equals(result)) {
-            addToWrongBook(userId, question.getId(), "SELF_EVAL");
+            wrongBookService.recordWrong(userId, question.getId(), "SELF_EVAL");
         }
 
         practiceRecordMapper.updateById(record);
@@ -658,45 +682,7 @@ public class PracticeService {
         }
     }
 
-    /** 加入错题本（已存在则累加次数） */
-    private void addToWrongBook(Long userId, Long questionId, String source) {
-        WrongBook exist = wrongBookMapper.selectOne(Wrappers.<WrongBook>lambdaQuery()
-                .eq(WrongBook::getUserId, userId)
-                .eq(WrongBook::getQuestionId, questionId));
-        if (exist == null) {
-            WrongBook wb = new WrongBook();
-            wb.setUserId(userId);
-            wb.setQuestionId(questionId);
-            wb.setSource(source);
-            wb.setWrongCount(1);
-            wb.setLastWrongAt(LocalDateTime.now());
-            wb.setMastered(0);
-            // SRS：新错题从第 1 阶段起步，明天进入复习队列
-            wb.setReviewStage(0);
-            wb.setNextReviewAt(WrongBookReviewService.initialNextReviewAt());
-            wrongBookMapper.insert(wb);
-        } else {
-            exist.setWrongCount(exist.getWrongCount() + 1);
-            exist.setLastWrongAt(LocalDateTime.now());
-            exist.setSource(source);
-            exist.setMastered(0);
-            // SRS：再次答错 → 复习进度重置回第 1 阶段
-            exist.setReviewStage(0);
-            exist.setNextReviewAt(WrongBookReviewService.initialNextReviewAt());
-            wrongBookMapper.updateById(exist);
-        }
-    }
-
-    /** 答对后从错题本标记为已掌握（保留记录，便于后续统计） */
-    private void markMastered(Long userId, Long questionId) {
-        WrongBook exist = wrongBookMapper.selectOne(Wrappers.<WrongBook>lambdaQuery()
-                .eq(WrongBook::getUserId, userId)
-                .eq(WrongBook::getQuestionId, questionId));
-        if (exist != null && (exist.getMastered() == null || exist.getMastered() == 0)) {
-            exist.setMastered(1);
-            wrongBookMapper.updateById(exist);
-        }
-    }
+    /** 加入错题本 / 标记掌握统一走 {@link WrongBookService}，此处不再保留重复实现 */
 
     // ==================================================================
     // 校验辅助
@@ -711,18 +697,8 @@ public class PracticeService {
     }
 
     /** 从 JSON 答案中提取填空文本（多空用竖线连接） */
-    @SuppressWarnings("unchecked")
     private String extractBlanksText(QuestionAnswer answer) {
-        if (answer == null || answer.getAnswerContent() == null) {
-            return null;
-        }
-        if (answer.getAnswerContent() instanceof Map<?, ?> map) {
-            Object blanks = map.get("blanks");
-            if (blanks instanceof List<?> list) {
-                return list.stream().map(String::valueOf).collect(Collectors.joining(" | "));
-            }
-        }
-        return null;
+        return answer == null ? null : AnswerTextUtils.blanksText(answer.getAnswerContent());
     }
 
     private AnswerDetail requireDetail(Long practiceId, Long questionId) {

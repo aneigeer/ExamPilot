@@ -3,15 +3,20 @@ package com.examprep.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
 @Schema(description = "开始练习请求")
 public class StartPracticeRequest {
 
-    @NotNull(message = "科目不能为空")
-    @Schema(description = "科目 ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "5")
+    /**
+     * 科目 ID（可选）。
+     *
+     * <p>2026-11-11 起改为可选：{@code subjectId} 与 {@code examCode} 都不传时表示
+     * 「全库随机」——从全部 APPROVED 有效题目中等概率抽取，不默认限定任何科目。
+     * practice_record.subject_id 允许 NULL，全库随机时该列写 NULL。
+     */
+    @Schema(description = "科目 ID（可选）；与 examCode 都不传 = 全库随机", example = "5")
     private Long subjectId;
 
     @Schema(description = "知识点 ID（可选，限定范围）")
@@ -33,8 +38,20 @@ public class StartPracticeRequest {
             allowableValues = {"MIXED", "ONLY_OBJECTIVE", "ONLY_SUBJECTIVE"}, example = "MIXED")
     private String objectiveFilter;
 
+    @Min(value = 1980, message = "年份最小 1980")
+    @Max(value = 2100, message = "年份最大 2100")
+    @Schema(description = "限定真题年份，如 2023；不传则不限年份（全部随机）。"
+            + "对 SEQUENCE / RANDOM / BY_TYPE 生效；WRONG_BOOK（错题本）忽略该参数",
+            example = "2023")
+    private Integer year;
+
+    @Schema(description = "限定考试类别编码，如 CET4 / GUOKAO / POSTGRAD_MATH1 / INTERVIEW；"
+            + "不传则不限类别。与 year 同时传入按 AND 生效；WRONG_BOOK（错题本）忽略该参数",
+            example = "CET4")
+    private String examCode;
+
     @Min(value = 1, message = "题数至少 1")
-    @Max(value = 50, message = "单次练习最多 50 题")
-    @Schema(description = "本次题数，默认 10，上限 50", example = "5")
-    private Integer count = 10;
+    @Max(value = 200, message = "单次练习最多 200 题")
+    @Schema(description = "本次题数，默认 20，上限 200", example = "20")
+    private Integer count = 20;
 }

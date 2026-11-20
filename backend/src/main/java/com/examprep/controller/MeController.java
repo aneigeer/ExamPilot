@@ -8,12 +8,15 @@ import com.examprep.dto.MyStatsVO;
 import com.examprep.dto.PracticeTrendVO;
 import com.examprep.dto.ai.AgentMemoryRequest;
 import com.examprep.dto.ai.AgentMemoryVO;
+import com.examprep.dto.ai.AiStudyPlanRequest;
+import com.examprep.dto.ai.AiStudyPlanVO;
 import com.examprep.dto.ai.StudyPlanVO;
 import com.examprep.dto.ai.StudyTargetRequest;
 import com.examprep.security.SecurityUtils;
 import com.examprep.service.AccountService;
 import com.examprep.service.MyStatsService;
 import com.examprep.service.StudyPlanService;
+import com.examprep.service.ai.AiStudyPlanService;
 import com.examprep.service.ai.agent.AgentMemoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +44,7 @@ public class MeController {
     private final MyStatsService myStatsService;
     private final AccountService accountService;
     private final StudyPlanService studyPlanService;
+    private final AiStudyPlanService aiStudyPlanService;
     private final AgentMemoryService memoryService;
 
     @Operation(summary = "我的统计",
@@ -119,6 +123,18 @@ public class MeController {
         Long userId = SecurityUtils.requireUserId();
         return Result.success("目标已更新",
                 studyPlanService.setTarget(userId, request.getDailyTarget(), request.getSubjectId()));
+    }
+
+    @Operation(summary = "根据用户错题 AI 制定学习计划",
+            description = """
+                    **访问级别：AUTH**。读取本人未掌握错题（`wrong_book`）与学情画像，
+                    由大模型生成分日提分计划；零错题时返回冷启动引导，大模型不可用时静默降级为规则引擎计划。
+                    """)
+    @PostMapping("/study-plan/ai")
+    public Result<AiStudyPlanVO> aiStudyPlan(
+            @Valid @RequestBody(required = false) AiStudyPlanRequest request) {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(aiStudyPlanService.generate(userId, request));
     }
 
     // ==================================================================

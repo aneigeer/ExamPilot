@@ -18,6 +18,13 @@ public class AiEvalRun {
 
     public static final String LAYER_RETRIEVAL = "RETRIEVAL";
     public static final String LAYER_AGENT = "AGENT";
+    public static final String LAYER_REFUSAL = "REFUSAL";
+    public static final String LAYER_GRADING = "GRADING";
+    public static final String LAYER_STUDY_PLAN = "STUDY_PLAN";
+
+    /** 所有合法的评测层（写回与门禁汇总都按此校验） */
+    public static final java.util.List<String> LAYERS = java.util.List.of(
+            LAYER_RETRIEVAL, LAYER_AGENT, LAYER_REFUSAL, LAYER_GRADING, LAYER_STUDY_PLAN);
 
     public static final String STATUS_RUNNING = "RUNNING";
     public static final String STATUS_SUCCESS = "SUCCESS";

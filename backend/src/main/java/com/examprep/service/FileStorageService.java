@@ -57,11 +57,20 @@ public class FileStorageService {
 
     /** 允许的图片类型（App 端） */
     private final Set<String> allowedImageTypes;
-    /** 允许的文档类型（管理端 Web） */
+    /**
+     * 允许的音频类型（听力题，P1）。
+     *
+     * <p>听力音频改走 {@code POST /api/files/audio}（见 {@code allowedAudioTypes}）。
+     */
     private final Set<String> allowedAudioTypes = Set.of("mp3", "wav", "m4a", "aac", "ogg");
 
-    private final Set<String> allowedDocTypes = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "txt",
-            "mp4", "mov", "avi", "webm", "mp3", "wav", "m4a");
+    /**
+     * 允许的文档类型（管理端 Web）。
+     *
+     * <p>D14（2026-11-12）：移除 mp4/mov/avi/webm/mp3/wav/m4a，与
+     * {@code docs/大纲-v2.md:45}「视频、音频 P0 不开放」及前端 accept 白名单一致。
+     */
+    private final Set<String> allowedDocTypes = Set.of("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "zip", "txt");
 
     private final FileRecordMapper fileRecordMapper;
     private final ResourcePageMapper resourcePageMapper;
@@ -158,7 +167,7 @@ public class FileStorageService {
         String ext = extOf(file.getOriginalFilename());
         if (!allowedDocTypes.contains(ext)) {
             throw new BizException(ResultCode.FILE_TYPE_NOT_ALLOWED,
-                    "仅支持文档/音视频格式：" + String.join(" / ", allowedDocTypes));
+                    "仅支持文档格式：PDF / DOC / DOCX / XLS / XLSX / PPT / PPTX / ZIP / TXT");
         }
         if (file.getSize() > 200L * 1024 * 1024) {
             throw new BizException(ResultCode.FILE_TOO_LARGE, "单个文件不能超过 200MB");
@@ -332,6 +341,38 @@ public class FileStorageService {
         return target.startsWith(uploadRoot) ? target : null;
     }
 
+    /** E1-03：判断该扩展名是否应当能生成预览图（PDF / 上传白名单图片）。 */
+    public boolean supportsPreview(String ext) {
+        String normalized = ext == null ? "" : ext.toLowerCase(Locale.ROOT);
+        return "pdf".equals(normalized) || allowedImageTypes.contains(normalized);
+    }
+
+    /**
+     * E1-08：解析「受上传根目录约束」的可读路径。
+     * MinIO 路径与越界路径（含 {@code ../}）一律返回 null，调用方按 404 处理，
+     * 避免 {@code stored_path} 被污染时读取 uploadRoot 之外的任意文件。
+     */
+    public Path resolveReadablePath(String storedPath) {
+        if (!StringUtils.hasText(storedPath) || StorageProperties.isMinioPath(storedPath)) {
+            return null;
+        }
+        Path target = uploadRoot.resolve(storedPath).normalize();
+        return target.startsWith(uploadRoot) ? target : null;
+    }
+
+    /**
+     * E1-08：统一文件读取入口。本地文件走带边界校验的路径；MinIO 文件走对象存储流；
+     * 均不可读时返回 null，由调用方返回 404（不再让含 {@code :} 的 minio:// 路径触发 InvalidPathException）。
+     */
+    public InputStream openForRead(FileRecord fileRecord) throws IOException {
+        Path local = resolveLocalPath(fileRecord);
+        if (local != null && Files.exists(local)) {
+            return Files.newInputStream(local);
+        }
+        String objectKey = StorageProperties.parseObjectKey(fileRecord.getStoredPath());
+        return objectKey == null ? null : minioStorageService.getObject(objectKey);
+    }
+
     // ==================================================================
     // 预览图生成
     // ==================================================================
@@ -360,9 +401,8 @@ public class FileStorageService {
             }
             try (InputStream is = minioStorageService.getObject(objectKey)) {
                 if (is == null) {
-                    log.warn("源文件在 MinIO 与本地均不可读，跳过预览图生成：{}",
-                            fileRecord.getStoredPath());
-                    return 0;
+                    // E1-03：源文件读不到属真实失败，抛异常让外层事务回滚（旧行为静默返回 0 并提交）
+                    throw new BizException("源文件在 MinIO 与本地均不可读，资料未提交：" + fileRecord.getOriginalName());
                 }
                 // 物化到临时文件供 PDFBox / 图片解码使用（PDFBox 需要可定位文件）
                 Path temp = Files.createTempFile("minio-preview-", "." + fileRecord.getExt());
@@ -376,14 +416,16 @@ public class FileStorageService {
                         // 临时文件删除失败不影响业务
                     }
                 }
+            } catch (BizException e) {
+                throw e;
             } catch (IOException e) {
-                log.warn("从 MinIO 读取源文件失败: {}", e.getMessage());
-                return 0;
+                // E1-03：同上，读取失败不再静默成功
+                throw new BizException("读取源文件失败，资料未提交：" + e.getMessage());
             }
         }
 
-        log.warn("源文件不存在，跳过预览图生成：{}", fileRecord.getStoredPath());
-        return 0;
+        // E1-03：既无合法本地路径、又不是 MinIO 路径 → 路径异常，拒绝提交
+        throw new BizException("源文件路径无效，资料未提交：" + fileRecord.getStoredPath());
     }
 
     /**
@@ -391,14 +433,11 @@ public class FileStorageService {
      */
     private int renderPreviewPages(Path source, FileRecord fileRecord, Long resourceId) {
         if (!Files.exists(source)) {
-            log.warn("源文件不存在，跳过预览图生成：{}", source);
-            return 0;
+            // E1-03：源文件缺失属真实失败，抛异常让外层事务回滚，且绝不删旧预览页
+            throw new BizException("源文件不存在，无法生成预览图：" + fileRecord.getOriginalName());
         }
 
-        // 先清掉旧的
-        resourcePageMapper.delete(Wrappers.<ResourcePage>lambdaQuery()
-                .eq(ResourcePage::getResourceId, resourceId));
-
+        // E1-03：先渲染到内存集合，全部成功后才删除并替换旧页
         List<ResourcePage> pages = new ArrayList<>();
         try {
             if ("pdf".equalsIgnoreCase(fileRecord.getExt())) {
@@ -406,14 +445,18 @@ public class FileStorageService {
             } else if (allowedImageTypes.contains(fileRecord.getExt())) {
                 pages = List.of(imageToPage(source, resourceId));
             } else {
-                log.info("文档类型 {} 暂不支持自动生成预览图", fileRecord.getExt());
+                // 不支持自动预览的文档类型：保留既有预览页，返回 0（由调用方按类型判断是否拒绝提交）
+                log.info("文档类型 {} 暂不支持自动生成预览图，保留既有预览页", fileRecord.getExt());
                 return 0;
             }
         } catch (Exception e) {
+            // E1-03：不再吞异常返回 0；抛出让 @Transactional 回滚，避免静默清空预览页
             log.error("生成预览图失败 resourceId={}", resourceId, e);
-            return 0;
+            throw new BizException("生成预览图失败，资料未提交：" + e.getMessage());
         }
 
+        resourcePageMapper.delete(Wrappers.<ResourcePage>lambdaQuery()
+                .eq(ResourcePage::getResourceId, resourceId));
         pages.forEach(resourcePageMapper::insert);
         log.info("资源 {} 生成预览图 {} 页", resourceId, pages.size());
         return pages.size();

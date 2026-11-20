@@ -90,4 +90,69 @@ public interface WrongBookMapper extends BaseMapper<WrongBook> {
               AND (next_review_at IS NULL OR next_review_at <= NOW())
             """)
     int countDueForReview(@Param("userId") Long userId);
+
+    /**
+     * 按可选科目统计未掌握错题总数（AI 错题学习计划用）
+     */
+    @Select("""
+            SELECT COUNT(*) FROM wrong_book wb
+            JOIN question q ON q.id = wb.question_id AND q.is_deleted = 0
+            WHERE wb.user_id = #{userId}
+              AND wb.mastered = 0
+              AND (#{subjectId} IS NULL OR q.subject_id = #{subjectId})
+            """)
+    int countUnmasteredBySubject(@Param("userId") Long userId, @Param("subjectId") Long subjectId);
+
+    /**
+     * 取用户未掌握的错题明细（支持按科目筛选，含科目名，AI 制定学习计划用）
+     */
+    @Select("""
+            SELECT wb.question_id   AS questionId,
+                   q.stem           AS stem,
+                   q.subject_id     AS subjectId,
+                   s.name           AS subjectName,
+                   q.difficulty     AS difficulty,
+                   q.type           AS questionType,
+                   q.analysis       AS analysis,
+                   qk.knowledge_id  AS knowledgeId,
+                   k.name           AS knowledgeName,
+                   wb.wrong_count   AS wrongCount,
+                   wb.last_wrong_at AS lastWrongAt
+            FROM wrong_book wb
+            JOIN question q ON q.id = wb.question_id AND q.is_deleted = 0
+            LEFT JOIN subject s ON s.id = q.subject_id
+            LEFT JOIN question_knowledge qk ON qk.question_id = q.id
+            LEFT JOIN knowledge_point k ON k.id = qk.knowledge_id
+            WHERE wb.user_id = #{userId}
+              AND wb.mastered = 0
+              AND (#{subjectId} IS NULL OR q.subject_id = #{subjectId})
+            ORDER BY wb.wrong_count DESC, wb.last_wrong_at DESC
+            LIMIT #{limit}
+            """)
+    List<Map<String, Object>> selectUnmasteredForPlan(@Param("userId") Long userId,
+                                                      @Param("subjectId") Long subjectId,
+                                                      @Param("limit") int limit);
+
+    /**
+     * 按可选科目聚合未掌握错题关联的薄弱知识点（AI 错题学习计划用）
+     */
+    @Select("""
+            SELECT qk.knowledge_id      AS knowledgeId,
+                   k.name              AS knowledgeName,
+                   COUNT(*)            AS wrongQuestionCount,
+                   MAX(wb.wrong_count) AS maxWrongCount
+            FROM wrong_book wb
+            JOIN question q ON q.id = wb.question_id AND q.is_deleted = 0
+            JOIN question_knowledge qk ON qk.question_id = q.id
+            JOIN knowledge_point k ON k.id = qk.knowledge_id
+            WHERE wb.user_id = #{userId}
+              AND wb.mastered = 0
+              AND (#{subjectId} IS NULL OR q.subject_id = #{subjectId})
+            GROUP BY qk.knowledge_id, k.name
+            ORDER BY wrongQuestionCount DESC, maxWrongCount DESC
+            LIMIT #{limit}
+            """)
+    List<Map<String, Object>> selectWeakKnowledgeFromWrongBookForPlan(@Param("userId") Long userId,
+                                                                      @Param("subjectId") Long subjectId,
+                                                                      @Param("limit") int limit);
 }

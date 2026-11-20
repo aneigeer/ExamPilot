@@ -73,6 +73,10 @@ public class ExtractiveAnswerClient implements LlmClient {
                 if (sentence.length() < 4) {
                     continue;
                 }
+                sentence = normalizeSentence(sentence);
+                if (sentence.isEmpty()) {
+                    continue;
+                }
                 double coverage = coverage(sentence, terms);
                 if (coverage >= threshold || (i == 0 && picked.isEmpty() && sentence.length() >= 8)) {
                     picked.add(sentence);
@@ -92,10 +96,14 @@ public class ExtractiveAnswerClient implements LlmClient {
         }
 
         if (answer.isEmpty()) {
-            // 兜底再兜底：连一句都抽不出时直接给首块摘要，并明确告知来自原文
+            // 兜底再兜底：连一句都抽不出时，取首块的「非元数据」正文，而不是原文整段。
             ChunkContext top = contexts.get(0);
-            answer.append("根据《").append(nullToEmpty(top.title())).append("》：")
-                    .append(AbstractOpenAiCompatLlmClient.snippetPublic(top.content()));
+            String cleaned = cleanFallback(top.content());
+            if (cleaned.isEmpty()) {
+                answer.append("资料中没有可直接引用的答案，建议查看来源原文核对。");
+            } else {
+                answer.append("根据《").append(nullToEmpty(top.title())).append("》：").append(cleaned);
+            }
             sources.add(SourceRef.of(top.chunkId(), top.title(),
                     AbstractOpenAiCompatLlmClient.snippetPublic(top.content()),
                     top.refType(), top.refId(), top.refPath()));
@@ -124,6 +132,57 @@ public class ExtractiveAnswerClient implements LlmClient {
             result.add(content.trim());
         }
         return result;
+    }
+
+    /**
+     * 兜底正文清洗：丢掉「题干/解析/标签/出处」等字段行与 Markdown 标记，
+     * 只保留解释性文字，最多 240 字，避免把资料原文整段倒给学生。
+     */
+    private String cleanFallback(String content) {
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String line : content.split("\\r?\\n")) {
+            String s = normalizeSentence(line);
+            if (s.isEmpty()) {
+                continue;
+            }
+            if (sb.length() + s.length() > 240) {
+                break;
+            }
+            sb.append(s);
+            if (!s.endsWith("。") && !s.endsWith("！") && !s.endsWith("？")) {
+                sb.append('。');
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    /** 语料里的结构化字段行（题干/解析/标签/出处…）不是「答案句子」，直接丢弃。 */
+    private static final Pattern META_LINE = Pattern.compile(
+            "^(题干|解析|原文出处|标签|参考答案|答题思路|答案|考点|来源|难度|题型|标题)\\s*[：:]");
+
+    /**
+     * 清洗单句：去掉 Markdown 装饰与结构化元数据。
+     *
+     * <p>2026-11-13 实测：题库块正文形如「题干：… 解析：… 标签：… 参考答案：…」，
+     * 直接抽句会把整段元数据倒给学生。这里把「字段名：」开头的行、纯链接、
+     * 三连 # 标题一律判为空串跳过，只保留真正的解释性句子。
+     */
+    private String normalizeSentence(String raw) {
+        String s = raw == null ? "" : raw.trim();
+        s = s.replaceFirst("^[#>*\\-\\s]+", "");
+        if (s.isEmpty()) {
+            return "";
+        }
+        if (META_LINE.matcher(s).find()) {
+            return "";
+        }
+        if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("www.")) {
+            return "";
+        }
+        return s;
     }
 
     /** 句子对 query term 的覆盖率 = 命中 term 数 / query term 总数 */

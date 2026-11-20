@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -40,11 +41,25 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /**
+     * E1-04：认证失败类业务码 → HTTP 状态映射。
+     * 只改 HTTP 状态，响应体里的业务码（1001/1002/…）保持不变，
+     * 前端按 {@code json.code} / {@code ApiResult.ok()} 判成败的逻辑不受影响；
+     * 同时让网关按 4xx 统计的登录爆破告警不再漏报。
+     */
+    private static final Map<Integer, Integer> AUTH_FAILURE_HTTP_STATUS = Map.of(
+            ResultCode.LOGIN_FAILED.getCode(), HttpServletResponse.SC_UNAUTHORIZED,
+            ResultCode.ACCOUNT_DISABLED.getCode(), HttpServletResponse.SC_UNAUTHORIZED,
+            ResultCode.TOKEN_INVALID.getCode(), HttpServletResponse.SC_UNAUTHORIZED,
+            ResultCode.OLD_PASSWORD_WRONG.getCode(), HttpStatus.BAD_REQUEST.value());
+
     /** 业务异常（可预期，记 warn 即可）。业务码落在 400-599 HTTP 区间时同步 HTTP 状态码（如 409 重复注册） */
     @ExceptionHandler(BizException.class)
     public Result<Void> handleBiz(BizException e, HttpServletRequest req, HttpServletResponse resp) {
         log.warn("业务异常 [{} {}] {}", req.getMethod(), req.getRequestURI(), e.getMessage());
-        setStatusIfHttpRange(resp, e.getCode());
+        // E1-04：认证失败类业务码映射为 401/400；其余业务码沿用原逻辑
+        Integer httpStatus = AUTH_FAILURE_HTTP_STATUS.get(e.getCode());
+        setStatusIfHttpRange(resp, httpStatus == null ? e.getCode() : httpStatus);
         return Result.fail(e.getCode(), e.getMessage());
     }
 

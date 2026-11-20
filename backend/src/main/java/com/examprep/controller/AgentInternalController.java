@@ -3,13 +3,18 @@ package com.examprep.controller;
 import com.examprep.common.BizException;
 import com.examprep.common.Result;
 import com.examprep.common.ResultCode;
+import com.examprep.dto.ai.AiStudyPlanRequest;
 import com.examprep.dto.ai.KnowledgeWeakVO;
 import com.examprep.dto.ai.StudyPlanVO;
+import com.examprep.entity.AiEvalRun;
+import com.examprep.mapper.AiEvalRunMapper;
 import com.examprep.mapper.WrongBookMapper;
 import com.examprep.service.QuestionService;
 import com.examprep.service.StudyPlanService;
+import com.examprep.service.ai.AiGradingService;
 import com.examprep.service.ai.AiProperties;
 import com.examprep.service.ai.AiQaService;
+import com.examprep.service.ai.AiStudyPlanService;
 import com.examprep.service.ai.AnswerPostProcessor;
 import com.examprep.service.ai.ChunkContext;
 import com.examprep.service.ai.ExtractiveAnswerClient;
@@ -60,6 +65,9 @@ public class AgentInternalController {
     private final AiQaService aiQaService;
     private final AnswerPostProcessor answerPostProcessor;
     private final AsyncJobService asyncJobService;
+    private final AiGradingService aiGradingService;
+    private final AiStudyPlanService aiStudyPlanService;
+    private final AiEvalRunMapper evalRunMapper;
     private final AiProperties properties;
     private final ObjectMapper objectMapper;
     private final List<LlmClient> llmClients;
@@ -220,12 +228,27 @@ public class AgentInternalController {
 
         LlmAnswer answer;
         if (!contexts.isEmpty()) {
-            if (StringUtils.hasText(draft)) {
+            // 2026-11-13：原逻辑直接拿规划器草稿做 L3 校验，草稿往往只有一两句，
+            // 学生拿到的就是「几十字结论」。改为**先基于资料重写一次**（带引用与讲解结构），
+            // 生成失败或被判拒答时才退回草稿，兼顾质量与可用性。
+            LlmAnswer generated = null;
+            try {
+                generated = aiQaService.answerWithContexts(question, contexts);
+            } catch (Exception e) {
+                log.warn("[Agent] 带资料生成失败，回退规划器草稿：{}", e.getMessage());
+            }
+            boolean usable = generated != null
+                    && StringUtils.hasText(generated.content())
+                    && !PromptBuilder.REFUSAL_TEXT.equals(generated.content().trim());
+            if (usable) {
+                answer = generated;
+            } else if (StringUtils.hasText(draft)) {
                 LlmAnswer draftAnswer = new LlmAnswer(draft,
                         LlmClient.resolveSources(draft, contexts), "agent-llm", 0L, false);
                 answer = answerPostProcessor.verify(question, draftAnswer, contexts);
             } else {
-                answer = aiQaService.answerWithContexts(question, contexts);
+                answer = generated != null ? generated
+                        : aiQaService.answerWithContexts(question, contexts);
             }
         } else {
             var request = new com.examprep.dto.ai.AskRequest();
@@ -256,6 +279,14 @@ public class AgentInternalController {
                     answer.content() == null ? 0 : answer.content().length());
         }
         String answerText = refused ? PromptBuilder.REFUSAL_TEXT : answer.content();
+        // 清掉模型机械照抄提示词留下的空话（实测 7B 会输出「资料未覆盖：无」）
+        if (!refused && answerText != null) {
+            answerText = answerText
+                    .replaceAll("(?m)^\\s*资料未覆盖\\s*[：:]\\s*(无|没有|暂无|N/?A|无未覆盖内容)\\s*$", "")
+                    .replaceAll("(?m)^\\s*资料未覆盖\\s*[：:]\\s*$", "")
+                    .replaceAll("\\n{3,}", "\n\n")
+                    .trim();
+        }
         List<SourceRef> sources = refused ? List.of() : answer.sources();
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -297,6 +328,93 @@ public class AgentInternalController {
                                                @RequestBody Map<String, Object> body) {
         boolean updated = asyncJobService.fail(id, str(body.get("error")));
         return Result.success(Map.of("updated", updated, "ignored", !updated));
+    }
+
+    // ==================================================================
+    // 测评中台：评测用内部接口（仅 Python 评测脚本 / worker 调用）
+    // ==================================================================
+
+    /**
+     * 主观题判分预览：按题干 + 参考答案直接判分，不依赖题库 ID。
+     *
+     * <p>供 {@code ai-service/eval/grading_eval.py} 评测「判分等级一致率」使用，
+     * 与线上 {@code POST /questions/{id}/grade} 共用同一套 Prompt 与解析。
+     */
+    @PostMapping("/ai/eval/grading")
+    public Result<AiGradingService.GradeResult> evalGrading(@RequestBody Map<String, Object> body) {
+        String stem = str(body.get("stem"));
+        String reference = str(body.get("reference"));
+        String userAnswer = str(body.get("userAnswer"));
+        return Result.success(aiGradingService.grade(stem, reference, userAnswer));
+    }
+
+    /**
+     * 学习计划预览：按用户真实错题生成计划，并回传真实错题 ID 白名单。
+     *
+     * <p>供 {@code study_plan_eval.py} 校验「JSON 合规率」与「题号零幻觉率」。
+     */
+    @PostMapping("/ai/eval/study-plan")
+    public Result<Map<String, Object>> evalStudyPlan(@RequestBody Map<String, Object> body) {
+        Long userId = longOrNull(body.get("userId"));
+        if (userId == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "userId 必填");
+        }
+        AiStudyPlanRequest request = new AiStudyPlanRequest();
+        Integer days = intOrNull(body.get("days"));
+        if (days != null) {
+            request.setDays(days);
+        }
+        Integer dailyTarget = intOrNull(body.get("dailyTarget"));
+        if (dailyTarget != null) {
+            request.setDailyTarget(dailyTarget);
+        }
+        request.setSubjectId(longOrNull(body.get("subjectId")));
+        request.setGoalNote(str(body.get("goalNote")));
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("plan", aiStudyPlanService.generate(userId, request));
+        data.put("realWrongIds", wrongBookMapper.selectWrongQuestionIds(userId));
+        return Result.success(data);
+    }
+
+    /**
+     * 评测结果写回 ai_eval_run（CLI 直跑场景）。
+     *
+     * <p>worker 触发的评测走 {@code /jobs/{id}/complete} 自动落库；
+     * 本接口只服务「脚本独立运行 + --write-back」。
+     */
+    @PostMapping("/ai/eval-runs")
+    public Result<Map<String, Object>> saveEvalRun(@RequestBody Map<String, Object> body) {
+        String layer = str(body.get("layer"));
+        if (!AiEvalRun.LAYERS.contains(layer)) {
+            throw new BizException(ResultCode.PARAM_ERROR, "未知评测层：" + layer);
+        }
+        AiEvalRun run = new AiEvalRun();
+        run.setLayer(layer);
+        String status = str(body.get("status"));
+        run.setStatus(AiEvalRun.STATUS_FAILED.equals(status)
+                ? AiEvalRun.STATUS_FAILED : AiEvalRun.STATUS_SUCCESS);
+        run.setTotal(intOr(body.get("total"), 0));
+        run.setPassed(intOr(body.get("passed"), 0));
+        run.setMetricsJson(writeJsonOrNull(body.get("metrics")));
+        run.setDetailJson(writeJsonOrNull(body.get("detail")));
+        run.setReportPath(str(body.get("reportPath")));
+        run.setError(str(body.get("error")));
+        run.setCreatedAt(java.time.LocalDateTime.now());
+        run.setFinishedAt(java.time.LocalDateTime.now());
+        evalRunMapper.insert(run);
+        return Result.success(Map.of("id", run.getId(), "layer", layer));
+    }
+
+    private String writeJsonOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ==================================================================

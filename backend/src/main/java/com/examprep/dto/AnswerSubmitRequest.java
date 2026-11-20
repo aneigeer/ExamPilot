@@ -3,6 +3,7 @@ package com.examprep.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -14,6 +15,7 @@ public class AnswerSubmitRequest {
     private Long questionId;
 
     @NotBlank(message = "答案不能为空")
+    @Size(max = 2000, message = "答案长度不能超过 2000 字符") // E1-11：防止超长文本撑爆 answer_detail.user_answer
     @Schema(description = """
             用户答案。格式按题型：
             - 单选 / 判断：单个选项标识，如 `C`

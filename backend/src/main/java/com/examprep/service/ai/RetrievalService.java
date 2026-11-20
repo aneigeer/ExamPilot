@@ -222,7 +222,7 @@ public class RetrievalService {
      * 这类问题（天气、汇率、快递、菜谱…）在语料里可能凑出很高的词重叠
      * （行测材料包罗万象），任何「词重叠类」判据都拦不住，只能靠显式边界声明。
      */
-    private boolean outOfScopeHit(String question) {
+    boolean outOfScopeHit(String question) {
         if (!StringUtils.hasText(question)) {
             return false;
         }

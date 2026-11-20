@@ -21,7 +21,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/exam_prep?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:root}
+    password: ${DB_PASSWORD:}
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -107,11 +107,40 @@ app:
     # 游客可预览页数
     guest-pages: 3
 
+  # ========== 编程题在线运行（默认关闭，P0 安全门禁）==========
+  # ★ 为什么默认关闭：CodeRunService 用 ProcessBuilder 在本机裸跑 gcc / java.exe，
+  #   无 CPU/内存/网络/文件系统隔离，且子进程继承后端全部环境变量（含 JWT_SECRET、DB_PASSWORD）。
+  #   一旦录入 PROGRAMMING 题目，任意自助注册用户即可在后端宿主执行任意 Java
+  #   → 等价于 P0 远程命令执行面（结论见 项目规划/第9周/03_代码运行沙箱_2026-11-08.md）。
+  # ★ 关闭效果：CodeRunController 整体不注册（@ConditionalOnProperty），
+  #   POST /api/run → 404（接口不存在），不是 403/500，也不进入 api-docs。
+  # ★ 临时开启：启动参数 --app.code-run.enabled=true 或环境变量 APP_CODE_RUN_ENABLED=true。
+  #   ⚠️ 开启前必须先在独立判题沙箱（容器/nsjail + --network=none + 只读 rootfs + 非 root
+  #   + CPU/内存/PID 配额 + 编译与运行分离各自超时 + 输出硬上限 + 全局并发上限）完成隔离验收；
+  #   仅本机单人调试可临时开启，严禁在公网部署中开启。
+  # ★ F1 / E1-05：隔离未实现（仅做了子进程环境变量白名单化），禁止把下面开关置 true；
+  #   nginx.conf 已加 location = /api/run { deny all; } 双重拦截。
+  code-run:
+    enabled: false
+
   cors:
     # 允许跨域的来源（逗号分隔）。管理端与后端同源部署时仅需本机；
     # 部署到正式域名后务必覆盖，否则从其它源发起的浏览器请求会被拦。
     # 覆盖方式：环境变量 APP_CORS_ALLOWED_ORIGINS=https://api.example.com,https://admin.example.com
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:8080}
+
+  # ========== 认证入口限流（阻断项 B 修复配套）==========
+  # RateLimitFilter 用「可信代理白名单」决定是否采信 X-Forwarded-For：
+  #   对端在这份名单内 → 采信它写的 XFF（取第一段且必须是合法 IP）；
+  #   对端不在名单内   → 完全忽略 XFF，按真实 remoteAddr 计数（伪造头因此换不到新桶）。
+  # 支持精确 IP 与 IPv4 CIDR，逗号分隔；留空 = 不信任任何代理。
+  # ⚠️ 部署形态不同，取值不同（配错只会「更严」，不会更松）：
+  #   - 本机直跑 + 本机 nginx 反代（nginx-https.conf：proxy_pass 127.0.0.1:8080）→ 默认值即可；
+  #   - Docker Compose（backend 只由 nginx 容器反代）→ 后端看到的对端是 nginx「容器 IP」，
+  #     必须显式配成容器网段，例如 APP_RATE_LIMIT_TRUSTED_PROXIES=172.18.0.0/16，
+  #     否则所有客户端共用 nginx 容器这一个桶（限流过严，但不放行伪造）。
+  rate-limit:
+    trusted-proxies: "${APP_RATE_LIMIT_TRUSTED_PROXIES:127.0.0.1,::1}"
 
   resource:
     # 推荐排序热度分（物化列 resource.hot_score）的定时重算
@@ -143,8 +172,10 @@ app:
 
     # ========== Agent Harness ==========
     agent:
-      # false 时 /ai/agent/** 返回 503，原有 /ai/ask 完全不受影响
-      enabled: ${AI_AGENT_ENABLED:false}
+      # ★ 2026-11-11：默认改为 true（Agent 常开）。
+      #   false 时 /ai/agent/** 返回 503，原有 /ai/ask 完全不受影响；
+      #   用户实测「Agent 系统没了」正是因为旧默认值 false。仍保留环境变量 AI_AGENT_ENABLED 覆盖。
+      enabled: ${AI_AGENT_ENABLED:true}
       max-steps: 6
       max-tool-calls: 4
       # prompt 字符预算（≈8k tokens），超出后从最老的工具结果开始截断
@@ -164,28 +195,43 @@ app:
 
     llm:
       # 客户端标识：ollama（本地模型）/ dashscope（阿里云百炼）/ zhipu（智谱 GLM）/ extractive（强制本地抽取）
-      # ⚠️ 注意：provider 只影响日志与展示，**实际选路由 @Order + available() 决定**
-      #    （见 AiQaService.isProviderCandidate：只排除 Extractive，不按 provider 过滤）
+      # ⚠️ 实际选路由 @Order + available() 决定（AiQaService.generate 取第一个 available 的客户端）：
+      #   档位 5 Ollama → 10 DashScope → 15 FastApi → 20 Zhipu → 30 Extractive(仅兜底)。
+      #   DashScope / Zhipu 的 available() 明确读取 provider 与 api-key：
+      #     DashScopeLlmClient.available / ZhipuLlmClient.available
+      #       → AbstractOpenAiCompatLlmClient.available → hasCredentials → AiProperties.Llm.hasKey()
+      #
+      # ★ 本阶段只允许本地 3B 单模型：dashscope / zhipu 两个在线 provider **明确禁用**。
+      #   机制（可验证，零代码改动）：
+      #     ① provider 固定为 ollama（不等于 dashscope/zhipu）→ 二者 available() 第一道闸门恒 false；
+      #     ② api-key 注释掉、保持为空 → hasKey()=false → 第二道闸门 super.available() 恒 false。
+      #   即便 Ollama 熔断需降级，链路也只会在本地 FastAPI 代理 / 抽取式兜底之间选择，
+      #   绝不会自动启用任何在线模型。Ollama @Order(5) 排最前且恒 available，是唯一默认生成器。
       provider: ollama
 
-      # ---------- 本地模型 Ollama（推荐，无需 Key、不过期、零费用）----------
+      # ---------- 本地模型 Ollama（本阶段唯一默认，无需 Key、不过期、零费用）----------
       # OpenAI 兼容端点，注意带 /v1，程序内部会拼 /chat/completions
       ollama-base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434/v1}
-      # 用 `ollama create` 定义的名字（如 qwen2.5-7b）
-      ollama-model: ${OLLAMA_MODEL:qwen2.5-7b}
-      # ★ 7B 模型生成 300 token 需 15–25 秒，必须给足；云端仍用下面的 timeout-millis(8s)
+      # ★ 2026-11-13 起允许环境变量覆盖：模型选型已实测（见 tools/bench_models.py），
+      #   换模型只需改 .env 的 OLLAMA_MODEL 后重启，不必重新打包。
+      #   仍只允许本地 Ollama，不允许在线模型（provider 固定 ollama）。
+      ollama-model: ${OLLAMA_MODEL:qwen2.5-3b-instruct-q8_0-baseline}
+      # ★ 3B(q8_0) 生成 300 token 约 5–10 秒；7B 需 15–25 秒。两者都保留 90s 上限以容忍冷启动
       #   绝不要为了本地模型把全局超时改成 90s —— 云端失败时会白等 90 秒才降级
       ollama-timeout-millis: ${OLLAMA_TIMEOUT_MS:90000}
 
-      # API Key：留空即自动走抽取式兜底，接口仍返回 200。
-      # 生产环境用环境变量注入：LLM_API_KEY
-      api-key: ${LLM_API_KEY:}
+      # ★ 在线模型凭据：本阶段禁用，故注释掉这一行（AiProperties.Llm.apiKey 代码默认 "" 亦为空）。
+      #   注释掉后 hasKey()=false，DashScope / Zhipu 的 super.available() 恒 false。
+      #   恢复在线模型时必须同时改 provider 与取消本行注释，二者缺一不可。
+      # api-key: ${LLM_API_KEY:}
       # 单次调用超时（毫秒），超时计入熔断计数
       timeout-millis: 8000
       # 连续失败多少次后熔断
       circuit-breaker-threshold: 3
       # 熔断持续时间（毫秒），期间静默降级为抽取式，用户无感
       circuit-breaker-open-millis: 60000
+      # 以下两个在线模型名只是「万一恢复在线模型」时的占位；当前 provider=ollama + 无 Key，
+      # 二者均不会生效。保留配置以免恢复时需翻代码。
       dashscope-model: qwen-plus
       zhipu-model: glm-4-flash
     retrieval:
@@ -249,10 +295,9 @@ app:
       #   ⚠️ 全量 214 条重标后若域内最低值跌破 0.60，应重标而不是继续放宽
       # ⚠️ 语料扩容（11300 → 11999 → 12900）后**必须重新标定**：余弦分布随语料整体漂移，
       #    调参时只改这里即可，无需改代码；若域内最低值跌破本阈值，说明该重标而非放宽。
-      # ★ 2026-11-08 全量 214 条实测 0.58：误拒 9.4%（19/203）、拒答 9/11、召回 MISS 无新增，
-      #   故由临时值 0.58 转为保留（决策记录见 项目规划/第7周/19_058实测与决策_2026-11-08.md）。
+      # ★ 2026-11-19 语料扩充至 97251 块后重标定 0.62（原 0.58）：域内最低 >= 0.6328，域外波函数 0.6115 被拦截。
       # ★ 代码默认值必须与本值一致（见 AiConfigConsistencyTest 护栏）。
-      semantic-reject-score: 0.58
+      semantic-reject-score: 0.62
       # ---- 五因子重排权重（finalScore = Σ 因子 × 权重）----
       fulltext-weight: 1.0
       title-weight: 0.30
@@ -296,15 +341,15 @@ app:
       max-question-length: 200
 
     # ========== T09：FastAPI AI 微服务（向量检索通道）==========
-    # ★ 安全底线：enabled=false 或服务不可用时，向量通道静默跳过，
-    #   问答自动退化为 ngram 字面检索 + 抽取式生成，接口仍返回 200。
+    # ★ 2026-11-11：改为 true —— 本机 AI 服务（127.0.0.1:8000）已常驻，
+    #   向量通道开启后问答走语义检索；服务不可用时仍会自动降级为 ngram 字面检索。
     fastapi:
-      enabled: false
+      enabled: true
       base-url: ${AI_SERVICE_URL:http://127.0.0.1:8000}
       # Python 侧路由挂在 /v1 下（见 ai-service/app/routers/search.py）
       path-prefix: /v1
-      # 超时预算（设计文档 A.1）：检索 1200ms / 健康 1000ms
-      search-timeout-millis: 1200
+      # 超时预算：本地 97k 语料库向量检索 P99 约 1.35s，放宽到 3000ms（健康检查仍保持 1000ms）
+      search-timeout-millis: 3000
       health-timeout-millis: 1000
       # 索引推送：单次最多 500 条，CPU 端 bge-small 嵌入实测约 12s/500 条，
       # 原设计预算 5000ms 会误判为超时（推送已成功但 Java 侧读不到响应）。
@@ -386,6 +431,11 @@ app:
     # ★ 小语料下 MATCH 的 IDF 接近 0，字面通道必须同时看覆盖率（与语料规模无关）
     title-coverage-threshold: 0.25
     literal-coverage-threshold: 0.50
+    # ★ ft_score 只是入场券：仅靠它过线时，标题覆盖率还必须达到该下限
+    #   2026-11-11 实测：问句含通用词「Agent」时，通篇写 Agent 的页面 ft=14.06，
+    #   真正讲 LangChain 的页面 ft=6.07 被 ngram-min-score 淘汰，热层拿错页抢答。
+    #   叠加标题覆盖率下限后，无关页标题覆盖率仅 0.16 被拦下，切题页 0.36 入选。
+    ft-gate-title-floor: 0.20
     # 图遍历：命中页的 1 跳关联页按衰减分补位
     link-expand: true
     link-decay: 0.85
@@ -406,14 +456,13 @@ app:
       auto-index: true
 
 # ========== 健康检查 / 监控（Actuator）==========
-# 仅暴露 health 与 info：health 匿名可访问（供负载均衡/容器编排探活），
-# 其余端点一律不暴露，且 details 不对外（避免泄露数据库等内部状态）。
-# 访问：GET /api/actuator/health
+# health 与 info 匿名探活；metrics 仅 ADMIN 可访问（SecurityConfig 限制）
+# 访问：GET /api/actuator/health | /api/actuator/metrics
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never

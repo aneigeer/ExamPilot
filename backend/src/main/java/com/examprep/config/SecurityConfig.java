@@ -206,6 +206,7 @@ public class SecurityConfig {
                                 "/admin/vendor/**", "/student/", "/student/index.html",
                                 "/student/vendor/**").permitAll()
                         // 管理端：超管专属
+                        .requestMatchers("/actuator/metrics/**", "/actuator/prometheus/**").hasRole("ADMIN")
                         .requestMatchers("/admin/logs/audit").hasAnyRole("AUDITOR", "ADMIN")
                         .requestMatchers("/admin/users/**", "/admin/logs/**", "/admin/roles/**")
                         .hasRole("ADMIN")

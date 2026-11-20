@@ -36,6 +36,31 @@ public class Question {
     @Schema(description = "来源")
     private String source;
 
+    /**
+     * 真题年份。
+     *
+     * <p>由 {@code sql/migration-question-year.sql} 从 source 前 4 位回填（仅 '20xx年' 开头的来源），
+     * 非真题或来源无法解析时为 null。空值语义 = 「不限年份 / 年份未知」，不是 「0 年」。
+     */
+    @Schema(description = "真题年份（非真题为 NULL）", example = "2023")
+    private Integer year;
+
+    /**
+     * 考试类别编码（2026-11-11 由 sql/migration-question-exam-code.sql 新增）。
+     *
+     * <p>取值：CET4 / CET6 / GUOKAO / GUOKAO_SHENLUN / POSTGRAD_ENG1 / POSTGRAD_ENG2 /
+     * POSTGRAD_MATH1 / POSTGRAD_MATH2 / POSTGRAD_MATH3 / INTERVIEW；历史数据为 NULL。
+     * 用于「按考试类别筛选 / 组卷」，与 subject_id 并列而不是替代它。
+     */
+    @Schema(description = "考试类别编码", example = "CET4")
+    private String examCode;
+
+    @Schema(description = "试卷/资料来源名称", example = "2023.06英语四级真题第1套")
+    private String paperName;
+
+    @Schema(description = "导入来源文件路径", example = "D:/题库/...")
+    private String originPath;
+
     @Schema(description = "标签，逗号分隔")
     private String tags;
 

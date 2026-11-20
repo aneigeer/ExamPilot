@@ -116,7 +116,31 @@ public class AiGradingService {
         if (referenceText.isBlank()) {
             return GradeResult.unavailable("该题参考答案为空，暂不支持 AI 判分");
         }
-        String userPrompt = buildUserPrompt(question.getStem(), referenceText, answer);
+        return grade(question.getStem(), referenceText, answer);
+    }
+
+    /**
+     * 按「题干 + 参考答案」判分。
+     *
+     * <p>与 {@link #grade(Long, String)} 共用同一套 Prompt 与解析；
+     * 供评测脚本（不依赖题库 ID）与内部预览使用。
+     *
+     * @param stem          题干
+     * @param referenceText 参考答案（已拍平为文本）
+     * @param userAnswer    学生作答
+     * @return 判分结果；任何异常都不外抛
+     */
+    public GradeResult grade(String stem, String referenceText, String userAnswer) {
+        String answer = userAnswer == null ? "" : userAnswer.trim();
+        if (answer.length() < MIN_ANSWER_LENGTH) {
+            return new GradeResult(true, "INVALID", 0.0, List.of(), List.of(),
+                    "作答过短，无法判分。请写出你的思路或关键结论", "rule", "");
+        }
+        String reference = referenceText == null ? "" : referenceText.trim();
+        if (reference.isEmpty()) {
+            return GradeResult.unavailable("参考答案为空，暂不支持 AI 判分");
+        }
+        String userPrompt = buildUserPrompt(stem, reference, answer);
 
         String lastError = "";
         for (LlmClient client : llmClients) {
@@ -127,8 +151,8 @@ public class AiGradingService {
                 String raw = client.complete(SYSTEM_PROMPT, userPrompt);
                 GradeResult parsed = parse(raw, client.name());
                 if (parsed != null) {
-                    log.info("[AI判分] 题目 #{} 判分完成（{}，等级 {}，得分率 {}）",
-                            questionId, client.name(), parsed.level(), parsed.scoreRate());
+                    log.info("[AI判分] 判分完成（{}，等级 {}，得分率 {}）",
+                            client.name(), parsed.level(), parsed.scoreRate());
                     return parsed;
                 }
                 lastError = client.name() + "：返回内容无法解析为判分结构";
@@ -138,7 +162,7 @@ public class AiGradingService {
                 log.warn("[AI判分] {} 判分失败，尝试下一个生成器: {}", client.name(), e.getMessage());
             }
         }
-        log.info("[AI判分] 无可用大模型，题目 #{} 回退自评（{}）", questionId, lastError);
+        log.info("[AI判分] 无可用大模型，回退自评（{}）", lastError);
         // ★ 必须把真实原因带出来：只说「不可用」会让「Key 失效」和「熔断」
         //   这类完全不同的故障混在一起，排障时无从下手（本项目此前踩过同一个坑）。
         return GradeResult.unavailable(lastError.isEmpty()
@@ -225,11 +249,10 @@ public class AiGradingService {
         try {
             Map<String, Object> map =
                     objectMapper.readValue(raw.substring(start, end + 1), Map.class);
-            String level = String.valueOf(map.getOrDefault("level", "PARTIAL")).toUpperCase();
-            if (!List.of("EXCELLENT", "GOOD", "PARTIAL", "POOR").contains(level)) {
-                level = "PARTIAL";
-            }
-            return new GradeResult(true, level, parseRate(map.get("scoreRate")),
+            double rate = parseRate(map.get("scoreRate"));
+            String level = alignLevelWithRate(
+                    String.valueOf(map.getOrDefault("level", "PARTIAL")).toUpperCase(), rate);
+            return new GradeResult(true, level, rate,
                     stringList(map.get("hitPoints")),
                     stringList(map.get("missedPoints")),
                     String.valueOf(map.getOrDefault("comment", "")),
@@ -237,6 +260,22 @@ public class AiGradingService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static String alignLevelWithRate(String rawLevel, double rate) {
+        if (!List.of("EXCELLENT", "GOOD", "PARTIAL", "POOR").contains(rawLevel)) {
+            return "PARTIAL";
+        }
+        if (rate >= 0.85) {
+            return "EXCELLENT";
+        }
+        if (rate >= 0.60) {
+            return "GOOD";
+        }
+        if (rate >= 0.20) {
+            return "PARTIAL";
+        }
+        return "POOR";
     }
 
     private static double parseRate(Object value) {

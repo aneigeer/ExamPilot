@@ -52,6 +52,11 @@ services:
       JWT_SECRET: "${JWT_SECRET:?请通过环境变量注入 JWT_SECRET}"
       DB_USERNAME: root
       DB_PASSWORD: "${MYSQL_ROOT_PASSWORD:?请先设置环境变量 MYSQL_ROOT_PASSWORD}"
+      # ★ 限流分桶的可信代理白名单（阻断项 B 修复配套）：容器形态下后端看到的 TCP 对端是
+      #   nginx「容器 IP」，默认值 127.0.0.1,::1 匹配不到 → XFF 被忽略 → 全站共用一个桶
+      #   （正常用户互相挤成 429）。本值必须与文件末尾 networks.default.ipam.subnet 完全一致。
+      #   注意：backend 不发布端口（见本服务末尾的安全约束），只在 compose 内部网络可达。
+      APP_RATE_LIMIT_TRUSTED_PROXIES: "172.28.0.0/16"
     volumes:
       - ./backend/target/exam-prep-backend-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
       # ★ 上传目录必须映射到宿主机，否则容器重建后上传文件全丢。
@@ -64,6 +69,11 @@ services:
       mysql:
         condition: service_healthy
     restart: unless-stopped
+    # ★★ 安全约束（阻断项 B）：**不要给 backend 添加任何端口发布（宿主机 8080 映射）**。
+    #   一旦 8080 暴露到宿主机/局域网，来访客户端的真实源 IP 会落在上面
+    #   APP_RATE_LIMIT_TRUSTED_PROXIES 的可信段内 → 它自带的 X-Forwarded-For 重新被采信，
+    #   伪造换桶绕过限流即刻复活。唯一对外入口应始终只有 nginx（仅它发布 80/443）。
+    #   本机调试请直接 `java -jar` 跑（不经 nginx 时 XFF 一律被忽略，行为正确）。
 
   nginx:
     image: nginx:alpine
@@ -79,3 +89,14 @@ services:
 
 volumes:
   mysql-data:
+
+networks:
+  # ★ 钉死网段（阻断项 B 修复配套）：Docker 默认 bridge 的网段由引擎自动分配，
+  #   白名单无法静态写死；而写笼统私有段（如 172.16.0.0/12）会在 backend 误发布端口时
+  #   把局域网 IP 也变成「可信代理」，修复直接作废。因此这里固定一个专用网段。
+  #   ⚠️ 改本值必须同步改 backend 的 APP_RATE_LIMIT_TRUSTED_PROXIES；
+  #      且旧网络不会自动改 subnet，需 `docker compose -p examprep down` 后重新 up 才会重建。
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -56,7 +56,9 @@ server {
         proxy_pass http://backend:8080;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # ★ 覆盖而非追加（阻断项 B）：nginx 的 *add_forwarded_for* 变量会把客户端自带的 XFF 拼在最前，
+        #   后端一旦采信第一段即可伪造 IP 绕过登录限流。$remote_addr 直接覆盖为真实对端地址。
+        proxy_set_header X-Forwarded-For   $remote_addr;
         # 让后端知道原始协议是 https（若有重定向/绝对地址生成依赖此头）
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 60s;

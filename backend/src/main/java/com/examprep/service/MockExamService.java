@@ -1,9 +1,13 @@
 package com.examprep.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.examprep.common.AnswerTextUtils;
 import com.examprep.common.BizException;
+import com.examprep.common.PageResult;
 import com.examprep.common.QuestionType;
 import com.examprep.common.ResultCode;
+import com.examprep.dto.ExamHistoryVO;
 import com.examprep.dto.MockAnswerRequest;
 import com.examprep.dto.MockPaperVO;
 import com.examprep.dto.MockReportVO;
@@ -38,6 +42,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,6 +61,8 @@ public class MockExamService {
     private static final String ONGOING = "ONGOING";
     private static final String FINISHED = "FINISHED";
     private static final String EXPIRED = "EXPIRED";
+    private static final String PAPER_TYPE_RANDOM = "RANDOM";
+    private static final String WRONG_SOURCE_MOCK = "MOCK_EXAM";
 
     private final ExamPaperMapper examPaperMapper;
     private final ExamPaperQuestionMapper examPaperQuestionMapper;
@@ -66,6 +73,8 @@ public class MockExamService {
     private final QuestionAnswerMapper questionAnswerMapper;
     private final QuestionService questionService;
     private final JudgeService judgeService;
+    private final ExamPaperService examPaperService;
+    private final WrongBookService wrongBookService;
 
     // ==================================================================
     // 开始考试：随机组卷
@@ -79,18 +88,32 @@ public class MockExamService {
 
         // 只抽客观题（交卷即出分）
         List<String> objectiveTypes = List.of("SINGLE_CHOICE", "MULTI_CHOICE", "TRUE_FALSE", "FILL_BLANK");
+        // 「全库随机组卷」语义：subjectId 为 null 时条件构造里不加 subject_id 过滤，
+        // 候选集 = 全部 APPROVED + parent_id=0 的客观题（不默认取任何单一 subject_id）；
+        // 随后 Collections.shuffle 等概率抽取，题数上限由 DTO @Max(100) 守住。
         var wrapper = Wrappers.<Question>lambdaQuery()
                 .eq(Question::getAuditStatus, AUDIT_APPROVED)
                 .eq(Question::getParentId, 0L)
-                .eq(Question::getSubjectId, req.getSubjectId())
+                .eq(req.getSubjectId() != null, Question::getSubjectId, req.getSubjectId())
+                // 按真题年份组卷（2026-11-11 新增）：year 为 null 时不加条件，保持原有「全科全量随机组卷」行为
+                .eq(req.getYear() != null, Question::getYear, req.getYear())
                 .in(Question::getType, hasText(req.getQuestionType())
                         ? List.of(req.getQuestionType()) : objectiveTypes);
+        // 按考试类别组卷（2026-11-11 新增）：与 year 同时传入按 AND 生效；不传 = 不限类别。
+        // exam_code 列未在 Question 实体映射，用列名片段 + 预编译占位符按条件追加。
+        if (hasText(req.getExamCode())) {
+            wrapper.apply("exam_code = {0}", req.getExamCode().trim());
+        }
         if (hasText(req.getQuestionType()) && !objectiveTypes.contains(req.getQuestionType())) {
             throw new BizException("模拟考试仅支持客观题（单选/多选/判断/填空）");
         }
         List<Question> pool = questionMapper.selectList(wrapper);
         if (pool.isEmpty()) {
-            throw new BizException("该科目下没有可用的客观题");
+            // 带年份 / 类别时最容易筛空，报错文案指出当前范围（全库 or 某科目）
+            String scope = req.getSubjectId() == null ? "题库中" : "该科目下";
+            throw new BizException(req.getYear() == null
+                    ? scope + "没有可用的客观题"
+                    : req.getYear() + " 年" + scope + "没有可用的客观题，请更换年份或取消筛选");
         }
         Collections.shuffle(pool);
         // P1-6 修复：只有池大于请求数（需要截取子集）时才按题干去重，
@@ -113,11 +136,17 @@ public class MockExamService {
         LocalDateTime now = LocalDateTime.now();
 
         ExamPaper paper = new ExamPaper();
-        paper.setName("模拟卷 · " + picked.size() + "题 · " + duration + "分钟");
-        paper.setSubjectId(req.getSubjectId());
+        // 卷面名称带上年份，便于「我的模考记录」列表里区分不同年份的卷子（year 为 null 时格式与原先完全一致）
+        String yearLabel = req.getYear() == null ? "" : req.getYear() + "年 · ";
+        paper.setName("模拟卷 · " + yearLabel + picked.size() + "题 · " + duration + "分钟");
+        // exam_paper.subject_id 为 NOT NULL（migration-p1.sql）；全库随机组卷时
+        // 用 0 表示「不限科目」，避免插入 NULL 报错。
+        paper.setSubjectId(req.getSubjectId() == null ? 0L : req.getSubjectId());
         paper.setDurationMinutes(duration);
         paper.setTotalScore(totalScore);
         paper.setQuestionCount(picked.size());
+        // 随机组卷产生的是个人临时卷：paper_type = RANDOM，且不进入学生端「固定套卷」列表
+        paper.setPaperType(PAPER_TYPE_RANDOM);
         paper.setCreatedBy(userId);
         examPaperMapper.insert(paper);
 
@@ -151,6 +180,47 @@ public class MockExamService {
     }
 
     // ==================================================================
+    // 开始考试：固定套卷
+    // ==================================================================
+
+    /**
+     * 基于固定套卷开考。
+     *
+     * <p>与随机组卷的区别只有「题目来源」：这里直接读 exam_paper_question，
+     * 交卷判分、超时自动交卷、重复交卷 409 等契约与随机卷完全一致。
+     * 未发布 / 随机卷 / 不存在统一按 404 处理，避免通过 ID 探测未发布试卷。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public MockPaperVO startFromPaper(Long userId, Long paperId) {
+        ExamPaper paper = examPaperService.requirePublishedFixed(paperId);
+        List<ExamPaperQuestion> pqs = examPaperService.questionsOf(paperId);
+        if (pqs.isEmpty()) {
+            throw new BizException(ResultCode.NOT_FOUND, "该试卷暂无题目，无法开考");
+        }
+
+        int duration = paper.getDurationMinutes() == null ? 30 : paper.getDurationMinutes();
+        int totalScore = pqs.stream()
+                .mapToInt(pq -> pq.getScore() == null ? 1 : pq.getScore())
+                .sum();
+        LocalDateTime now = LocalDateTime.now();
+
+        ExamRecord record = new ExamRecord();
+        record.setPaperId(paper.getId());
+        record.setUserId(userId);
+        record.setStatus(ONGOING);
+        record.setStartedAt(now);
+        record.setDeadline(now.plusMinutes(duration));
+        record.setTotalScore(totalScore);
+        record.setCorrectCount(0);
+        record.setAnsweredCount(0);
+        examRecordMapper.insert(record);
+
+        log.info("用户 {} 基于固定套卷 {} 开考，record={}，{} 题 / {} 分钟",
+                userId, paper.getId(), record.getId(), pqs.size(), duration);
+        return buildPaper(record);
+    }
+
+    // ==================================================================
     // 取试卷
     // ==================================================================
 
@@ -161,10 +231,13 @@ public class MockExamService {
     }
 
     private MockPaperVO buildPaper(ExamRecord record) {
+        // 卷面题序以 exam_paper_question.sort 为准；selectBatchIds 的返回顺序由数据库决定，
+        // 直接用它组装会让卷面题序与组卷顺序不一致（固定套卷尤其明显）。
         List<ExamPaperQuestion> pqs = examPaperQuestionMapper.selectList(
                 Wrappers.<ExamPaperQuestion>lambdaQuery()
                         .eq(ExamPaperQuestion::getPaperId, record.getPaperId())
-                        .orderByAsc(ExamPaperQuestion::getSort));
+                        .orderByAsc(ExamPaperQuestion::getSort)
+                        .orderByAsc(ExamPaperQuestion::getId));
         List<Long> ids = pqs.stream().map(ExamPaperQuestion::getQuestionId).toList();
 
         List<ExamAnswerDetail> details = examAnswerDetailMapper.selectList(
@@ -172,10 +245,14 @@ public class MockExamService {
                         .eq(ExamAnswerDetail::getRecordId, record.getId())
                         .isNotNull(ExamAnswerDetail::getUserAnswer));
 
-        List<QuestionVO> questions = ids.isEmpty() ? List.of()
+        Map<Long, Question> questionMap = ids.isEmpty() ? Map.of()
                 : questionMapper.selectBatchIds(ids).stream()
-                        .map(q -> questionService.buildDetail(q, false))
-                        .toList();
+                        .collect(Collectors.toMap(Question::getId, Function.identity(), (a, b) -> a));
+        List<QuestionVO> questions = ids.stream()
+                .map(questionMap::get)
+                .filter(Objects::nonNull)
+                .map(q -> questionService.buildDetail(q, false))
+                .toList();
 
         MockPaperVO vo = new MockPaperVO();
         vo.setRecordId(record.getId());
@@ -262,6 +339,59 @@ public class MockExamService {
         return buildReport(record);
     }
 
+    // ==================================================================
+    // 我的模考历史（严格按 userId 隔离）
+    // ==================================================================
+
+    /**
+     * 当前登录用户的历次模拟考试。
+     *
+     * <p>与「我的错题」「AI 学习计划」一致：查询条件里必须带 userId，
+     * 不能只按 recordId 反查，否则会越权看到他人的考试记录。
+     */
+    public PageResult<ExamHistoryVO> history(Long userId, long page, long size) {
+        long safePage = Math.max(1, page);
+        long safeSize = Math.min(50, Math.max(1, size));
+        var result = examRecordMapper.selectPage(new Page<>(safePage, safeSize),
+                Wrappers.<ExamRecord>lambdaQuery()
+                        .eq(ExamRecord::getUserId, userId)
+                        .orderByDesc(ExamRecord::getStartedAt)
+                        .orderByDesc(ExamRecord::getId));
+
+        List<Long> paperIds = result.getRecords().stream()
+                .map(ExamRecord::getPaperId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, ExamPaper> papers = paperIds.isEmpty() ? Map.of()
+                : examPaperMapper.selectBatchIds(paperIds).stream()
+                        .collect(Collectors.toMap(ExamPaper::getId, Function.identity(), (a, b) -> a));
+
+        return PageResult.of(result, r -> toHistoryVO(r, papers.get(r.getPaperId())));
+    }
+
+    private ExamHistoryVO toHistoryVO(ExamRecord record, ExamPaper paper) {
+        ExamHistoryVO vo = new ExamHistoryVO();
+        vo.setRecordId(record.getId());
+        vo.setPaperId(record.getPaperId());
+        vo.setPaperName(paper == null ? null : paper.getName());
+        vo.setPaperType(paper == null ? null : paper.getPaperType());
+        vo.setExamCode(paper == null ? null : paper.getExamCode());
+        vo.setYear(paper == null ? null : paper.getYear());
+        vo.setStatus(record.getStatus());
+        vo.setTotalScore(record.getTotalScore());
+        vo.setGotScore(record.getGotScore());
+        vo.setCorrectCount(record.getCorrectCount());
+        vo.setAnsweredCount(record.getAnsweredCount());
+        vo.setTotalCount(paper == null ? null : paper.getQuestionCount());
+        int total = record.getTotalScore() == null ? 0 : record.getTotalScore();
+        BigDecimal got = record.getGotScore() == null ? BigDecimal.ZERO : record.getGotScore();
+        vo.setScoreRate(total == 0 ? BigDecimal.ZERO
+                : got.multiply(BigDecimal.valueOf(100)).divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP));
+        vo.setStartedAt(record.getStartedAt());
+        vo.setSubmittedAt(record.getSubmittedAt());
+        vo.setDeadline(record.getDeadline());
+        vo.setExpired(EXPIRED.equals(record.getStatus()));
+        return vo;
+    }
+
     /** 超时自动交卷 */
     private void autoSubmitIfExpired(ExamRecord record) {
         if (ONGOING.equals(record.getStatus()) && LocalDateTime.now().isAfter(record.getDeadline())) {
@@ -302,6 +432,7 @@ public class MockExamService {
         BigDecimal got = BigDecimal.ZERO;
         int correct = 0;
         int answered = 0;
+        List<Long> wrongIds = new ArrayList<>();
         for (ExamAnswerDetail d : details) {
             if (d.getUserAnswer() == null) {
                 continue;
@@ -325,7 +456,15 @@ public class MockExamService {
             if (ok) {
                 correct++;
                 got = got.add(score);
+            } else if (QuestionType.isObjective(q.getType())) {
+                // 模考答错的客观题与日常刷题共用同一套错题本口径（T1.1）：
+                // 交卷后即可在 GET /api/wrong-book 看到，并被 AI 学习计划读取。
+                wrongIds.add(q.getId());
             }
+        }
+
+        if (!wrongIds.isEmpty()) {
+            wrongBookService.recordWrongBatch(record.getUserId(), wrongIds, WRONG_SOURCE_MOCK);
         }
 
         record.setStatus(finalStatus);
@@ -393,14 +532,24 @@ public class MockExamService {
             item.setScoreGot(d.getScoreGot());
             item.setAnalysis(q.getAnalysis());
             if (QuestionType.isObjective(q.getType())) {
-                List<QuestionOption> options = questionOptionMapper.selectList(
-                        Wrappers.<QuestionOption>lambdaQuery()
-                                .eq(QuestionOption::getQuestionId, q.getId())
-                                .eq(QuestionOption::getIsAnswer, 1)
-                                .orderByAsc(QuestionOption::getSort));
-                item.setCorrectAnswer(options.stream()
-                        .map(QuestionOption::getOptionKey)
-                        .collect(Collectors.joining(",")));
+                if ("FILL_BLANK".equals(q.getType())) {
+                    // 填空题答案存在 question_answer.answer_content 的 JSON 里，不在选项表，
+                    // 必须单独回填，否则成绩报告只显示「正确答案：—」
+                    QuestionAnswer answer = questionAnswerMapper.selectOne(
+                            Wrappers.<QuestionAnswer>lambdaQuery()
+                                    .eq(QuestionAnswer::getQuestionId, q.getId()));
+                    item.setCorrectAnswer(answer == null ? null
+                            : AnswerTextUtils.blanksText(answer.getAnswerContent()));
+                } else {
+                    List<QuestionOption> options = questionOptionMapper.selectList(
+                            Wrappers.<QuestionOption>lambdaQuery()
+                                    .eq(QuestionOption::getQuestionId, q.getId())
+                                    .eq(QuestionOption::getIsAnswer, 1)
+                                    .orderByAsc(QuestionOption::getSort));
+                    item.setCorrectAnswer(options.stream()
+                            .map(QuestionOption::getOptionKey)
+                            .collect(Collectors.joining(",")));
+                }
             }
             items.add(item);
         }

@@ -28,6 +28,7 @@ import com.examprep.service.ai.agent.AgentRunService;
 import com.examprep.service.ai.agent.AgentStreamService;
 import com.examprep.service.ai.agent.AsyncJobService;
 import com.examprep.service.ai.agent.EvalCompareService;
+import com.examprep.service.ai.agent.EvalGateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -62,6 +63,7 @@ public class AiOpsController {
     private final AgentRunService agentRunService;
     private final AgentMetricsService agentMetricsService;
     private final EvalCompareService evalCompareService;
+    private final EvalGateService evalGateService;
     private final AgentRunRetentionService retentionService;
     private final ObservabilityProperties observabilityProperties;
     private final AgentMemoryService memoryService;
@@ -259,6 +261,40 @@ public class AiOpsController {
     public Result<AsyncTask> runAgentEval() {
         Long userId = SecurityUtils.requireUserId();
         return Result.success(asyncJobService.submit("EVAL_AGENT", Map.of(), userId));
+    }
+
+    @Operation(summary = "提交拒答评测（域外拒答率 / 域内误拒率）",
+            description = "**访问级别：AUDITOR / ADMIN**。layer=REFUSAL，硬门槛：域外拒答率 >= 90%、域内误拒率 <= 10%。")
+    @PostMapping("/admin/ai/eval/refusal")
+    public Result<AsyncTask> runRefusalEval() {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(asyncJobService.submit("EVAL_REFUSAL", Map.of(), userId));
+    }
+
+    @Operation(summary = "提交判分评测（等级一致率 / 得分率 MAE）",
+            description = "**访问级别：AUDITOR / ADMIN**。layer=GRADING，基于人工标注参考分档样题。")
+    @PostMapping("/admin/ai/eval/grading")
+    public Result<AsyncTask> runGradingEval() {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(asyncJobService.submit("EVAL_GRADING", Map.of(), userId));
+    }
+
+    @Operation(summary = "提交学习计划评测（JSON 合规率 / 题号零幻觉 / 降级率）",
+            description = "**访问级别：AUDITOR / ADMIN**。layer=STUDY_PLAN，错题 ID 零幻觉率为硬门槛（必须 100%）。")
+    @PostMapping("/admin/ai/eval/study-plan")
+    public Result<AsyncTask> runStudyPlanEval() {
+        Long userId = SecurityUtils.requireUserId();
+        return Result.success(asyncJobService.submit("EVAL_STUDY_PLAN", Map.of(), userId));
+    }
+
+    @Operation(summary = "发布门禁汇总",
+            description = """
+                    **访问级别：AUDITOR / ADMIN**。对 5 个评测层各取最新一次 SUCCESS 运行，
+                    按硬阈值给出红绿灯。缺失运行记录按「未通过」处理。
+                    """)
+    @GetMapping("/admin/ai/eval/gate-summary")
+    public Result<Map<String, Object>> evalGateSummary() {
+        return Result.success(evalGateService.gateSummary());
     }
 
     @Operation(summary = "评估运行列表")

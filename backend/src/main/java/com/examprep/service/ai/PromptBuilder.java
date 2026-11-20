@@ -118,6 +118,12 @@ public class PromptBuilder {
      */
     public String userPrompt(String question, List<ChunkContext> contexts) {
         StringBuilder sb = new StringBuilder();
+        // 3B 的上下文窗口是 4096 token（实测 8543 token 直接被 400 拒绝）。
+        // 这里按「单块 + 总预算」双层截断：块已按相关度降序，先保证最相关的几块完整可用，
+        // 超出预算的块整体放弃，而不是每块都截一半导致谁都读不全。
+        final int maxChunkChars = 700;
+        final int maxTotalChars = 3600;
+        int used = 0;
         sb.append("【参考资料】\n");
         // ★ 这里刻意<b>不</b>写 <<< >>> 字面量：整段提示词里只有真边界允许出现三连角括号，
         //   否则「除边界外不得出现 <<<」这条不变量就无法用字符串断言守住。
@@ -137,6 +143,15 @@ public class PromptBuilder {
                 }
             }
             int slot = i + 1;
+            String body = nullToEmpty(ctx.content());
+            if (body.length() > maxChunkChars) {
+                body = body.substring(0, maxChunkChars) + "…";
+            }
+            if (used + body.length() > maxTotalChars) {
+                log.info("[AI] 提示词预算用尽，已省略第 {} 块及之后的资料（已用 {} 字）", slot, used);
+                break;
+            }
+            used += body.length();
             // ★ 数据边界：id 与引用编号 [n] 同源（同一个 slot），编号规则不变
             sb.append("<<<DOC id=").append(slot)
                     .append(" type=").append(boundaryToken(ctx.sourceType()))
@@ -144,7 +159,7 @@ public class PromptBuilder {
                     .append(">>>\n")
                     .append('[').append(slot).append("] ")
                     .append("标题：").append(escapeBoundary(nullToEmpty(ctx.title()))).append('\n')
-                    .append("内容：").append(escapeBoundary(nullToEmpty(ctx.content()))).append('\n')
+                    .append("内容：").append(escapeBoundary(body)).append('\n')
                     .append("<<<END DOC id=").append(slot).append(">>>\n\n");
         }
         if (suspiciousBlocks > loggedWarnings) {
@@ -152,7 +167,8 @@ public class PromptBuilder {
                     suspiciousBlocks, suspiciousBlocks - loggedWarnings);
         }
         sb.append("【问题】\n").append(question == null ? "" : question.trim()).append('\n');
-        sb.append("\n请依据上述参考资料作答并在句末标注来源编号。");
+        sb.append("\n请按「一句话结论 → 分点讲解 → 易错点/记忆提示 → 依据：[n]」的结构作答；")
+                .append("每个事实性结论都要标注来源编号，资料没覆盖的部分明确写成「资料未覆盖：…」。");
         return sb.toString();
     }
 

@@ -195,8 +195,19 @@ public class AsyncJobService {
     }
 
     private static String layerOf(String type) {
-        return type.contains("RETRIEVAL")
-                ? AiEvalRun.LAYER_RETRIEVAL : AiEvalRun.LAYER_AGENT;
+        if (type.contains("RETRIEVAL")) {
+            return AiEvalRun.LAYER_RETRIEVAL;
+        }
+        if (type.contains("REFUSAL")) {
+            return AiEvalRun.LAYER_REFUSAL;
+        }
+        if (type.contains("GRADING")) {
+            return AiEvalRun.LAYER_GRADING;
+        }
+        if (type.contains("STUDY_PLAN") || type.contains("STUDYPLAN")) {
+            return AiEvalRun.LAYER_STUDY_PLAN;
+        }
+        return AiEvalRun.LAYER_AGENT;
     }
 
     /** 评估结果落库：metrics/detail 直接取 Python 返回的结构 */

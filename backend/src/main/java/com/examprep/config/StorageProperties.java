@@ -5,7 +5,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 对象存储配置（T10，{@code app.storage.*}）
+ * 对象存储配置（T10，{@code app.ai.storage.*}）
+ *
+ * <p>E1-09：application.yml 的 storage 块位于 {@code app.ai} 下（键为 {@code app.ai.storage.*}），
+ * 旧前缀 {@code app.storage} 导致 MinIO 配置全部不生效、只能取本类 Java 默认值。
+ * 此处改为与 yml 一致；{@code AiProperties.Storage} 绑定同一组键仅用于能力探测展示，互不影响。
  *
  * <p><b>设计铁律：上传永远不能失败。</b>
  * MinIO 不可用（Docker 没起 / 网络不通 / 桶建不出来）时自动落本地磁盘，
@@ -15,7 +19,7 @@ import org.springframework.stereotype.Component;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "app.storage")
+@ConfigurationProperties(prefix = "app.ai.storage")
 public class StorageProperties {
 
     /** 是否启用 MinIO。false = 纯本地磁盘（默认，保证零风险） */

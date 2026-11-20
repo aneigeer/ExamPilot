@@ -99,7 +99,8 @@ public class MinioStorageService {
         if (!clientInitialized) {
             synchronized (this) {
                 if (!clientInitialized) {
-                    clientInitialized = true;
+                    // E1-14：标志必须在 client 赋值「之后」才置 true，否则并发线程会跳过同步块
+                    // 并读到仍为 null 的 client，误判 MinIO 不可用而回落本地。
                     try {
                         client = buildClient();
                         log.info("[MinIO] 客户端已初始化（{}，桶 {}，双写本地 {}，超时 {}ms）",
@@ -108,6 +109,8 @@ public class MinioStorageService {
                     } catch (Exception e) {
                         log.warn("[MinIO] 客户端初始化失败，本对象存储降级为本地磁盘: {}", e.getMessage());
                         client = null;
+                    } finally {
+                        clientInitialized = true;
                     }
                 }
             }

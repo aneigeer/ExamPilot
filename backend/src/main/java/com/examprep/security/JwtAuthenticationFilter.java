@@ -22,8 +22,11 @@ import java.io.IOException;
  * JWT 认证过滤器：从 Authorization 头解析令牌，构建 SecurityContext
  * 解析失败不拦截，交由后续的授权规则决定放行或 401（这样 PUBLIC 接口仍可匿名访问）
  *
- * <p>令牌本身无状态，为支持「注销/禁用后旧令牌立即失效」，解析成功后回查用户：
+ * <p>令牌本身无状态，为支持「注销/禁用/降级后旧令牌立即失权」，解析成功后回查用户：
  * 用户不存在、已注销（逻辑删）或状态非正常时一律不认证，等价于令牌失效。
+ *
+ * <p><b>E1-01：角色一律取库里的 {@code User.role}，不取 JWT claim。</b>
+ * 否则管理员被降级为 STUDENT 后，旧令牌仍带 ROLE_ADMIN，可继续访问 /admin/** 长达 7 天。
  */
 @Component
 @RequiredArgsConstructor
@@ -47,10 +50,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.parse(token);
             if (claims != null) {
                 Long userId = jwtUtil.getUserId(claims);
-                String studentNo = jwtUtil.getStudentNo(claims);
-                String role = jwtUtil.getRole(claims);
-                if (userId != null && StringUtils.hasText(role) && isActiveUser(userId)) {
-                    LoginUser loginUser = LoginUser.fromToken(userId, studentNo, role);
+                String tokenStudentNo = jwtUtil.getStudentNo(claims);
+                // E1-01：用库里的 User 构建主体（角色/学号都以库为准），claim 只用来定位 userId
+                User user = userId == null ? null : loadActiveUser(userId, tokenStudentNo);
+                if (user != null) {
+                    LoginUser loginUser = LoginUser.fromToken(
+                            user.getId(), user.getStudentNo(), user.getRole());
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     loginUser, null, loginUser.getAuthorities());
@@ -64,13 +69,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /** 回查用户是否仍然有效（存在、未注销、状态为正常）。查库异常时保守视为无效，避免误放行。 */
-    private boolean isActiveUser(Long userId) {
+    /**
+     * E1-01：回查用户并返回库里的实体，供上层以 {@code User.role} / {@code User.studentNo} 构建主体。
+     * 校验项：存在、未逻辑删（由 MyBatis-Plus @TableLogic 自动加 is_deleted=0）、状态正常、角色非空、
+     * 且 token 中学号与库中一致（学号被改后旧令牌立即失效）。查库异常时保守返回 null，避免误放行。
+     */
+    private User loadActiveUser(Long userId, String tokenStudentNo) {
         try {
             User user = userMapper.selectById(userId);
-            return user != null && user.getStatus() != null && user.getStatus() == 1;
+            if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+                return null;
+            }
+            if (user.getRole() == null || user.getRole().isBlank()) {
+                return null;
+            }
+            if (StringUtils.hasText(tokenStudentNo) && !tokenStudentNo.equals(user.getStudentNo())) {
+                return null;
+            }
+            return user;
         } catch (Exception e) {
-            return false;
+            return null;
         }
     }
 

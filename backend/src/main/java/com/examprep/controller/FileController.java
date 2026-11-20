@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
@@ -112,8 +113,9 @@ public class FileController {
             return;
         }
 
-        Path path = fileStorageService.getUploadRoot().resolve(file.getStoredPath()).normalize();
-        if (!Files.exists(path)) {
+        // E1-08：统一走带 uploadRoot 边界校验的读取入口，禁止 stored_path 越界读取任意文件
+        InputStream in = fileStorageService.openForRead(file);
+        if (in == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "音频缺失");
             return;
         }
@@ -121,7 +123,9 @@ public class FileController {
         response.setContentType(FileTypeGuard.canonicalAudioMime(file.getExt()));
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Accept-Ranges", "bytes");
-        Files.copy(path, response.getOutputStream());
+        try (in) {
+            in.transferTo(response.getOutputStream());
+        }
     }
 
     @Operation(summary = "访问预览图",
@@ -164,8 +168,9 @@ public class FileController {
             return;
         }
 
-        Path path = fileStorageService.getUploadRoot().resolve(page.getImagePath()).normalize();
-        if (!Files.exists(path)) {
+        // E1-08：预览图路径同样做根目录边界校验（越界/MinIO 路径返回 null → 404）
+        Path path = fileStorageService.resolveReadablePath(page.getImagePath());
+        if (path == null || !Files.exists(path)) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "预览图文件缺失");
             return;
         }
@@ -199,8 +204,9 @@ public class FileController {
                          @Parameter(description = "签名令牌") @RequestParam String token,
                          HttpServletResponse response) throws IOException {
         FileRecord file = resourceService.requireDownloadableFile(fileId, token);
-        Path path = fileStorageService.getUploadRoot().resolve(file.getStoredPath()).normalize();
-        if (!Files.exists(path)) {
+        // E1-08：统一读取入口（本地越界 / MinIO 均安全处理）
+        InputStream in = fileStorageService.openForRead(file);
+        if (in == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "文件缺失");
             return;
         }
@@ -210,6 +216,8 @@ public class FileController {
         response.setHeader("Content-Disposition",
                 "attachment; filename*=UTF-8''" + encodedName);
         response.setContentLengthLong(file.getFileSize() == null ? 0 : file.getFileSize());
-        Files.copy(path, response.getOutputStream());
+        try (in) {
+            in.transferTo(response.getOutputStream());
+        }
     }
 }

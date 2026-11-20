@@ -127,6 +127,8 @@ public class AdminService {
             }
         }
 
+        // E1-01：角色变更即时生效——JwtAuthenticationFilter 每次请求都从 user 表读 role，
+        // 不再缓存 JWT claim 里的旧角色，因此这里无需额外做 token 失效/黑名单处理。
         User update = new User();
         update.setId(userId);
         update.setRole(target);
