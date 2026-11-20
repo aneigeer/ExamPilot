@@ -118,3 +118,17 @@ training/.hf_cache/
 
 # AI 模型权重（由 ai-service/install-model.bat 下载，不入库）
 ai-service/models/
+
+# ---------- 本地真实凭据（第10周 P0 收口后不再提交任何明文口令）----------
+# secrets.local.yml 存 root / admin 新口令，由 scripts 或运维手工读取
+config/secrets.local.yml
+config/secrets.local.yaml
+# 回滚点等凭据类证据文件（含历史口令原文，仅供本机排障）
+项目规划/**/evidence/credential_rollback_*.txt
+项目规划/**/evidence/*credential*.txt
+# 本地数据库连接脚注（若后续拆出独立 env 文件，一并排除）
+config/*.local.*
+
+# 运行期日志、临时 OCR 缓存与流水线临时输出（不入库）
+runtime/
+output/
