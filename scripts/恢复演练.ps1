@@ -33,9 +33,20 @@ $mysqldump = Join-Path $MysqlBin 'mysqldump.exe'
 # ★ 口令走 MYSQL_PWD 环境变量，而不是命令行 -p：
 #   命令行传口令会触发「Using a password on the command line interface can be insecure」
 #   告警，在 $ErrorActionPreference='Stop' 下会被当成致命错误直接中断演练。
-# 口令优先取参数，其次环境变量 DB_PASSWORD；都没有就直接报错，不用弱默认值
+# 口令优先取参数，其次环境变量 DB_PASSWORD，再次本机 config/secrets.local.yml
+# 的 mysql.root.password（该文件已被 .gitignore 排除，格式是扁平点号键）；
+# 都没有就直接报错，不用弱默认值
 if (-not $Password) { $Password = $env:DB_PASSWORD }
-if (-not $Password) { throw '请设置环境变量 DB_PASSWORD，或用 -Password 传入' }
+if (-not $Password) {
+    $secretsFile = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\secrets.local.yml'
+    if (Test-Path $secretsFile) {
+        $line = Select-String -Path $secretsFile -Pattern '^mysql\.root\.password:' | Select-Object -First 1
+        if ($line) { $Password = ($line.Line -replace '^mysql\.root\.password:\s*', '').Trim().Trim('"') }
+    }
+}
+if (-not $Password) {
+    throw '请设置环境变量 DB_PASSWORD，或用 -Password 传入，或配置 config/secrets.local.yml 的 mysql.root.password'
+}
 $env:MYSQL_PWD = $Password
 
 # ★ 必须显式设 UTF-8，否则 PowerShell 5.1 会把管道里的中文按 OEM 代码页转码，

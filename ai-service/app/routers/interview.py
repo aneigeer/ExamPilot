@@ -9,19 +9,42 @@
 
 ## 出题来源铁律（**禁止凭空编题**）
 
-1. 先从 MySQL 圈出「面试类」课件（``courseware.title LIKE '%面试%'``，68 份）；
-2. 用 bge 句向量在**这些课件的块**里检索（Qdrant filter：source_type=COURSEWARE
-   + source_id ∈ 面试课件集合），得到与该主题最相关的 5 块；
-3. 7B 只负责「把资料改写成一道面试题」，提示词明确禁止超出资料；
-4. 每题必带 ``source``（标题 / 源文件 / 页码），Java 与前端可回溯；
-5. 7B 不可用 → **降级**：直接拿资料里的话题行当题目（``degraded=true``），
-   不编题、不空题。
+2026-11-11 整改：旧实现从 ``courseware.title LIKE '%面试%'`` 圈课件、再用
+Qdrant 向量检索，强依赖「面试课件标题」与「向量索引已推送」，两者任一缺失就
+直接 503 —— 这正是用户实测「模拟面试没了」的根因（第8周 D-03 已修正为
+「语料未入库/未索引」，不是 Qdrant 端口问题）。
+
+现在改为**直接查 MySQL ``ai_chunk``**（634 篇面试 md 切块已写入，实测
+``subject_id=211``「AI 大模型面试」有 2424 个 ACTIVE 块 / 156 个真实题目标题）：
+
+1. 圈出「INTERVIEW 面试知识点」：``subject.name`` 含「面试」或
+   ``exam_category.code='INTERVIEW'``（兼容后续新增类别）；
+2. 在这些 ``ai_chunk`` 块里按**专题关键词**（topic，规范化后 LIKE 标题/正文）
+   与**难度**（difficulty 列）检索，同标题限流避免一篇文档霸占全部参考块；
+   **不依赖 Qdrant 向量索引是否已推送**，从根上消除 503；
+3. 本地 3B 只负责「把资料改写成一道面试题 / 评分 / 点评 / 追问」，
+   提示词明确禁止超出资料；
+4. 每题必带 ``source``（标题 / 源文件 / 页码 / chunk_id），Java 与前端可回溯；
+5. 3B 不可用或语料不足 → **降级**：直接拿资料里的真实题目行当题目
+   （``degraded=true`` + ``degrade_reason`` 明确提示），**不 503、不空题**；
+6. 3B 单模型下超时可控：单次 LLM 调用硬超时 ``INTERVIEW_LLM_TIMEOUT_SECONDS``
+   （远小于 .env 的 90s），且一次 ``/answer`` 有 LLM 调用次数预算，
+   追问与点评合并进同一次评分调用，不串行拖死 SSE。
+
+## 调用方向（已核对 Java 侧）
+
+``backend/.../AiInterviewService.java`` 是**纯透传代理**：``start/answer`` 直接
+POST 到本服务的 ``/interview/start`` / ``/interview/answer``，出题、评分、报告
+全在 Python 侧完成，Java 只做鉴权 / 归属 / 落库 / 错误翻译。
+因此**直接改这两个既有路由即可，无需新增任何接口**（禁止造没人调用的接口）。
+新增的 ``degrade_reason`` / ``difficulty`` 字段经 Java ``JsonNode`` 透传，
+不会破坏既有契约。
 
 ## 评分可解释
 
-* 先检索参考答案块，再把「题目 + 参考资料 + 学生作答」交给 7B，
+* 先检索参考答案块，再把「题目 + 参考资料 + 学生作答」交给 3B，
   要求输出 ``{score, verdict, hit_points, miss_points, comment}`` 五元组；
-* 7B 不可用 → 抽取式兜底：按「作答字符 bigram 被参考资料覆盖的比例」折算分数，
+* 3B 不可用 → 抽取式兜底：按「作答字符 bigram 被参考资料覆盖的比例」折算分数，
   命中/遗漏要点取参考资料中重合最高/最低的句子，**并明确标注非模型判分**；
 * 追问：作答 < 30 字 或 得分 < 60 → 同一题内追问一次，追问作答与原作答
   **合并后重新评分**（不是两次分数取平均，避免靠追问刷分）。
@@ -37,14 +60,16 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import re
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -67,19 +92,68 @@ FOLLOW_UP_MIN_ANSWER_CHARS = 30
 FOLLOW_UP_SCORE_THRESHOLD = 60
 #: 单题最多追问次数（契约要求：同一题内最多 1 次）
 MAX_FOLLOW_UPS = 1
-#: 单题送入 7B 的参考块数
+#: 单题送入 3B 的参考块数
 CONTEXT_CHUNKS = 5
 #: 单个参考块截断长度
 CONTEXT_CHARS = 700
+
+#: 面试链路单次 LLM 调用的**硬超时**（秒）。必须远小于 .env 的
+#: ``LLM_TIMEOUT_SECONDS=90``：一次 /answer 可能串行多次调用，若每次都按 90s
+#: 计时，本地 3B 卡顿时会把 SSE 拖死。20s 足够 3B 产出一题/一段评分。
+INTERVIEW_LLM_TIMEOUT_SECONDS = 20.0
+#: 单次 /interview/start 的 LLM 调用预算（只用于出题）
+START_LLM_CALL_BUDGET = 1
+#: 单次 /interview/answer 的 LLM 调用预算（评分 + 下一题出题共享此额度）。
+#: 超过预算的调用直接抛 InterviewLlmError 走抽取式/模板降级，
+#: 从结构上保证一次作答不会触发多次串行 LLM 调用。
+ANSWER_LLM_CALL_BUDGET = 2
+#: 同一标题最多取几块，避免一篇长文档霸占全部参考块（与 /v1/search 同口径）
+MAX_CHUNKS_PER_TITLE = 2
+
+#: 面试知识点科目判定：subject.name 含「面试」，或 exam_category.code='INTERVIEW'
+INTERVIEW_SUBJECT_LIKE = "%面试%"
+INTERVIEW_EXAM_CODE = "INTERVIEW"
+
+# ---------------------------------------------------------------- 单次请求上下文
+# 用 ContextVar 而不是给每个函数加参数：既有测试用 monkeypatch 替换
+# ``_retrieve_context`` / ``_chat``（固定签名），加位置参数会让桩全部失效。
+# ContextVar 在线程池里按请求隔离，生产实现读、桩不读，天然互不影响。
+
+#: 本次请求的 LLM 调用上限（None = 不限，例如直接单测某个内部函数时）
+_LLM_BUDGET: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
+    "interview_llm_budget", default=None
+)
+#: 本次请求已用掉的 LLM 调用次数
+_LLM_USED: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "interview_llm_used", default=0
+)
+#: 本次面试会话的难度筛选（由 /start 写入，生产 _retrieve_context 读取）
+_CURRENT_DIFFICULTY: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
+    "interview_difficulty", default=None
+)
+
+
+@contextmanager
+def _llm_call_budget(limit: int) -> Iterator[None]:
+    """给一次 HTTP 请求设定 LLM 调用次数上限（退出时复位，不污染其它请求）。"""
+    budget_token = _LLM_BUDGET.set(limit)
+    used_token = _LLM_USED.set(0)
+    try:
+        yield
+    finally:
+        _LLM_BUDGET.reset(budget_token)
+        _LLM_USED.reset(used_token)
 
 
 # ---------------------------------------------------------------- 请求/响应模型
 class InterviewStartRequest(BaseModel):
     """开始一场面试。"""
 
-    topic: str = Field(default="", max_length=60, description="主题，可为空（由服务挑）")
+    topic: str = Field(default="", max_length=60, description="专题名/关键词，可为空（由服务挑）")
     total: int = Field(default=3, ge=1, le=5, description="题目数量（1-5）")
     subject_id: Optional[int] = Field(default=None, description="限定科目（可选）")
+    #: 难度选题（1-5，对应 ai_chunk.difficulty）；不传则不限难度
+    difficulty: Optional[int] = Field(default=None, ge=1, le=5, description="难度筛选（可选）")
 
 
 class InterviewSource(BaseModel):
@@ -100,7 +174,9 @@ class InterviewStartResponse(BaseModel):
     total: int
     question: str
     source: InterviewSource
-    degraded: bool = Field(default=False, description="题目是否因 7B 不可用而降级")
+    degraded: bool = Field(default=False, description="题目是否因 3B 不可用/语料不足而降级")
+    #: 降级原因（语料未就绪 / 3B 超时等），非降级时为空串
+    degrade_reason: str = ""
 
 
 class InterviewAnswerRequest(BaseModel):
@@ -134,6 +210,8 @@ class InterviewAnswerResponse(BaseModel):
     #: 结束原因：COMPLETED（答满 total）/ EARLY_EXHAUSTED（语料耗尽提前收尾）。
     #: 契约未列，属附加信息；客户端据此可提示"计划 N 题、实评 M 题"。
     finish_reason: str = ""
+    #: 降级原因（3B 不可用 / 语料不足），非降级时为空串
+    degrade_reason: str = ""
 
 
 # ---------------------------------------------------------------- 内部状态
@@ -167,6 +245,8 @@ class _Session:
     topic: str
     total: int
     subject_id: Optional[int]
+    difficulty: Optional[int] = None
+    degrade_reason: str = ""
     questions: List[_Question] = field(default_factory=list)
     index: int = 0
     created_at: float = field(default_factory=time.time)
@@ -181,7 +261,10 @@ class _Session:
 
 
 _SESSIONS: Dict[str, _Session] = {}
-_SESSIONS_LOCK = threading.Lock()
+# A-02：改用可重入锁。interview_answer 会在外层持锁完成
+# 「取会话 → 判状态 → 改状态 → 写回」，而 _get_session / _save_session 内部
+# 各自也 with 同一把锁；非重入 Lock 会自锁死，RLock 保证重入安全。
+_SESSIONS_LOCK = threading.RLock()
 
 
 def _cleanup_sessions() -> None:
@@ -219,19 +302,33 @@ def reset_sessions() -> None:
 
 # ---------------------------------------------------------------- LLM 调用
 class InterviewLlmError(Exception):
-    """面试链路的 7B 调用失败（触发降级，不向上抛）。"""
+    """面试链路的 3B 调用失败（触发降级，不向上抛）。"""
 
 
 def _chat(system: str, user: str, *, max_tokens: int = 600,
           temperature: float = 0.3) -> str:
-    """调用 OpenAI 兼容端点（Ollama / 云端同一套协议）。
+    """调用本地 Ollama 3B 的 OpenAI 兼容端点。
 
     与 ``llm_client`` 的区别：面试需要**自定义 system**（面试官 / 评分官）
     且要求 JSON 输出，不能复用带引用约束的问答提示词。
 
+    两道 3B 单模型保护（2026-11-11 整改）：
+    * **单次调用硬超时** ``INTERVIEW_LLM_TIMEOUT_SECONDS``，不跟随 .env 的 90s；
+    * **单次请求 LLM 调用预算**：超过 ``_LLM_BUDGET`` 直接抛错走降级，
+      保证一次 /answer 不会串行发起多次 LLM 调用把 SSE 拖死。
+
     Raises:
-        InterviewLlmError: 未配置 Key、缺 httpx、超时或上游异常。
+        InterviewLlmError: 调用预算耗尽、未配置 Key、缺 httpx、超时或上游异常。
     """
+    budget = _LLM_BUDGET.get()
+    if budget is not None:
+        used = _LLM_USED.get()
+        if used >= budget:
+            raise InterviewLlmError(
+                f"单次面试请求 LLM 调用已达上限 {budget} 次，已降级为抽取式/模板"
+            )
+        _LLM_USED.set(used + 1)
+
     settings = get_settings().llm
     if not settings.api_key:
         raise InterviewLlmError("未配置 LLM_API_KEY，已降级为抽取式")
@@ -250,9 +347,11 @@ def _chat(system: str, user: str, *, max_tokens: int = 600,
     }
     headers = {"Authorization": f"Bearer {settings.api_key}",
                "Content-Type": "application/json"}
+    # 硬超时：3B 卡顿时绝不按 .env 的 90s 干等，超时即降级（抽取式/模板）。
+    timeout = min(settings.timeout_seconds, INTERVIEW_LLM_TIMEOUT_SECONDS)
     try:
         # trust_env=False：本地 Ollama 调用必须绕过系统代理（见 llm_client 同款注释）
-        with httpx.Client(timeout=settings.timeout_seconds, trust_env=False) as client:
+        with httpx.Client(timeout=timeout, trust_env=False) as client:
             response = client.post(f"{settings.base_url}/chat/completions",
                                    json=payload, headers=headers)
     except Exception as exc:  # noqa: BLE001
@@ -272,59 +371,168 @@ _JSON_BLOCK = re.compile(r"\{[\s\S]*\}")
 
 
 def _parse_json(raw: str) -> Dict[str, Any]:
-    """从模型输出中提取 JSON 对象（容忍代码块与前后废话）。"""
+    """从模型输出中提取 JSON 对象（容忍代码块、前后废话与 3B 常见语法瑕疵）。
+
+    2026-11-11 实测：本地 3B 生成的 JSON 经常踩这几类坑——
+    中文引号没转义、字符串里裸换行、尾逗号、把数组写成半截。
+    先做四轮修复，仍失败则按字段正则兜底，尽量不把「模型已作答」误判成降级。
+    """
     match = _JSON_BLOCK.search(raw or "")
     if not match:
         raise InterviewLlmError("模型输出不含 JSON")
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError as exc:
-        raise InterviewLlmError(f"JSON 解析失败：{exc}") from exc
-    if not isinstance(data, dict):
-        raise InterviewLlmError("模型输出不是 JSON 对象")
+    text = match.group(0)
+
+    candidates = [
+        text,
+        re.sub(r",\s*([}\]])", r"\1", text),                        # 去尾逗号
+        text.replace("“", '\\"').replace("”", '\\"'),                # 中文引号 → 转义
+        re.sub(r"(?<=[^\n])\n(?=[^\n]*\")", r"\\n", text),          # 字符串内裸换行
+    ]
+    for cand in candidates:
+        try:
+            data = json.loads(cand)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            continue
+
+    # 字段级兜底：score 必填，其余尽力而为
+    data: Dict[str, Any] = {}
+    m = re.search(r'"score"\s*:\s*(-?\d+(?:\.\d+)?)', text)
+    if not m:
+        raise InterviewLlmError("JSON 解析失败且无 score 字段")
+    data["score"] = float(m.group(1))
+    for key in ("verdict", "comment", "follow_up"):
+        m = re.search(r'"%s"\s*:\s*"([^"\n]{0,200})"' % key, text)
+        if m:
+            data[key] = m.group(1)
+    for key in ("hit_points", "miss_points"):
+        m = re.search(r'"%s"\s*:\s*\[(.*?)\]' % key, text, re.S)
+        if m:
+            data[key] = re.findall(r'"([^"\n]{1,80})"', m.group(1))
     return data
 
 
 # ---------------------------------------------------------------- 语料检索
-def _interview_courseware_ids(topic: str) -> List[int]:
-    """圈出「面试类」课件 id（可选按主题再收窄）。"""
+#: 书名号标题（《详细说下RAG的流程》）——面试语料里通常就是这道题的题面
+_BOOK_TITLE_RE = re.compile(r"^《(.{2,60})》\s*$", re.M)
+#: 真实问句行：编号（1. / 一、 / •三、）开头或以「？」结尾（逐行匹配）
+_QUESTION_LINE_RE = re.compile(
+    r"^(?:[一二三四五六七八九十]+[.、．]|\d+[.、．]|[•*]\s*)?(.{4,60}[？?])\s*$", re.M
+)
+
+
+def _topic_keyword(topic: str) -> str:
+    """把专题名规范化为检索核心词（``RAG篇`` → ``RAG``，``Transformer篇`` → ``Transformer``）。
+
+    另一 agent 写入的专题名带「篇/专题/系列」后缀，而 ``ai_chunk.title`` 里是
+    「RAG关键痛点和解决方案面试题」这类标题，直接 LIKE ``%RAG篇%`` 必然零命中。
+    """
+    keyword = (topic or "").strip()
+    for suffix in ("面试题", "专题", "系列", "部分", "篇"):
+        keyword = keyword.replace(suffix, "")
+    return keyword.strip()
+
+
+def _interview_subject_ids() -> List[int]:
+    """圈出「INTERVIEW 面试知识点」对应的 ``subject.id`` 集合。
+
+    双口径兼容另一 agent 的两种标记方式：``subject.name`` 含「面试」、
+    或 ``exam_category.code='INTERVIEW'``。任一查询异常返回空列表，
+    由上层走「明确降级」而非 500/503。
+    """
     import pymysql
 
-    sql = "SELECT id FROM courseware WHERE is_deleted=0 AND title LIKE %s"
-    params: List[Any] = ["%面试%"]
-    if topic:
-        sql += " AND title LIKE %s"
-        params.append(f"%{topic}%")
-    conn = pymysql.connect(**db_config())
     try:
-        with conn.cursor() as cur:
-            cur.execute(sql, params)
-            ids = [int(row[0]) for row in cur.fetchall()]
-    finally:
-        conn.close()
-    if ids or not topic:
+        conn = pymysql.connect(**db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT s.id FROM subject s "
+                    "LEFT JOIN exam_category e ON e.id = s.exam_category_id "
+                    "WHERE s.name LIKE %s OR e.code = %s",
+                    (INTERVIEW_SUBJECT_LIKE, INTERVIEW_EXAM_CODE),
+                )
+                return [int(row[0]) for row in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 - 语料不可用时走降级，不让面试 500
+        logger.warning("[Interview] 面试科目查询失败，走降级：%s", type(exc).__name__)
+        return []
+
+
+def _interview_courseware_ids(topic: str) -> List[int]:
+    """INTERVIEW 面试语料**可用性探针**：返回命中的 ``ai_chunk.id``。
+
+    保留函数名与 3 参数形态是为了兼容既有测试桩与 ``interview_start`` 调用点。
+    旧实现查 ``courseware.title LIKE '%面试%'`` 且强依赖 Qdrant 索引，是 503 根因；
+    现在直接查 ``ai_chunk``（subject 属面试类），可选按专题关键词收窄，
+    主题收窄无命中时退回全量面试语料，保证出得了题。
+    """
+    import pymysql
+
+    subject_ids = _interview_subject_ids()
+    if not subject_ids:
+        return []
+    keyword = _topic_keyword(topic)
+    fmt = ",".join(["%s"] * len(subject_ids))
+    sql = (
+        "SELECT id FROM ai_chunk WHERE status='ACTIVE' "
+        "AND source_type='COURSEWARE' AND subject_id IN (" + fmt + ")"
+    )
+    params: List[Any] = list(subject_ids)
+    if keyword:
+        sql += " AND (title LIKE %s OR content LIKE %s)"
+        params.extend([f"%{keyword}%", f"%{keyword}%"])
+    sql += " LIMIT 200"
+    try:
+        conn = pymysql.connect(**db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                ids = [int(row[0]) for row in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[Interview] 面试语料探针失败，走降级：%s", type(exc).__name__)
+        return []
+    if ids or not keyword:
         return ids
-    # 主题收窄后为空 → 退回全部面试课件，保证出得了题
+    # 专题收窄后为空 → 退回全部面试语料
     return _interview_courseware_ids("")
 
 
 def _courseware_meta(ids: Sequence[int]) -> Dict[int, Dict[str, Any]]:
-    """课件 id → {title, source_file}（出题来源要可回溯到源文件）。"""
+    """``ai_chunk.id`` → ``{title, source_file}``（出题来源要可回溯到源文件）。
+
+    ``source_file`` 来自关联的 ``courseware`` 行；表缺失/关联不到时留空串，
+    不影响出题（title + chunk_id 已足够回溯）。
+    """
     if not ids:
         return {}
     import pymysql
 
     fmt = ",".join(["%s"] * len(ids))
-    conn = pymysql.connect(**db_config())
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"SELECT id, title, source_file FROM courseware WHERE id IN ({fmt})",
-                list(ids))
-            return {int(r[0]): {"title": str(r[1] or ""), "source_file": str(r[2] or "")}
-                    for r in cur.fetchall()}
-    finally:
-        conn.close()
+        conn = pymysql.connect(**db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT c.id, c.title, COALESCE(cw.source_file, '') "
+                    "FROM ai_chunk c "
+                    "LEFT JOIN courseware cw "
+                    "  ON cw.id = c.source_id AND c.source_type = 'COURSEWARE' "
+                    f"WHERE c.id IN ({fmt})",
+                    list(ids))
+                return {
+                    int(r[0]): {"title": str(r[1] or ""), "source_file": str(r[2] or "")}
+                    for r in cur.fetchall()
+                }
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 - 回溯信息取不到不影响出题
+        logger.warning("[Interview] 来源元数据查询失败：%s", type(exc).__name__)
+        return {}
 
 
 def _fetch_contents(chunk_ids: Sequence[int]) -> Dict[int, str]:
@@ -347,49 +555,112 @@ def _fetch_contents(chunk_ids: Sequence[int]) -> Dict[int, str]:
 
 def _retrieve_context(topic: str, subject_id: Optional[int],
                       exclude_ids: Sequence[int]) -> List[Dict[str, Any]]:
-    """检索出题/评分用的参考块。
+    """从 ``ai_chunk`` 直查 INTERVIEW 面试知识点语料（**不依赖 Qdrant 向量索引**）。
+
+    为什么不用向量：634 篇面试语料切块写入 ``ai_chunk`` 后，向量索引
+    （``vector_synced``）不一定已推送；旧实现走 Qdrant 检索无命中就直接 503。
+    ``ai_chunk`` 自带 ngram 全文索引与 ``title``，用关键词直查既能按专题/难度
+    选题，又能在毫秒级返回，且天然绕开 503 根因。
+
+    ``subject_id`` 参数保留以兼容既有调用/测试桩，但**不作为硬过滤**：Java 侧
+    start 常传校内课程科目（如 5），硬过滤会把面试语料全部排除、重新制造空题。
 
     Returns:
         ``[{"chunk_id", "title", "source_id", "page_no", "content", "source_file"}]``；
-        检索不到返回空列表（调用方负责降级或报错）。
+        检索不到返回空列表（调用方负责明确降级）。
     """
-    doc_ids = _interview_courseware_ids(topic)
-    if not doc_ids:
+    import pymysql
+
+    subject_ids = _interview_subject_ids()
+    if not subject_ids:
         return []
-    query = topic.strip() or "AI 大模型 面试 常见问题"
-    vector = get_embedding_client().encode_query(query)
-    must: List[Dict[str, Any]] = [
-        {"key": "status", "match": {"value": "ACTIVE"}},
-        {"key": "source_type", "match": {"value": "COURSEWARE"}},
-        {"key": "source_id", "match": {"any": doc_ids}},
-    ]
-    if subject_id is not None:
-        must.append({"key": "subject_id", "match": {"value": int(subject_id)}})
-    hits = get_qdrant_client().search(vector, top_k=CONTEXT_CHUNKS * 3,
-                                      query_filter={"must": must}) or []
-    excluded = set(int(i) for i in exclude_ids)
-    picked = [h for h in hits if int(h.get("chunk_id") or 0) not in excluded]
-    picked = picked[:CONTEXT_CHUNKS]
-    contents = _fetch_contents([int(h.get("chunk_id") or 0) for h in picked])
-    metas = _courseware_meta([int((h.get("payload") or {}).get("source_id") or 0)
-                              for h in picked])
-    results: List[Dict[str, Any]] = []
-    for hit in picked:
-        payload = hit.get("payload") or {}
-        chunk_id = int(hit.get("chunk_id") or 0)
-        text = (contents.get(chunk_id) or "").strip()
-        if not chunk_id or not text:
+    keyword = _topic_keyword(topic)
+    difficulty = _CURRENT_DIFFICULTY.get()
+    fmt = ",".join(["%s"] * len(subject_ids))
+    sql = (
+        "SELECT c.id, c.title, c.source_id, c.page_no, c.content, c.difficulty, "
+        "       COALESCE(cw.source_file, '') "
+        "FROM ai_chunk c "
+        "LEFT JOIN courseware cw "
+        "  ON cw.id = c.source_id AND c.source_type = 'COURSEWARE' "
+        "WHERE c.status = 'ACTIVE' AND c.source_type = 'COURSEWARE' "
+        "  AND c.subject_id IN (" + fmt + ")"
+    )
+    params: List[Any] = list(subject_ids)
+    if difficulty is not None:
+        sql += " AND c.difficulty = %s"
+        params.append(int(difficulty))
+    if keyword:
+        sql += " AND (c.title LIKE %s OR c.content LIKE %s)"
+        params.extend([f"%{keyword}%", f"%{keyword}%"])
+    # 候选池放大到 400（面试语料实测 2424 块），让「带真实问句」的块有机会
+    # 进入排序；只取前 80 条时会先撞上按 id 顺序导入的章节封面页。
+    sql += " LIMIT 400"
+    try:
+        conn = pymysql.connect(**db_config())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 - 语料/库不可用时走降级，不 500
+        logger.warning("[Interview] 面试语料检索失败，走降级：%s", type(exc).__name__)
+        return []
+
+    if not rows and keyword:
+        # 专题收窄无命中 → 退回全量面试语料（keyword 为空时不再递归）
+        logger.info("[Interview] 专题「%s」无命中，退回全量面试语料", topic)
+        return _retrieve_context("", subject_id, exclude_ids)
+
+    excluded = {int(i) for i in exclude_ids}
+    scored: List[Tuple[int, int, Any]] = []
+    for row in rows:
+        chunk_id = int(row[0])
+        if chunk_id in excluded:
             continue
-        source_id = int(payload.get("source_id") or 0)
-        meta = metas.get(source_id, {})
+        title = str(row[1] or "")
+        content = str(row[4] or "")
+        score = 0
+        if keyword:
+            if keyword in title:
+                score += 5
+            if keyword in content:
+                score += 1
+        # 含真实面试问句（「？」「1.」「一、」）的块优先出题；
+        # 只有书名号题面的多半是文档封面，权重低；章节封面页再降权。
+        has_ask = bool(_QUESTION_LINE_RE.search(content)) or any(
+            _TOPIC_LINE.match(line.strip().strip("*•")) for line in content.splitlines()
+        )
+        if has_ask:
+            score += 4
+        elif _BOOK_TITLE_RE.search(content):
+            score += 1
+        if "专题" in title and not has_ask:
+            score -= 2
+        scored.append((score, chunk_id, row))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+
+    results: List[Dict[str, Any]] = []
+    per_title: Dict[str, int] = {}
+    for _score, chunk_id, row in scored:
+        title = str(row[1] or "")
+        if per_title.get(title, 0) >= MAX_CHUNKS_PER_TITLE:
+            continue
+        text = str(row[4] or "").strip()
+        if not text:
+            continue
+        per_title[title] = per_title.get(title, 0) + 1
         results.append({
             "chunk_id": chunk_id,
-            "title": str(payload.get("title") or meta.get("title") or ""),
-            "source_id": source_id,
-            "page_no": payload.get("page_no"),
-            "source_file": meta.get("source_file", ""),
+            "title": title,
+            "source_id": int(row[2] or 0),
+            "page_no": row[3],
+            "source_file": str(row[6] or ""),
             "content": text,
         })
+        if len(results) >= CONTEXT_CHUNKS:
+            break
     return results
 
 
@@ -401,14 +672,32 @@ _QUESTION_SYSTEM = (
     "3. 优先考察原理、对比、工程实践这类能追问的点，避免「是什么」的死记硬背。"
 )
 
-_TOPIC_LINE = re.compile(r"^\s*\d+[.、]\s*(.{4,50})$")
+_TOPIC_LINE = re.compile(r"^\s*\d+[.、．]\s*(.{4,50})$")
 
 
 def _fallback_question(topic: str, contexts: List[str]) -> str:
-    """7B 不可用时的降级出题：直接用资料里的话题行，绝不编题。"""
+    """3B 不可用 / 调用预算耗尽时的降级出题：**直接取语料里的真实题目行**。
+
+    优先级：书名号题面（《xxx》）→ 带「？」的问句行 → 编号话题行 → 通用兜底。
+    前三类都来自 ``ai_chunk`` 的真实面试语料，绝不凭空编题；最后一类只在
+    完全无语料时使用，且会由调用方标注 ``degraded=true`` + ``degrade_reason``。
+    """
     for text in contexts:
-        for line in text.splitlines():
-            line = line.strip().strip("*").strip()
+        # ① 书名号题面：面试 md 的第一行通常就是这道题的题面
+        book = _BOOK_TITLE_RE.search(text)
+        if book:
+            question = book.group(1).strip()
+            if len(question) >= 4:
+                return question if question.endswith(("？", "?")) else f"{question}？"
+        for raw_line in text.splitlines():
+            line = raw_line.strip().strip("*•").strip()
+            # ② 真实问句行（以「？」结尾）
+            ask = _QUESTION_LINE_RE.match(line)
+            if ask:
+                question = ask.group(1).strip()
+                if len(question) >= 4:
+                    return question
+            # ③ 编号话题行（兼容既有语料格式与测试桩）
             match = _TOPIC_LINE.match(line)
             if match:
                 topic_text = match.group(1).strip("？?。 ")
@@ -440,9 +729,11 @@ _GRADE_SYSTEM = (
     "1. 只输出一个 JSON 对象，不要 Markdown 代码块、不要解释；\n"
     "2. 字段：score（0-100 整数）、verdict（正确/部分正确/不正确）、"
     "hit_points（作答命中的要点数组）、miss_points（遗漏的要点数组）、"
-    "comment（一句评语，40 字内）；\n"
+    "comment（一句评语，40 字内）、"
+    "follow_up（针对遗漏要点的一句追问，不超过 40 字）；\n"
     "3. 作答与资料无关或明显错误 → score 低于 40；答到要点 → 70 以上；\n"
-    "4. 不要因为表达口语化扣分，只看技术要点是否命中。"
+    "4. 不要因为表达口语化扣分，只看技术要点是否命中。\n"
+    "5. 评语与追问都由你一次性给出，不要分段输出。"
 )
 
 _SENTENCE_SPLIT = re.compile(r"[。；;\n]+")
@@ -465,7 +756,7 @@ def _sentence_hits(answer: str, reference: str, *, want_low: bool,
 
 
 def _extractive_grade(answer: str, reference: str) -> Dict[str, Any]:
-    """抽取式评分兜底（无 7B 时）：按作答被资料覆盖的比例折算。
+    """抽取式评分兜底（无 3B 时）：按作答被资料覆盖的比例折算。
 
     口径与 Wiki 蒸馏的接地校验同源（``grounding_ratio``），便于横向对照；
     分数刻意封顶 80 并标注「非模型判分」——抽取式只能证明"提到了资料里的词"，
@@ -495,6 +786,15 @@ def _extractive_grade(answer: str, reference: str) -> Dict[str, Any]:
 def _grade(question: str, answer: str,
            contexts: List[str]) -> Tuple[Dict[str, Any], bool]:
     """评分。返回 ``(评分结果, 是否降级)``。"""
+    if not contexts:
+        # 降级会话（语料不足）没有参考资料：不调 3B，也不做抽取式重合度
+        # （空参考会让 grounding_ratio 除零），直接给出明确的「未评分」结果。
+        return {
+            "score": 0, "verdict": "未评分",
+            "hit_points": [], "miss_points": [],
+            "comment": "面试语料未就绪，本题未做模型判分（降级会话）",
+            "follow_up": "",
+        }, True
     reference = "\n".join(contexts)[: CONTEXT_CHARS * len(contexts)]
     blocks = "\n\n".join(f"【资料{i}】{text[:CONTEXT_CHARS]}"
                          for i, text in enumerate(contexts, start=1))
@@ -510,36 +810,44 @@ def _grade(question: str, answer: str,
             "hit_points": [str(x)[:80] for x in (data.get("hit_points") or [])][:5],
             "miss_points": [str(x)[:80] for x in (data.get("miss_points") or [])][:5],
             "comment": str(data.get("comment") or "")[:120],
+            # 追问与点评合并进同一次评分调用（3B 单模型下不再单独发起一次 LLM）
+            "follow_up": str(data.get("follow_up") or "").strip()[:80],
         }
         return result, False
     except (InterviewLlmError, ValueError, TypeError) as exc:
         logger.info("[Interview] 评分降级：%s", exc)
-        return _extractive_grade(answer, reference), True
+        degraded_result = _extractive_grade(answer, reference)
+        degraded_result["follow_up"] = ""
+        return degraded_result, True
 
 
 # ---------------------------------------------------------------- 追问
-_FOLLOW_UP_SYSTEM = (
-    "你是 AI 大模型面试官。根据学生的作答与遗漏要点，提出**一句**追问，"
-    "不超过 40 字，只输出问题本身，不要解释、不要编号。"
-)
+def _make_follow_up(question: str, answer: str, misses: List[str],
+                    model_follow_up: str = "") -> Tuple[str, bool]:
+    """产出一条追问。返回 ``(追问, 是否降级)``。
 
+    **不再单独发起一次 LLM 调用**：3B 生成的追问已合并进 ``_grade`` 同一次
+    评分调用的 ``follow_up`` 字段（``_GRADE_SYSTEM`` 第 2/5 条）。这样一次
+    ``/answer`` 最多两次 LLM（评分 + 下一题出题），不会串行拖死 SSE。
+    模型没给 follow_up 或评分走了抽取式降级时，用确定性模板兜底（``degraded=True``）。
 
-def _make_follow_up(question: str, answer: str, misses: List[str]) -> Tuple[str, bool]:
-    """生成一条追问。返回 ``(追问, 是否降级)``。"""
-    miss_text = "；".join(misses) or "（未提取到具体遗漏点）"
-    user = (f"【面试题】{question}\n【学生作答】{answer[:500]}\n"
-            f"【遗漏要点】{miss_text}\n请提出一句追问。")
-    try:
-        text = _chat(_FOLLOW_UP_SYSTEM, user, max_tokens=80, temperature=0.5)
-        text = re.sub(r"^(追问|问题)[:：]\s*", "", text.strip()).strip("\"'“”")
-        if len(text) < 4:
-            raise InterviewLlmError("追问过短")
-        return text.splitlines()[0].strip(), False
-    except InterviewLlmError as exc:
-        logger.info("[Interview] 追问降级：%s", exc)
-        if misses:
-            return f"关于「{misses[0][:30]}」，你能展开说说吗？", True
-        return "能结合一个具体项目场景再说明一下吗？", True
+    Args:
+        question: 当前面试题（保留参数以兼容既有调用点）。
+        answer: 学生作答（保留参数以兼容既有调用点）。
+        misses: 评分得到的遗漏要点。
+        model_follow_up: 同一次评分调用里 3B 给出的追问。
+
+    Returns:
+        ``(追问文本, 是否非模型产出)``。
+    """
+    if model_follow_up and len(model_follow_up.strip()) >= 4:
+        text = re.sub(r"^(追问|问题)[:：]\s*", "", model_follow_up.strip()).strip("\"'“”")
+        if len(text) >= 4:
+            return text.splitlines()[0].strip(), False
+    logger.info("[Interview] 追问降级：评分未产出 follow_up，使用模板追问")
+    if misses:
+        return f"关于「{misses[0][:30]}」，你能展开说说吗？", True
+    return "能结合一个具体项目场景再说明一下吗？", True
 
 
 # ---------------------------------------------------------------- 报告
@@ -577,7 +885,7 @@ def _build_report(session: _Session) -> Dict[str, Any]:
     if low:
         suggestions.append(f"有 {len(low)} 道题低于 60 分，建议回到对应课件重读并复述一遍")
     if session.degraded:
-        suggestions.append("本次评分含降级环节（7B 不可用时的抽取式评分），结论需人工复核")
+        suggestions.append("本次评分含降级环节（3B 不可用时的抽取式评分），结论需人工复核")
     if not suggestions:
         suggestions.append("保持当前节奏，继续按主题刷面试题并录音自评")
     return {
@@ -598,8 +906,16 @@ def _build_report(session: _Session) -> Dict[str, Any]:
 # ---------------------------------------------------------------- 会话推进
 def _build_question(session: _Session, topic: str,
                     subject_id: Optional[int]) -> Optional[_Question]:
-    """检索资料并生成一道题；检索不到返回 None（由调用方兜底）。"""
-    contexts = _retrieve_context(topic, subject_id, session.used_chunk_ids)
+    """检索资料并生成一道题；检索不到返回 None（由调用方兜底）。
+
+    难度通过 ContextVar 传给生产 ``_retrieve_context``，避免给该函数加位置参数
+    （既有测试用固定 3 参数的 lambda 桩替换它）。
+    """
+    difficulty_token = _CURRENT_DIFFICULTY.set(session.difficulty)
+    try:
+        contexts = _retrieve_context(topic, subject_id, session.used_chunk_ids)
+    finally:
+        _CURRENT_DIFFICULTY.reset(difficulty_token)
     if not contexts:
         return None
     texts = [c["content"][:CONTEXT_CHARS] for c in contexts]
@@ -621,55 +937,92 @@ def _build_question(session: _Session, topic: str,
 
 
 # ---------------------------------------------------------------- 接口
+#: 语料不足时的明确降级提示（写入 degrade_reason 与 source.title）
+CORPUS_DEGRADE_REASON = (
+    "面试语料未就绪：ai_chunk 中未检索到 INTERVIEW 面试知识点"
+    "（subject.name 含「面试」或 exam_category.code=INTERVIEW），或 MySQL 不可用。"
+    "本题为通用兜底题，未取自真实语料；请确认 634 篇面试语料已写入 ai_chunk 后重试。"
+)
+
+
+def _degraded_start(request: InterviewStartRequest, reason: str) -> InterviewStartResponse:
+    """语料不可用时返回 **200 + 一道明确降级的题**，而不是 503 / 空题。
+
+    2026-11-11 整改要求：模拟面试「语料不足时给出明确降级提示而不是 503 或空题」。
+    旧实现在这里直接 503/5203，Java 透传后用户只看到「面试服务暂不可用」。
+    现在如实返回一道通用兜底题（``_fallback_question`` 的既有设计内降级），
+    并用 ``degraded=true`` + ``degrade_reason`` + ``source.title`` 三处标明降级，
+    绝不假装是正常题目。会话仍可用（作答走抽取式降级评分）。
+    """
+    topic = (request.topic or "").strip() or "AI 大模型面试"
+    question_text = _fallback_question(topic, [])
+    session = _Session(
+        session_id=str(uuid.uuid4()), topic=topic, total=int(request.total),
+        subject_id=request.subject_id, difficulty=request.difficulty,
+        degrade_reason=reason, degraded=True,
+    )
+    question = _Question(
+        text=question_text,
+        source={"title": "（降级：面试语料未就绪）", "source_file": "",
+                "page_no": None, "chunk_id": 0},
+        contexts=[], degraded=True,
+    )
+    session.questions.append(question)
+    _save_session(session)
+    logger.warning("[Interview] 会话 %s 以降级题目开始：%s", session.session_id, reason)
+    return InterviewStartResponse(
+        session_id=session.session_id, topic=topic, question_no=1,
+        total=session.total, question=question_text,
+        source=InterviewSource(**question.source), degraded=True,
+        degrade_reason=reason,
+    )
+
+
 @router.post(
     "/v1/interview/start",
     response_model=InterviewStartResponse,
     summary="开始一场 AI 面试（出第一题）",
     description=(
-        "从「面试类」课件（title 含「面试」的 68 份）中检索与主题最相关的语料，"
-        "由本地 7B 改写成面试题；**每题带 source 可回溯**，检索不到就降级用资料原文提问。"
+        "优先从 ai_chunk 的 INTERVIEW 面试知识点（634 篇面试语料切块）按专题/难度检索组题，"
+        "由本地 3B 改写成面试题；**每题带 source 可回溯**。3B 不可用或语料不足时"
+        "返回 200 + 明确降级提示（degraded/degrade_reason），不再 503、不空题。"
         "会话保存在进程内（30 分钟 TTL），返回 session_id 供 /answer 使用。"
     ),
 )
 def interview_start(request: InterviewStartRequest) -> InterviewStartResponse:
-    """开始面试。"""
+    """开始面试（3B 单模型下只出 1 次 LLM；语料不足走明确降级，不再 503）。"""
     topic = (request.topic or "").strip()
-    doc_ids = _interview_courseware_ids(topic)
-    if not doc_ids:
-        # 没有任何「面试类」语料：直接 503 语义（不是 500，也不编题）
-        from fastapi.responses import JSONResponse
+    with _llm_call_budget(START_LLM_CALL_BUDGET):
+        doc_ids = _interview_courseware_ids(topic)
+        if not doc_ids:
+            return _degraded_start(request, CORPUS_DEGRADE_REASON)
+        if not topic:
+            # 空主题：用第一条真实面试语料的标题当主题（真实存在、可回溯）
+            metas = _courseware_meta(doc_ids[:1])
+            topic = next(iter(metas.values()), {}).get("title", "AI 大模型面试").replace("面试题", "")
 
-        return JSONResponse(status_code=503, content={
-            "code": 5203,
-            "message": "面试语料不可用：未找到 title 含「面试」的课件或向量索引未就绪，"
-                       "请先灌库并推送向量",
-            "degraded": True,
-        })  # type: ignore[return-value]
-    if not topic:
-        # 空主题：用第一份面试课件的标题当主题（真实存在、可回溯）
-        metas = _courseware_meta(doc_ids[:1])
-        topic = next(iter(metas.values()), {}).get("title", "AI 大模型面试").replace("面试题", "")
-
-    session = _Session(session_id=str(uuid.uuid4()), topic=topic,
-                       total=int(request.total), subject_id=request.subject_id)
-    question = _build_question(session, topic, request.subject_id)
-    if question is None:
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(status_code=503, content={
-            "code": 5203,
-            "message": "面试语料不可用：向量检索无命中，请确认 Qdrant 已推送面试课件",
-            "degraded": True,
-        })  # type: ignore[return-value]
-    session.questions.append(question)
-    session.degraded = session.degraded or question.degraded
-    _save_session(session)
-    logger.info("[Interview] 会话 %s 开始 topic=%s total=%d", session.session_id, topic, session.total)
-    return InterviewStartResponse(
-        session_id=session.session_id, topic=topic, question_no=1,
-        total=session.total, question=question.text,
-        source=InterviewSource(**question.source), degraded=question.degraded,
-    )
+        session = _Session(
+            session_id=str(uuid.uuid4()), topic=topic,
+            total=int(request.total), subject_id=request.subject_id,
+            difficulty=request.difficulty,
+        )
+        question = _build_question(session, topic, request.subject_id)
+        if question is None:
+            return _degraded_start(request, CORPUS_DEGRADE_REASON)
+        reason = "3B 不可用，题目取自真实语料原文" if question.degraded else ""
+        session.degrade_reason = reason
+        session.questions.append(question)
+        session.degraded = session.degraded or question.degraded
+        _save_session(session)
+        logger.info("[Interview] 会话 %s 开始 topic=%s total=%d difficulty=%s degraded=%s",
+                    session.session_id, topic, session.total,
+                    request.difficulty, question.degraded)
+        return InterviewStartResponse(
+            session_id=session.session_id, topic=topic, question_no=1,
+            total=session.total, question=question.text,
+            source=InterviewSource(**question.source), degraded=question.degraded,
+            degrade_reason=reason,
+        )
 
 
 @router.post(
@@ -683,7 +1036,22 @@ def interview_start(request: InterviewStartRequest) -> InterviewStartResponse:
     ),
 )
 def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse:
-    """提交作答。"""
+    """提交作答（A-02：会话状态迁移整体在 ``_SESSIONS_LOCK`` 内完成）。
+
+    「取会话 → 判状态 → 改状态 → 写回」必须由同一把锁保护，否则同一
+    ``session_id`` 并发提交会重复评分、``session.index`` 跳变。
+    锁内包含 ``_grade``（可能调用大模型）与懒生成下一题，因此不同会话
+    会被串行化——属本轮登记的架构级已知限制，见 F3 修复记录 §③。
+    """
+    with _SESSIONS_LOCK:
+        # 一次作答最多 ANSWER_LLM_CALL_BUDGET 次 LLM 调用（评分 + 下一题出题共享），
+        # 超预算的调用由 _chat 直接抛错走抽取式/模板降级，避免 3B 串行拖死 SSE。
+        with _llm_call_budget(ANSWER_LLM_CALL_BUDGET):
+            return _interview_answer_locked(request)
+
+
+def _interview_answer_locked(request: InterviewAnswerRequest) -> InterviewAnswerResponse:
+    """提交作答（原实现；**调用方必须持有 ``_SESSIONS_LOCK``**）。"""
     from fastapi.responses import JSONResponse
 
     session = _get_session(request.session_id)
@@ -700,6 +1068,7 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
             # 题号报**实评题数**：提前收尾时 total(计划) 与实评数不同，报 total 会与
             # report.per_question 条数矛盾（Java 侧实测：question_no=5 但只评了 3 题）
             question_no=session.scored_count(), degraded=session.degraded,
+            degrade_reason=session.degrade_reason,
             finish_reason=("COMPLETED" if session.index >= session.total
                            else "EARLY_EXHAUSTED"),
             report=_build_report(session),
@@ -728,6 +1097,8 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
     else:
         question.first_answer = answer
         result, degraded = _grade(question.text, answer, question.contexts)
+        # 3B 在同一轮评分里已产出追问（_GRADE_SYSTEM），不再单独调 LLM
+        grade_follow_up = str(result.get("follow_up") or "")
         question.score = result["score"]
         question.verdict = result["verdict"]
         question.hit_points = result["hit_points"]
@@ -750,7 +1121,7 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
                     or (score or 0) < FOLLOW_UP_SCORE_THRESHOLD)
         if too_thin and not is_last_question and question.follow_ups_used < MAX_FOLLOW_UPS:
             follow_up_text, follow_degraded = _make_follow_up(
-                question.text, answer, question.miss_points)
+                question.text, answer, question.miss_points, grade_follow_up)
             question.follow_up = follow_up_text
             question.follow_ups_used += 1
             question.pending_follow_up = True
@@ -780,6 +1151,10 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
 
     report = _build_report(session) if finished else None
     _save_session(session)
+    degrade_reason = session.degrade_reason or (
+        "本次含降级环节（3B 不可用或语料不足），结论需人工复核"
+        if session.degraded else ""
+    )
     logger.info("[Interview] 会话 %s 第 %d 题 得分=%s 结束=%s",
                 session_id, session.index + 1, score, finished)
 
@@ -791,7 +1166,8 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
             question_no=session.scored_count(),
             finish_reason=("COMPLETED" if session.index >= session.total
                            else "EARLY_EXHAUSTED"),
-            score=score, verdict=verdict, degraded=session.degraded, report=report,
+            score=score, verdict=verdict, degraded=session.degraded,
+            degrade_reason=degrade_reason, report=report,
         )
     return InterviewAnswerResponse(
         session_id=session_id, finished=False,
@@ -800,5 +1176,5 @@ def interview_answer(request: InterviewAnswerRequest) -> InterviewAnswerResponse
         miss_points=miss_points, reference=reference,
         follow_up=follow_up_text, next_question=next_question,
         is_follow_up=bool(question.pending_follow_up),
-        degraded=question.degraded,
+        degraded=question.degraded, degrade_reason=degrade_reason,
     )

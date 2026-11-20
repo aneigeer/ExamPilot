@@ -41,7 +41,15 @@ SYSTEM_PROMPT = (
     '{"title":"主题标题","summary":"80-200字摘要","content":"Markdown 正文，含 ## 小标题",'
     '"key_points":["要点1","要点2","要点3"],"source_chunk_ids":[1,2],'
     '"links":[{"to_slug":"kp-5","relation":"RELATED","weight":0.6}]}\n'
-    "links 可为空数组；to_slug 只能从【已有页面目录】里选，不得编造。"
+    "links 可为空数组；to_slug 只能从【已有页面目录】里选，不得编造。\n\n"
+    "【字段类型硬约束】（违反任意一条都视为不合格输出）：\n"
+    "6. content 必须是一个 Markdown 字符串，不是数组、不是对象；"
+    "正文用 ## 小节分段，不要把要点列表或字典塞进 content。\n"
+    "7. source_chunk_ids 必须是整数数组，元素只能从给定 chunk_id 里选，"
+    "不能是字符串或单个整数。\n"
+    "8. key_points 必须是字符串数组（3-6 条），不能是字符串或对象。\n"
+    "9. summary 必须是不少于 20 字的字符串。\n"
+    "10. links 必须是数组；没有链接就输出空数组 []。"
 )
 
 
@@ -55,6 +63,53 @@ def _clean(text: Any, limit: int) -> str:
     value = str(text).strip()
     value = re.sub(r"\r\n?", "\n", value)
     return value[:limit].strip()
+
+
+def _coerce_text(value: Any) -> str:
+    """把模型可能输出成数组 / 对象的文本字段归一化成**可读纯文本**。
+
+    分层冒烟基线显示本地 7B 会把 ``content`` / ``summary`` 输出成 JSON 数组或
+    对象；旧实现 ``_clean`` 里的 ``str(text)`` 会留下 Python repr（``['``、
+    ``{'``、``": "`` 等），既让正文失真，又因括号 / 引号与原文 bigram 几乎不
+    重合而压低接地率，把本可救回的页推给抽取式兜底。
+
+    归一化口径（**绝不调用 ``str()`` 处理容器**，因此不会产生 repr）：
+
+    * ``None`` → 空串；
+    * ``str`` → 原样返回，不改写（接地率校验需要逐字保留原文）；
+    * ``list`` → 逐项递归归一化后按行 join，跳过空项；
+    * ``dict`` → 逐行 ``键: 值``，键与值都不带引号；
+    * 其它类型（数字 / 布尔 / 自定义对象）→ 保守返回空串，由下游长度闸门拦截。
+
+    Args:
+        value: JSON 反序列化后的字段值，类型不受控。
+
+    Returns:
+        不含 Python / JSON repr 特征的可读文本；非文本输入一律收敛为空串。
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, (int, float)):
+        return ""
+    if isinstance(value, list):
+        list_lines: List[str] = []
+        for item in value:
+            text = _coerce_text(item).strip()
+            if text:
+                list_lines.append(text)
+        return "\n".join(list_lines)
+    if isinstance(value, dict):
+        dict_lines: List[str] = []
+        for key, item in value.items():
+            text = _coerce_text(item).strip()
+            if text:
+                dict_lines.append(f"{key}: {text}")
+        return "\n".join(dict_lines)
+    return ""
 
 
 def _extract_json(raw: str) -> Dict[str, Any]:
@@ -169,40 +224,208 @@ def _build_prompt(cluster: Dict[str, Any], catalog: List[Dict[str, Any]]) -> str
     return "\n".join(lines)
 
 
+#: 蒸馏 JSON 必需字段（第二次重试时用于诊断「实际缺了哪些字段」）
+_REQUIRED_FIELDS = ("title", "summary", "content", "key_points", "source_chunk_ids", "links")
+
+
+def _coerce_id_list(raw: Any) -> List[int]:
+    """把「非数组」的 source_chunk_ids 值尽力解析成整数列表（不做合法性过滤）。
+
+    只处理能安全解析的形态：None → 空、单个整数 → [n]、以及用逗号 / 空白 /
+    中文标点分隔的数字字符串（如 "47448,47449"、"47448"）。其余一律返回空列表，
+    由调用方走「补全全部输入块 ID」兜底。bool 视为非法（它是 int 子类，但不是块 ID）。
+    """
+    if raw is None or isinstance(raw, bool):
+        return []
+    if isinstance(raw, int):
+        return [raw]
+    if isinstance(raw, str):
+        out: List[int] = []
+        for part in re.split(r"[,\s，、;；]+", raw.strip()):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                out.append(int(part))
+            except ValueError:
+                continue
+        return out
+    return []
+
+
+def _normalize_source_ids(raw_ids: Any, ordered_valid_ids: List[int]) -> List[int]:
+    """把模型输出的 source_chunk_ids 归一化成「合法输入块 ID 的有序子集」。
+
+    本地 7B 在 response_format=json_object 下仍会整段漏掉该字段，或输出字符串 /
+    单整数。这里做确定性补全，避免整页回退到抽取式兜底：
+
+    * 缺失 / None / 空数组 / 非数组（字符串 "1,2"、单整数等）→ 解析成整数列表，
+      只保留合法 ID；归一化后为空则补全为全部输入块 ID（按 chunks 出现顺序）。
+    * 是数组且非空 → 沿用原逻辑只保留合法 ID；若一个合法 ID 都没有，抛
+      ``DistillError("source_chunk_ids 未引用任何输入块")`` 保持历史安全闸门，
+      绝不补全、绝不放行（模型「明确引用了不存在的块」必须回退）。
+
+    ``ordered_valid_ids`` 必须是按 ``cluster["chunks"]`` 出现顺序排列的合法 ID 列表。
+    """
+    valid_set = set(ordered_valid_ids)
+
+    if isinstance(raw_ids, list):
+        if not raw_ids:
+            # 空数组视同「没给」，补全为全部输入块
+            return list(ordered_valid_ids)
+        ids: List[int] = []
+        for value in raw_ids:
+            try:
+                chunk_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            if chunk_id in valid_set and chunk_id not in ids:
+                ids.append(chunk_id)
+        if not ids:
+            raise DistillError("source_chunk_ids 未引用任何输入块")
+        return ids
+
+    # 非数组：缺失 / None / 字符串 / 单整数等，尽力解析后只保留合法 ID
+    parsed = _coerce_id_list(raw_ids)
+    ids = []
+    for chunk_id in parsed:
+        if chunk_id in valid_set and chunk_id not in ids:
+            ids.append(chunk_id)
+    if not ids:
+        # 归一化后为空（含缺失 / 无法解析 / 全是非法 ID）→ 补全全部输入块
+        return list(ordered_valid_ids)
+    return ids
+
+
+def _points_from_content(content: str) -> List[str]:
+    """从正文按 ## 小标题 / 换行切出非空要点文字（只截取原文，不凭空编造）。"""
+    points: List[str] = []
+    for line in (content or "").splitlines():
+        line = re.sub(r"^#{1,6}\s*", "", line.strip())
+        line = re.sub(r"^[-*+]\s+", "", line).strip()
+        if line and line not in points:
+            points.append(line)
+    return points
+
+
+def _normalize_key_points(raw_points: Any, content: str) -> List[str]:
+    """把模型输出的 key_points 归一化成非空字符串列表。
+
+    模型漏掉该字段或输出非数组时不直接判失败：从 ``content`` 按 ## 小标题或换行
+    切出非空行作为要点（绝不编造文字）。调用方保留「仍不足 2 条才回退到原有
+    『要点少于 2 条』错误」的语义。
+    """
+    if isinstance(raw_points, list):
+        items = raw_points
+    else:
+        items = _points_from_content(content)
+    return [p for p in (_clean(item, 160) for item in items) if p]
+
+
+#: 重试时逐字段点名的类型约束：(字段名, 期望类型, 期望类型的可读说明)。
+#: 只处理「字段存在但类型写错」；字段缺失仍由 _REQUIRED_FIELDS 单独点名。
+_RETRY_TYPE_RULES: Tuple[Tuple[str, type, str], ...] = (
+    ("content", str, "Markdown 字符串"),
+    ("key_points", list, "字符串数组"),
+    ("source_chunk_ids", list, "整数数组"),
+)
+
+
+def _type_label(value: Any) -> str:
+    """把 JSON 值的实际类型翻成给模型看的中文短标签（用于重试 prompt 点名）。"""
+    if isinstance(value, dict):
+        return "对象"
+    if isinstance(value, list):
+        return "数组"
+    if isinstance(value, bool):
+        return "布尔值"
+    if isinstance(value, str):
+        return "字符串"
+    if isinstance(value, int):
+        return "整数"
+    if isinstance(value, float):
+        return "数字"
+    if value is None:
+        return "空值"
+    return "其它类型"
+
+
+def _describe_type_errors(data: Dict[str, Any]) -> List[str]:
+    """列出「字段存在但类型不对」的点名文案，供 ``_retry_prompt`` 追加到重试提示。"""
+    errors: List[str] = []
+    for field, expected_type, expected_label in _RETRY_TYPE_RULES:
+        if field not in data or isinstance(data[field], expected_type):
+            continue
+        errors.append(
+            f"上次 {field} 是{_type_label(data[field])}，"
+            f"本次必须改成 {expected_label}"
+        )
+    return errors
+
+
+def _retry_prompt(base_prompt: str, error: str, last_raw: str) -> str:
+    """构造第二次（最后一次）重试 prompt。
+
+    相比泛泛的「所有字段齐全」，这里点名上次实际缺的字段、**点名上次实际
+    写错的字段类型**、明确 content 需 400-800 字且含 3-4 个 ## 小节，并附上
+    上次输出原文（截断到安全长度）。最多两次调用的限制由 ``distill_cluster`` 保证。
+    """
+    parts = [base_prompt, "\n\n【上一次输出不合格】", error]
+    missing: List[str] = []
+    type_errors: List[str] = []
+    try:
+        data = _extract_json(last_raw)
+        missing = [field for field in _REQUIRED_FIELDS if field not in data]
+        type_errors = _describe_type_errors(data)
+    except DistillError:
+        pass
+    if missing:
+        parts.append("上次 JSON 缺少这些字段，本次必须补齐：" + "、".join(missing))
+    if type_errors:
+        parts.append("【上次输出字段类型错误】" + "；".join(type_errors))
+    parts.append(
+        "content 必须是 400-800 字、含 3-4 个 ## 小节的 Markdown 正文；"
+        "source_chunk_ids 必须是给定 chunk_id 组成的数组；"
+        "key_points 必须是数组；links 没有就输出空数组。"
+    )
+    parts.append("请严格只输出一个合法 JSON 对象，所有字段齐全。")
+    if last_raw:
+        # 原文截断到安全长度，避免把噪声 / 超长输出塞满上下文
+        parts.append("【上次输出原文（截断）】\n" + last_raw[:800])
+    return "\n".join(parts)
+
+
 def _validate(candidate: Dict[str, Any], cluster: Dict[str, Any],
               catalog: List[Dict[str, Any]], settings: Settings) -> Dict[str, Any]:
     source_chunks = cluster.get("chunks") or []
     source_text = "\n".join(_clean(item.get("content"), 2000) for item in source_chunks)
     valid_ids = {int(item["chunkId"]) for item in source_chunks if item.get("chunkId") is not None}
+    # 按 cluster["chunks"] 出现顺序的合法 ID 有序列表（补全 source_chunk_ids 时用）
+    ordered_valid_ids: List[int] = []
+    for item in source_chunks:
+        if item.get("chunkId") is None:
+            continue
+        chunk_id = int(item["chunkId"])
+        if chunk_id not in ordered_valid_ids:
+            ordered_valid_ids.append(chunk_id)
 
     title = _clean(candidate.get("title"), 100) or _clean(cluster.get("title"), 100)
-    summary = _clean(candidate.get("summary"), 900)
-    content = _clean(candidate.get("content"), settings.wiki.distill_max_chars)
+    # A1：模型会把文本字段输出成数组 / 对象，先归一化成可读纯文本再截断，
+    # 避免 str() 留下 Python repr 污染正文、并把接地率压低（下游长度闸门不变）。
+    summary = _clean(_coerce_text(candidate.get("summary")), 900)
+    content = _clean(_coerce_text(candidate.get("content")), settings.wiki.distill_max_chars)
     if len(summary) < 20:
         raise DistillError("摘要过短")
     if len(content) < 80:
         raise DistillError("正文过短")
 
-    key_points = candidate.get("key_points")
-    if not isinstance(key_points, list):
-        raise DistillError("key_points 不是数组")
-    points = [_clean(item, 160) for item in key_points if _clean(item, 160)]
+    # 结构字段确定性补全：key_points / source_chunk_ids 缺失或轻微不合法时补齐，
+    # 而不是整页回退抽取式（详见各函数的 docstring）。
+    points = _normalize_key_points(candidate.get("key_points"), content)
     if len(points) < 2:
         raise DistillError("要点少于 2 条")
 
-    raw_ids = candidate.get("source_chunk_ids")
-    if not isinstance(raw_ids, list):
-        raise DistillError("source_chunk_ids 不是数组")
-    ids: List[int] = []
-    for value in raw_ids:
-        try:
-            chunk_id = int(value)
-        except (TypeError, ValueError):
-            continue
-        if chunk_id in valid_ids and chunk_id not in ids:
-            ids.append(chunk_id)
-    if not ids:
-        raise DistillError("source_chunk_ids 未引用任何输入块")
+    ids = _normalize_source_ids(candidate.get("source_chunk_ids"), ordered_valid_ids)
 
     # 接地校验：整段内容 + 摘要与原始资料的 bigram 重合率
     ratio = grounding_ratio(summary + "\n" + content, source_text)
@@ -295,9 +518,11 @@ async def distill_cluster(cluster: Dict[str, Any], catalog: List[Dict[str, Any]]
     """
     prompt = _build_prompt(cluster, catalog)
     last_error = ""
+    last_raw = ""
     for attempt in range(2):
         try:
             raw = await _chat(settings.llm, prompt, strict_json=True)
+            last_raw = raw
             candidate = _extract_json(raw)
             draft = _validate(candidate, cluster, catalog, settings)
             return draft, False
@@ -306,12 +531,7 @@ async def distill_cluster(cluster: Dict[str, Any], catalog: List[Dict[str, Any]]
             logger.warning("[WikiDistill] %s 第 %d 次失败：%s",
                            cluster.get("slug"), attempt + 1, last_error)
             if attempt == 0:
-                prompt = (
-                    prompt
-                    + "\n\n【上一次输出不合格】\n"
-                    + last_error
-                    + "\n请严格只输出一个合法 JSON 对象，所有字段齐全，source_chunk_ids 只能取给定的 chunk_id。"
-                )
+                prompt = _retry_prompt(prompt, last_error, last_raw)
     logger.warning("[WikiDistill] %s 两次生成均失败（%s），回退抽取式",
                    cluster.get("slug"), last_error)
     return _extractive(cluster, settings), True

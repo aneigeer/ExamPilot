@@ -48,6 +48,11 @@ def test_llm_503_never_leaks_key_value(monkeypatch: pytest.MonkeyPatch) -> None:
     reset_settings()
     settings = get_settings()
     object.__setattr__(settings.llm, "api_key", "sk-do-not-leak-me")
+    # 2026-11-11：默认 base_url 已改为本机 Ollama 3B（真实可达）。
+    # 显式指向不可达地址以稳定复现「配了 Key 但上游故障 → 503」场景，
+    # 与 conftest「测试不依赖本机环境」的既有口径保持一致。
+    object.__setattr__(settings.llm, "base_url", "http://127.0.0.1:59999/v4")
+    object.__setattr__(settings.llm, "timeout_seconds", 1.0)
     llm_module.reset_llm_client()
     try:
         from fastapi.testclient import TestClient
@@ -193,11 +198,15 @@ def test_build_payload_without_context_raises() -> None:
 
 
 def test_generator_name_defaults_to_glm() -> None:
-    """默认生成器标识为 glm（Java 侧按此区分生成器）。"""
+    """默认生成器标识随「本地 3B 单模型锁定」改为 ollama。
+
+    注：函数名保留历史命名以免破坏外部按名称引用该用例的脚本；
+    断言与语义已按 2026-11-11 整改更新（原先断言 glm）。
+    """
     from app.clients.llm_client import LlmClient
     from app.config import LlmSettings
 
-    assert LlmClient(LlmSettings()).settings.generator_name == "glm"
+    assert LlmClient(LlmSettings()).settings.generator_name == "ollama"
 
 
 def test_llm_settings_api_key_empty_by_default() -> None:

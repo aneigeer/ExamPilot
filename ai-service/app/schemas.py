@@ -449,7 +449,7 @@ class OcrRequest(BaseModel):
     """
 
     file_path: Optional[str] = Field(default=None, description="图片绝对路径（仅本机/容器内可读）")
-    image_base64: Optional[str] = Field(default=None, description="图片 base64（不含 data URI 前缀亦可）")
+    image_base64: Optional[str] = Field(default=None, max_length=14_000_000, description="图片 base64（不含 data URI 前缀亦可）；A-09 约 10 MB 二进制上限")
     question_type_hint: Optional[str] = Field(default=None, description="题型提示，如 SINGLE_CHOICE")
     page_from: int = Field(default=1, ge=1, description="PDF 起始页")
     page_to: Optional[int] = Field(default=None, ge=1, description="PDF 结束页，默认到末页")

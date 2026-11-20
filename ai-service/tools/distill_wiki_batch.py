@@ -29,6 +29,7 @@ ai_chunk 里每份 COURSEWARE 文档本身就是一个主题（如「BERT相关�
     python ai-service/tools/distill_wiki_batch.py                    # 全量蒸馏（默认 40 页）
     python ai-service/tools/distill_wiki_batch.py --limit 5          # 冒烟
     python ai-service/tools/distill_wiki_batch.py --only-subject 操作系统
+    python ai-service/tools/distill_wiki_batch.py --refresh-fallback  # 低质量兜底页重新纳入候选覆盖重蒸
 
 前置：AI 服务已在 8000 端口运行（向量同步走 HTTP，Qdrant 本地模式单进程独占）；
 Ollama qwen2.5-7b 在线。
@@ -85,6 +86,21 @@ def load_catalog(conn: Any) -> List[Dict[str, Any]]:
         return [{"slug": r[0], "title": r[1]} for r in cur.fetchall()]
 
 
+def load_refreshable_slugs(conn: Any) -> set:
+    """读需要「刷新重蒸」的抽取式兜底页 slug。
+
+    仅当 --refresh-fallback 开启时调用：把 model='extractive-fallback' 且
+    quality_score <= 0.30 的页重新纳入候选（允许被覆盖重蒸）。状态口径与
+    :func:`load_catalog` 一致，只取 status='PUBLISHED'。
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT slug FROM wiki_page "
+            "WHERE status='PUBLISHED' AND model='extractive-fallback' "
+            "AND quality_score <= 0.30")
+        return {r[0] for r in cur.fetchall()}
+
+
 def select_docs(conn: Any, limit: int, only_subject: str) -> List[Dict[str, Any]]:
     """选出候选主题文档：按块数降序， OS PPT 与普通课件一视同仁。"""
     sql = (
@@ -110,7 +126,9 @@ def select_docs(conn: Any, limit: int, only_subject: str) -> List[Dict[str, Any]
              "subject_name": r[3] or "", "chunk_count": int(r[4])}
             for r in cur.fetchall()
         ]
-    return [r for r in rows if r["doc_id"] not in EXCLUDED_DOC_IDS][:limit]
+    candidates = [r for r in rows if r["doc_id"] not in EXCLUDED_DOC_IDS]
+    # 帮助里承诺 "--limit 0 = 全部候选"，旧写法 [:0] 会切成空列表，等于什么都不做。
+    return candidates if limit <= 0 else candidates[:limit]
 
 
 def pick_chunks_evenly(rows: List[Tuple[int, str, str, Optional[int]]],
@@ -232,15 +250,34 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Wiki 离线批量蒸馏（courseware → wiki_page）")
     ap.add_argument("--limit", type=int, default=40, help="最多蒸馏多少个主题（0=全部候选）")
     ap.add_argument("--only-subject", default="", help="只蒸某科目的课件")
-    ap.add_argument("--dry-run", action="store_true", help="只列聚类计划，不调大模型不写库")
+    ap.add_argument("--dry-run", action="store_true", help="只列聚类计划，不调大模型不写库；开启 --refresh-fallback 时会先按跳过逻辑过滤候选")
     ap.add_argument("--no-vector", action="store_true", help="只写库不推向量")
+    ap.add_argument("--refresh-fallback", action="store_true",
+                    help="把 model=extractive-fallback 且 quality<=0.30 的已发布页重新纳入候选并覆盖重蒸")
     args = ap.parse_args()
 
     conn = pymysql.connect(**db_config())
     try:
-        docs = select_docs(conn, args.limit, args.only_subject)
+        # 先取全部候选，再跳过已有页、最后按 --limit 截断。
+        # 否则分批跑时每次都选中同样的前 N 个文档，已蒸馏的会反复调模型、后面的永远轮不到。
+        docs = select_docs(conn, 0, args.only_subject)
         clusters = build_clusters(conn, docs)
         catalog = load_catalog(conn)
+        # 默认（开关关闭）行为与历史完全一致：仅非 dry-run 才按 slug 跳过已有页。
+        # 开关开启时 dry-run 也应用跳过逻辑，以便预览「重新纳入兜底页」后的候选计划。
+        apply_skip = (not args.dry_run) or args.refresh_fallback
+        if apply_skip:
+            existing = {c["slug"] for c in catalog}
+            refreshable = load_refreshable_slugs(conn) if args.refresh_fallback else set()
+            skip = existing - refreshable
+            skipped_existing = sum(1 for c in clusters if c["slug"] in skip)
+            clusters = [c for c in clusters if c["slug"] not in skip]
+            if skipped_existing:
+                print(f"跳过已蒸馏页面 {skipped_existing} 个（按 slug 幂等）")
+            if refreshable:
+                print(f"--refresh-fallback：{len(refreshable)} 个低质量兜底页重新纳入候选")
+        if args.limit and args.limit > 0:
+            clusters = clusters[:args.limit]
         print(f"候选主题 {len(clusters)} 个（目录现有 {len(catalog)} 页）"
               f"{'　[DRY-RUN]' if args.dry_run else ''}")
         for cluster in clusters:

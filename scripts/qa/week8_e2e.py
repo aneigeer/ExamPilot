@@ -65,14 +65,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--token", default=os.environ.get("QA_TOKEN", "local-smoke-token"),
                         help="内部接口令牌 X-Internal-Token")
     parser.add_argument("--student-no", default=os.environ.get("QA_STUDENT_NO", "2021001"))
-    parser.add_argument("--student-pwd", default=os.environ.get("QA_STUDENT_PWD", "123456"))
+    parser.add_argument("--student-pwd", default=os.environ.get("QA_STUDENT_PWD"))
     parser.add_argument("--admin-no", default=os.environ.get("QA_ADMIN_NO", "admin"))
-    parser.add_argument("--admin-pwd", default=os.environ.get("QA_ADMIN_PWD", "admin123"))
+    parser.add_argument("--admin-pwd", default=os.environ.get("QA_ADMIN_PWD"))
     parser.add_argument("--ai-subject", type=int, default=int(os.environ.get("QA_AI_SUBJECT", "5")),
                         help="Agent / 检索工具使用的科目 ID")
     parser.add_argument("--out", default=os.environ.get("QA_OUT", DEFAULT_OUT),
                         help="证据 JSON 落盘路径")
-    return parser.parse_args()
+    args = parser.parse_args()
+    # E1-06：口令必须显式提供（命令行参数或环境变量），仓库内不再保存任何明文默认口令
+    for flag, env_name in (("student_pwd", "QA_STUDENT_PWD"), ("admin_pwd", "QA_ADMIN_PWD")):
+        if not getattr(args, flag):
+            raise SystemExit(
+                f"缺少口令：请通过 --{flag.replace('_', '-')} 或环境变量 {env_name} 显式提供"
+                "（E1-06：仓库内不再保存明文默认口令）"
+            )
+    return args
 
 
 CFG = parse_args()

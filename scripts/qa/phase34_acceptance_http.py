@@ -39,13 +39,23 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+def _require_pwd(name: str) -> str:
+    """E1-06：口令必须由环境变量显式提供，仓库内不再保存任何明文默认口令。"""
+    value = os.environ.get(name)
+    if not value:
+        raise SystemExit(
+            f"缺少必需环境变量 {name}：仓库内不再保存明文口令，请显式注入后重试（E1-06）"
+        )
+    return value
+
+
 JAVA_BASE = os.environ.get("JAVA_BASE", "http://127.0.0.1:8081/api")
 AI_BASE = os.environ.get("AI_BASE", "http://127.0.0.1:8000")
 INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", "qa-token-2026")
 ADMIN_NO = os.environ.get("ADMIN_NO", "admin")
-ADMIN_PWD = os.environ.get("ADMIN_PWD", "admin123")
+ADMIN_PWD = _require_pwd("ADMIN_PWD")  # E1-06
 STUDENT_NO = os.environ.get("STUDENT_NO", "2021001")
-STUDENT_PWD = os.environ.get("STUDENT_PWD", "123456")
+STUDENT_PWD = _require_pwd("STUDENT_PWD")  # E1-06
 BACKEND_LOG = os.environ.get("BACKEND_LOG", "/tmp/backend-8081.log")
 AI_LOG = os.environ.get("AI_LOG", "/tmp/ai-8000.log")
 OUT_JSON = os.environ.get("OUT_JSON", "")
@@ -904,7 +914,7 @@ def section_cross_user(student_token: str, admin_token: str) -> None:
     # 审计员：可读指标，不可写 purge（@PreAuthorize 仅 ADMIN）
     try:
         aud_token, _ = login(os.environ.get("AUDITOR_NO", "auditor"),
-                             os.environ.get("AUDITOR_PWD", "auditor123"))
+                             _require_pwd("AUDITOR_PWD"))  # E1-06；未注入时由下方 except SystemExit 跳过该用例
     except SystemExit:
         aud_token = ""
     if aud_token:
@@ -916,7 +926,7 @@ def section_cross_user(student_token: str, admin_token: str) -> None:
               r8.status == 403, r8.body[:160])
     else:
         check("XU-7", "AUDITOR 角色用例（缺凭证，无法真验）", "可登录 auditor",
-              "auditor 账号口令未知（auditor123 返回 code=1001）", False,
+              "auditor 账号口令未知（旧弱口令返回 code=1001；E1-06 起命令行不再保存该字面量）", False,
               "已用静态断言替代：SecurityConfig /admin/** = AUDITOR|ADMIN，purge 为 @PreAuthorize(ADMIN)",
               note="未验证")
 

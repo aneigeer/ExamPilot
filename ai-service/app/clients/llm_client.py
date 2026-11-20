@@ -1,4 +1,4 @@
-"""大模型代理客户端：GLM（OpenAI 兼容协议）。
+"""大模型代理客户端：本地 Ollama 千问 3B（OpenAI 兼容协议）。
 
 **定位**：本服务只是**代理**，不做提示词工程的质量闸门 ——
 ``PromptBuilder`` / ``AnswerPostProcessor``（L3 幻觉校验）在 Java 侧，本服务原样透传。
@@ -39,7 +39,7 @@ _SYSTEM_PROMPT = (
 
 
 class LlmClient:
-    """GLM 代理客户端（基于 ``httpx``，OpenAI 兼容请求体）。
+    """本地 Ollama 3B 代理客户端（基于 ``httpx``，OpenAI 兼容请求体）。
 
     Attributes:
         settings: LLM 配置。

@@ -31,18 +31,70 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_SECRETS_FILE = os.path.join(_REPO_ROOT, "config", "secrets.local.yml")
+
+
+def _load_local_secrets() -> Dict[str, str]:
+    """读取仓库根的 ``config/secrets.local.yml``（该文件已被 .gitignore 排除）。
+
+    第 10 周 P0-1 之后，仓库内**不再出现任何明文数据库口令**：本脚本的
+    root 口令改为「环境变量 ``DB_PASSWORD`` > ``config/secrets.local.yml``」
+    两级回落，两者都没有时直接报错退出，而不是悄悄用一个弱默认口令连上去。
+
+    口令文件是**扁平点号键**（``mysql.root.password: "..."``），所以解析只需
+    ``key: value`` 一行一读，不引入 PyYAML 依赖，也不会因为 YAML 嵌套层级
+    不同而误取到 ``admin.password``。
+
+    Returns:
+        形如 ``{"mysql.root.password": "...", "admin.password": "..."}`` 的字典；
+        文件不存在或解析失败时返回空字典。
+    """
+    secrets: Dict[str, str] = {}
+    if not os.path.isfile(_SECRETS_FILE):
+        return secrets
+    try:
+        with open(_SECRETS_FILE, "r", encoding="utf-8", errors="ignore") as handle:
+            for raw in handle:
+                line = raw.strip()
+                if not line or line.startswith("#") or ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                if not key or " " in key:
+                    continue
+                secrets[key] = value.strip().strip('"').strip("'")
+    except OSError:
+        return {}
+    return secrets
+
+
+_LOCAL_SECRETS = _load_local_secrets()
+_DB_PASSWORD = os.environ.get("DB_PASSWORD") or _LOCAL_SECRETS.get("mysql.root.password", "")
+if not _DB_PASSWORD:
+    raise SystemExit(
+        "未取到数据库口令。二选一：\n"
+        "  1) 在 config/secrets.local.yml 里配置 mysql.root.password（推荐，文件已在 .gitignore 中）\n"
+        "  2) 运行时设置环境变量 DB_PASSWORD"
+    )
+
 JAVA_BASE = os.environ.get("JAVA_BASE", "http://127.0.0.1:8081/api")
 AI_BASE = os.environ.get("AI_BASE", "http://127.0.0.1:8000")
 INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", "qa-token-2026")
 STUDENT_A = os.environ.get("STUDENT_A", "2021001")
 STUDENT_B = os.environ.get("STUDENT_B", "2021999")
-PASSWORD = os.environ.get("PASSWORD", "123456")
+# E1-06：学生演示账号口令必须由环境变量显式提供，仓库内不再保存任何明文默认口令
+PASSWORD = os.environ.get("PASSWORD")
+if not PASSWORD:
+    raise SystemExit(
+        "缺少必需环境变量 PASSWORD：仓库内不再保存明文口令，请显式注入后重试（E1-06）"
+    )
 
 DB_CONF = {
     "host": os.environ.get("DB_HOST", "127.0.0.1"),
     "port": int(os.environ.get("DB_PORT", "3306")),
     "user": os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASSWORD", "123456"),
+    "password": _DB_PASSWORD,
     "database": os.environ.get("DB_NAME", "exam_prep"),
     "charset": "utf8mb4",
 }

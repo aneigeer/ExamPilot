@@ -52,9 +52,15 @@ def db_config() -> Dict[str, object]:
             "    DB_PASSWORD=你的MySQL密码\n"
             "或在启动前设置环境变量 DB_PASSWORD。"
         )
+    raw_port = _get("DB_PORT", "3306")
+    try:
+        # A-12：非法 DB_PORT 原先会抛未捕获的 ValueError，冒泡成 500
+        port = int(raw_port)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"DB_PORT 必须是整数，当前值无效：{raw_port!r}") from exc
     return dict(
         host=_get("DB_HOST", "127.0.0.1"),
-        port=int(_get("DB_PORT", "3306")),
+        port=port,
         user=_get("DB_USER", "root"),
         password=password,
         database=_get("DB_NAME", "exam_prep"),

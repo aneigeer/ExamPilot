@@ -65,46 +65,69 @@ class ArgumentError(Exception):
 
 
 def _validate_arguments(name: str, args: Any) -> Dict[str, Any]:
-    """执行前校验必填/类型；可选数值参数由各工具自行 clamp。"""
+    """执行前校验必填/类型；可选数值参数由各工具自行 clamp。
+
+    失败信息统一以「语义 + 正确写法」两段呈现（见 :func:`_argument_hint`）：
+    这条 summary 会作为 ``tool_result`` 回喂给 planner，是模型唯一能看到的
+    「我该怎么改」的线索，所以不能只写抽象约束；也**不会**静默改用默认值，
+    必填参数缺失一律判失败（避免把错误参数当成正确答案的证据）。
+    """
     if not isinstance(args, dict):
-        raise ArgumentError("arguments 必须是对象")
+        raise ArgumentError("arguments 必须是对象" + _argument_hint(name))
     if name in ("search_knowledge", "search_wiki"):
         query = args.get("query")
         if not isinstance(query, str) or not query.strip():
-            raise ArgumentError("query 必须是非空字符串")
+            raise ArgumentError("query 必须是非空字符串" + _argument_hint(name))
     elif name == "get_wiki_page":
         page_id = args.get("pageId")
         if not isinstance(page_id, int) or isinstance(page_id, bool) or page_id <= 0:
-            raise ArgumentError("pageId 必须是正整数")
+            raise ArgumentError("pageId 必须是正整数" + _argument_hint(name))
     elif name == "get_question":
         question_id = args.get("questionId")
         if not isinstance(question_id, int) or isinstance(question_id, bool) or question_id <= 0:
-            raise ArgumentError("questionId 必须是正整数")
+            raise ArgumentError("questionId 必须是正整数" + _argument_hint(name))
     return args
 
 
 #: 工具目录（写进提示词，顺序即推荐优先级）
+#:
+#: ``required`` / ``example`` 是**给校验层用**的事实，不改变工具语义与返回结构：
+#: * ``required``：必填参数名，校验失败时据此拼接「必填参数：…」回喂给模型；
+#: * ``example``：该工具一次**合法调用**的参数写法，同样用于错误回喂。
+#: 两者都在 :func:`_argument_hint` 里被消费，避免「提示词说一套、校验说另一套」。
 TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "search_knowledge",
         "description": "检索站内已审核的题目/资料/知识点，返回最相关的语料片段。任何需要事实依据的问题都应先调用它。",
+        "required": ["query"],
+        "example": '{"query": "C语言 int 占几个字节", "topK": 5}',
         "arguments": {
-            "query": "string，检索语句（尽量保留学生原话中的关键词）",
+            "query": "string，必填，非空检索语句（尽量保留学生原话中的关键词）",
             "topK": "int，可选 1-10，默认 5",
         },
     },
     {
         "name": "search_wiki",
         "description": "检索已沉淀的 Wiki 主题页（跨文档综合的结构化专题，适合概念梳理、知识框架、专题总结类问题）。",
+        "required": ["query"],
+        "example": '{"query": "函数 专题", "topK": 3}',
         "arguments": {
-            "query": "string，检索语句",
+            "query": "string，必填，非空检索语句",
             "topK": "int，可选 1-10，默认 3",
         },
     },
     {
         "name": "get_wiki_page",
-        "description": "按页面 ID 读取 Wiki 主题页正文与关联页（先用 search_wiki 拿到 ID）。",
-        "arguments": {"pageId": "int，必填"},
+        "description": (
+            "按页面 ID 读取 Wiki 主题页正文与关联页。"
+            "只接受 pageId（整数，取自 search_wiki 返回的 pageId）；"
+            "本工具**不接受 query**，想按关键词找页面请改用 search_wiki。"
+        ),
+        "required": ["pageId"],
+        "example": '{"pageId": 12}',
+        "arguments": {
+            "pageId": "int，必填，Wiki 页面 ID（正整数），取自 search_wiki 返回的 pageId",
+        },
     },
     {
         "name": "get_weak_knowledge",
@@ -123,10 +146,43 @@ TOOL_SPECS: List[Dict[str, Any]] = [
     },
     {
         "name": "get_question",
-        "description": "按题目 ID 读取题干、选项与解析。",
-        "arguments": {"questionId": "int，必填"},
+        "description": (
+            "按题目 ID 读取题干、选项与解析。"
+            "questionId 只能取自 search_knowledge 或错题本返回的题目 ID，禁止编造。"
+        ),
+        "required": ["questionId"],
+        "example": '{"questionId": 12}',
+        "arguments": {
+            "questionId": "int，必填，题目 ID（正整数），取自工具返回结果",
+        },
     },
 ]
+
+
+def _spec_of(name: str) -> Dict[str, Any]:
+    """按工具名取目录条目；未知工具返回空 dict。"""
+    for spec in TOOL_SPECS:
+        if spec["name"] == name:
+            return spec
+    return {}
+
+
+def _argument_hint(name: str) -> str:
+    """把「必填参数 + 一次合法调用写法」拼成回喂给模型的短提示。
+
+    只用于错误信息，不参与执行逻辑：参数校验失败时模型拿到的不是
+    「xxx 必须是什么」这类抽象约束，而是**可以直接照抄的正确写法**，
+    降低下一轮继续空参/改错键名的概率。
+    """
+    spec = _spec_of(name)
+    parts: List[str] = []
+    required = [str(key) for key in (spec.get("required") or [])]
+    if required:
+        parts.append("必填参数：" + "、".join(required))
+    example = str(spec.get("example") or "")
+    if example:
+        parts.append("正确写法：" + example)
+    return "（" + "；".join(parts) + "）" if parts else ""
 
 
 def tool_catalog_text() -> str:

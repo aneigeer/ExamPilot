@@ -123,11 +123,19 @@ def test_start_degrades_when_llm_down(client: Any, monkeypatch: pytest.MonkeyPat
 
 def test_start_without_corpus_returns_503(client: Any,
                                          monkeypatch: pytest.MonkeyPatch) -> None:
-    """没有面试语料 → 503 语义（不编题）。"""
+    """没有面试语料 → **200 + 明确降级题**（2026-11-11 整改：不再 503、不空题）。
+
+    注：函数名保留历史命名以免破坏外部按名称引用该用例的脚本；断言与语义
+    已按「语料不足时给出明确降级提示而不是 503 或空题」更新。
+    """
     monkeypatch.setattr(iv, "_interview_courseware_ids", lambda topic: [])
     resp = client.post("/v1/interview/start", json={"topic": "RAG"})
-    assert resp.status_code == 503
-    assert resp.json()["degraded"] is True
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["degraded"] is True
+    assert body["question"]            # 不空题
+    assert body["degrade_reason"]      # 明确降级提示
+    assert body["session_id"]          # 会话仍可用（作答走抽取式降级）
 
 
 # --------------------------------------------------------------------------------------

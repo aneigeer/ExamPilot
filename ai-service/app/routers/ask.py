@@ -66,7 +66,7 @@ import time
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..clients.embedding_client import get_embedding_client
 from ..clients.llm_client import LlmUnavailableError, get_llm_client
@@ -99,6 +99,18 @@ class AskRequest(BaseModel):
         default=None,
         description="强制指定 skill（调试用）；为空表示由 Router 判定",
     )
+
+    @field_validator("question")
+    @classmethod
+    def _question_not_blank(cls, value: str) -> str:
+        """A-04：与 SearchRequest / LlmRequest / AgentRequest 一致，拒绝全空白问题。
+
+        Field(min_length=1) 只挡空串，全空格仍能通过后被 ``.strip()`` 成空串，
+        进而带着空问题进入 Router / 检索 / LLM；这里统一在模型层拦下。
+        """
+        if not value or not value.strip():
+            raise ValueError("question 不能为空")
+        return value.strip()
 
 
 class AskSource(BaseModel):
@@ -194,7 +206,9 @@ def _wiki_hot(question: str, subject_id: Optional[int]) -> Tuple[Optional[Dict[s
         page["score"] = round(float(top.get("score") or 0.0), 4)
         return page, ""
     except Exception as exc:  # noqa: BLE001 - 热层任何异常都只是降级
-        logger.info("[Ask] Wiki 热层跳过：%s", str(exc)[:80])
+        # A-06：依赖故障（MySQL / Qdrant）不能与正常 MISS 一样只打 INFO，
+        # 否则运维无法从日志区分「热层没命中」与「热层挂了」。
+        logger.warning("[Ask] Wiki 热层异常降级（A-06）：%s", str(exc)[:80])
         return None, "ERROR"
 
 
@@ -242,8 +256,10 @@ def _retrieve(question: str, skill: Skill, top_k: int,
 
     merged: Dict[int, Dict[str, Any]] = {}
     for group in groups:
+        # 2026-11-11：候选池放大 4 倍再做重排。原先只取 per_group 条，
+        # 重排无从发挥；实测「什么是Claude Code」正确内容排在第 20 名进不来。
         for hit in get_qdrant_client().search(
-                vector, top_k=per_group,
+                vector, top_k=per_group * 4,
                 query_filter=_qdrant_filter(group, subject_id)) or []:
             cid = int(hit.get("chunk_id") or 0)
             if cid and (cid not in merged or hit["score"] > merged[cid]["score"]):
@@ -254,7 +270,23 @@ def _retrieve(question: str, skill: Skill, top_k: int,
     # R08：同来源的完全重复块（content_hash 相同）只保留分数最高的一条。
     # 近重复（同页改写、重叠切片）在回表拿到正文后由 _drop_near_duplicates 处理。
     ranked = _drop_exact_duplicates(ranked)
-    return ranked[:limit]
+    # 2026-11-11：与 /v1/search 同口径重排（实体词命中标题加分）+ 单文档限流。
+    # 否则长文档（如某篇切出 366 块）会霸占配额，3B 拿到无关材料就会编答案。
+    from .search import _MAX_CHUNKS_PER_DOC, _rerank_score  # 局部导入避免循环依赖
+    ranked.sort(key=lambda h: _rerank_score(question, float(h.get("score") or 0), h.get("payload") or {}),
+                reverse=True)
+    capped: List[Dict[str, Any]] = []
+    per_doc: Dict[Any, int] = {}
+    for hit in ranked:
+        if len(capped) >= limit:
+            break
+        payload_hit = hit.get("payload") or {}
+        doc_key = payload_hit.get("source_id") or payload_hit.get("ref_id") or hit.get("chunk_id")
+        if per_doc.get(doc_key, 0) >= _MAX_CHUNKS_PER_DOC:
+            continue
+        per_doc[doc_key] = per_doc.get(doc_key, 0) + 1
+        capped.append(hit)
+    return capped
 
 
 def _drop_exact_duplicates(hits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -595,12 +627,26 @@ def ask(request: AskRequest) -> AskResponse:
             strategy = "RAG_EXTRACTIVE"
         degraded = True
         citation_fixed = 0  # 兜底答案没有 [n]，谈不上校验
-    except Exception as exc:  # noqa: BLE001
-        layers.extend(["LLM_7B", "EXTRACTIVE"])
+    except Exception as exc:  # noqa: BLE001 —— A-01：保留兜底，但不再静默伪装成正常降级
+        # A-01：这里捕获的是**编程错误 / 未预期异常**，不是「大模型能力不可用」
+        # （后者已在上面的 except LlmUnavailableError 单独处理）。
+        # 仍保留 HTTP 200 + 抽取式兜底，是因为 /v1/ask 的既有契约是「永不 5xx」，
+        # Java 侧 AiQaService 依赖 degraded / degrade_reason / layers_hit 决策降级；
+        # 直接改 503 会让该降级分支失效（破坏契约，需联调才能改）。
+        # 但必须：① 留完整堆栈 ② 标记 UNEXPECTED_ERROR 层 ③ 把异常类型与消息透出，
+        # 使运维可定位、Java 侧可区分「正常能力降级」与「链路 bug」。
+        logger.exception(
+            "[Ask] 生成链路未预期异常（A-01，非能力降级）question=%s type=%s",
+            question[:80], type(exc).__name__,
+        )
+        layers.extend(["LLM_7B", "EXTRACTIVE", "UNEXPECTED_ERROR"])
         answer = contexts[0][:200].strip()
         degraded = True
         degrade_level = max(degrade_level, 2)
-        reason = "；".join([*degrade_reasons, f"生成失败：{type(exc).__name__}"])
+        reason = "；".join([
+            *degrade_reasons,
+            f"生成链路未预期异常：{type(exc).__name__}: {str(exc)[:120]}",
+        ])
         strategy = "RAG_EXTRACTIVE"
         citation_fixed = 0
 

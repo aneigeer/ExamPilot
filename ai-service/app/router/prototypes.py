@@ -43,6 +43,16 @@ PROTOTYPES: Dict[SkillName, List[str]] = {
         "Transformer 的自注意力机制怎么理解",
         "大厂面试一般会问哪些架构问题",
         "讲讲大模型推理加速的手段",
+        # 2026-11-11：补技术工具类原型。此前「什么是Claude Code」被判域外拒答，
+        # 但 634 篇面试资料里本就讲了 Claude Code / MCP / Cursor，属域内内容。
+        "Claude Code 是什么，怎么用",
+        "Claude Code 和 Cursor 有什么区别",
+        "Claude Code 的 Skills 怎么配置",
+        "MCP 协议是干什么的",
+        "Agent 开发有哪些框架可以用",
+        "LangChain 和 LlamaIndex 怎么选",
+        "怎么设计一个 Agent 的工具调用",
+        "大模型面试会问哪些问题",
     ],
     SkillName.EXERCISE_EXPLAIN: [
         "这道题为什么选 B",

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import time
 from dataclasses import replace
@@ -331,9 +332,14 @@ class AgentHarness:
                 )
                 continue
 
+            # ---------- 指代消解：检索前把「它/这个/那题」补成上一轮主题 ----------
+            # 2026-11-13 实测：多轮里问「它和微调有什么区别」，检索词只有「它」，
+            # 会命中完全无关的 Wiki 页。这里用上一轮问题补全检索语句。
+            call_args = self._resolve_arguments(decision.tool, decision.arguments, ctx)
+
             # ---------- 重复调用去重（相同 tool + arguments 只执行一次） ----------
             call_signature = json.dumps(
-                [decision.tool, decision.arguments],
+                [decision.tool, call_args],
                 ensure_ascii=False,
                 sort_keys=True,
                 default=str,
@@ -359,12 +365,12 @@ class AgentHarness:
             attempt.tool_calls += 1
             yield event(
                 EVENT_TOOL_CALL,
-                {"step": step, "tool": decision.tool, "arguments": decision.arguments},
+                {"step": step, "tool": decision.tool, "arguments": call_args},
             )
             tool_started = time.perf_counter()
             try:
                 result = await asyncio.wait_for(
-                    self.tools.execute(decision.tool, decision.arguments, ctx),
+                    self.tools.execute(decision.tool, call_args, ctx),
                     timeout=max(0.01, self.settings.tool_timeout_seconds),
                 )
             except asyncio.TimeoutError:
@@ -601,6 +607,48 @@ class AgentHarness:
             }
 
     @staticmethod
+    def _with_label(prefix: str, summary: str) -> str:
+        """拼接「标签 + 工具摘要」。
+
+        ★ 摘要本身常已带同类标签（如 ``get_weak_knowledge`` 返回
+        「薄弱知识点 5 个：…」），再补一次前缀就会输出
+        「薄弱知识点：薄弱知识点 5 个：…」。这里按标签前缀判重。
+        """
+        text = (summary or "").strip()
+        core = prefix.rstrip("：")
+        if not text:
+            return core
+        return text if text.startswith(core) else prefix + text
+
+    #: 指代词：出现这些词说明当前问题依赖上一轮语境
+    _PRONOUN_RE = re.compile(r"(它|他们|这个|那个|这题|那题|上面|刚才|该题|继续)")
+
+    def _resolve_arguments(self, tool: str, arguments: Dict[str, Any],
+                           ctx: "AgentContext") -> Dict[str, Any]:
+        """检索前做指代消解：把「它/这个/那题」补成上一轮问题。
+
+        只影响 search_knowledge / search_wiki 的 query，其余工具原样透传；
+        补全词只用于检索，不会进入最终回答。
+        """
+        args = dict(arguments or {})
+        if tool not in ("search_knowledge", "search_wiki"):
+            return args
+        if not self._PRONOUN_RE.search(ctx.question or ""):
+            return args
+        topic = ""
+        for turn in reversed(ctx.history or []):
+            q = str(turn.get("question") or "").strip()
+            if q and not self._PRONOUN_RE.search(q):
+                topic = q
+                break
+        if not topic and ctx.memory_summary:
+            topic = str(ctx.memory_summary).strip()[-120:]
+        if topic:
+            query = str(args.get("query") or "").strip()
+            args["query"] = (topic + " " + query).strip()[:200]
+        return args
+
+    @staticmethod
     def _structured_answer(observations: List[Dict[str, Any]]) -> str:
         """把结构化工具结果合成可读答案（不经过 LLM / L3）。"""
         for item in reversed(observations):
@@ -610,7 +658,8 @@ class AgentHarness:
             summary = str(item.get("summary") or "")
             data = item.get("data")
             if tool == "get_study_plan":
-                answer = "计划：" + summary
+                answer = AgentHarness._with_label("计划：", summary)
+                names: List[str] = []
                 if isinstance(data, list):
                     names = [
                         str(row.get("knowledgeName"))
@@ -619,9 +668,14 @@ class AgentHarness:
                     ]
                     if names:
                         answer += "。任务：" + "、".join(names[:5])
+                if not names and "0 题" in summary:
+                    return ("你今天还没有安排复习。建议先做 10 道题热身（约 15 分钟）："
+                            "做完之后我再根据你的错题和薄弱点安排下一步；"
+                            "想直接开始的话，说「随机 10 题」即可。")
                 return answer
             if tool == "get_wrong_book":
-                answer = "错题：" + summary
+                answer = AgentHarness._with_label("错题：", summary)
+                stems: List[str] = []
                 if isinstance(data, list):
                     stems = [
                         str(row.get("stem"))
@@ -630,9 +684,15 @@ class AgentHarness:
                     ]
                     if stems:
                         answer += "。" + "；".join(stems)
+                if not stems and ("0 道" in summary or not summary.strip()):
+                    return ("错题本还是空的。建议先做一套 10 题的随机练习，"
+                            "做错的题会自动进错题本，我再带你逐题复盘。")
                 return answer
             if tool == "get_weak_knowledge":
-                return "薄弱知识点：" + summary
+                if "0 个" in summary or not summary.strip():
+                    return ("目前还没有足够的作答记录来判断薄弱点。"
+                            "做完 20 道题后我就能按知识点给出掌握度排名，并告诉你先补哪一块。")
+                return AgentHarness._with_label("薄弱知识点：", summary)
             if tool == "get_question":
-                return "题目信息：" + summary
+                return AgentHarness._with_label("题目信息：", summary)
         return ""

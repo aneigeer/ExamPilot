@@ -140,6 +140,15 @@ class JavaBridge:
     async def tool_post(self, path: str, payload: Dict[str, Any]) -> Any:
         return await self._post(path, payload, self.settings.tool_timeout_seconds)
 
+    async def tool_post_long(self, path: str, payload: Dict[str, Any],
+                             timeout: float = 180.0) -> Any:
+        """长耗时内部调用：判分 / 学习计划等需要等待模型生成的场景。
+
+        ``tool_post`` 默认 10s（工具查询够用），但模型生成在本地 7B 上可能 30s+，
+        用默认超时会把「模型慢」误判成「服务不可用」。
+        """
+        return await self._post(path, payload, timeout)
+
     async def llm_complete(self, system_prompt: str, user_prompt: str) -> str:
         data = await self._post(
             "/internal/agent/llm",

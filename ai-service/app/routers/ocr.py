@@ -20,12 +20,15 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from .agent import require_internal_token_if_configured
 from ..config import get_settings
 from ..errors import (
     OcrStructureError,
@@ -44,9 +47,51 @@ router = APIRouter(tags=["ocr"])
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tiff", ".tif"}
 
 
+def _allowed_roots() -> List[Path]:
+    """A-03：OCR 允许读取的根目录白名单。
+
+    生产用 ``OCR_ALLOWED_ROOTS``（逗号分隔的绝对路径）显式收紧到上传目录；
+    缺省只允许系统临时目录，不再默认放行整个工作区。
+    """
+    raw = (get_settings().ocr.allowed_roots or "").strip()
+    if not raw:
+        return [Path(tempfile.gettempdir()).resolve()]
+    roots: List[Path] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        path = Path(item)
+        if not path.is_absolute():
+            raise RuntimeError(f"OCR_ALLOWED_ROOTS 必须是绝对路径：{item}")
+        roots.append(path.resolve())
+    return roots or [Path(tempfile.gettempdir()).resolve()]
+
+
+def _assert_allowed_path(path: Path) -> None:
+    """A-03：``resolve()`` 后必须落在白名单根内；拒绝时不回显绝对路径。"""
+    resolved = path.resolve()
+    for root in _allowed_roots():
+        try:
+            if resolved.is_relative_to(root):
+                return
+        except (OSError, ValueError):
+            continue
+    raise ParamError(
+        "OCR 文件路径不在允许目录内（A-03 白名单）；请通过上传接口提交，"
+        "或配置 OCR_ALLOWED_ROOTS 指定允许根目录"
+    )
+
+
 @router.post(
     "/v1/ocr",
     response_model=OcrResponse,
+    # A-03：与 /v1/route 同款「配置了才校验」闸门（route.py:104 先例）。
+    # 这里不用 fail-closed 的 require_internal_token：agent.py:146-149 明文规定
+    # fail-closed 作用域只有 /v1/agent/run|stream，其余维持「未配置令牌放行 +
+    # WARNING」，否则一次配置遗漏会把整条 OCR 降级链路打挂；生产配置了
+    # AI_INTERNAL_TOKEN 后，本依赖同样用 compare_digest 强制校验。
+    dependencies=[Depends(require_internal_token_if_configured)],
     summary="试卷 OCR 识别（PaddleOCR 懒加载）",
     description=(
         "输入图片路径或 base64，返回文本块列表（type=stem/option/answer）与块级置信度。"
@@ -115,43 +160,48 @@ def _recognize_path(engine: PaddleOcrEngine, file_path: str) -> Tuple[List[OcrBl
     """
     path = Path(file_path)
     if not path.is_file():
-        raise OcrUnavailableError(f"OCR 文件不存在：{file_path}", detail=file_path)
+        # A-03：错误体不回显绝对路径，只给文件名
+        raise OcrUnavailableError(f"OCR 文件不存在：{path.name}", detail=path.name)
 
     suffix = path.suffix.lower()
+    # A-03：先判后缀（不支持的类型根本不会被读取，保持既有 503 契约），
+    # 再对「确实要打开的文件」做路径白名单校验。
+    if suffix not in _IMAGE_SUFFIXES and suffix != ".pdf":
+        raise OcrUnavailableError(
+            f"不支持的 OCR 文件类型：{suffix}（仅支持图片与 PDF）", detail=path.name
+        )
+
+    _assert_allowed_path(path)
+
     if suffix in _IMAGE_SUFFIXES:
         return engine.recognize_file(file_path)
 
-    if suffix == ".pdf":
-        # PDF：先用 pypdf 快速判断有无文本层（比 OCR 快一个数量级）
-        from ..ocr import pdf_text
+    # PDF：先用 pypdf 快速判断有无文本层（比 OCR 快一个数量级）
+    from ..ocr import pdf_text
 
-        if pdf_text.is_available() and pdf_text.has_text_layer(file_path):
-            pages = pdf_text.extract_text(file_path, page_from=1, page_to=1)
-            text = pages[0] if pages else ""
-            if text.strip():
-                return (
-                    [
-                        OcrBlock(
-                            type=block_type,
-                            text=line.strip(),
-                            bbox=None,
-                            confidence=1.0,
-                        )
-                        for block_type, line in _classify_lines(text)
-                        if line.strip()
-                    ],
-                    1.0,
-                )
-        # 无文本层 = 扫描件 → 需先把 PDF 转成图片再走 OCR 通道。
-        # 本服务不做 PDF 转图（需要 poppler 等系统级依赖，Windows 部署成本高），
-        # 因此明确报结构化失败，由 Java 侧转图后重新提交，或直接人工补录。
-        raise OcrStructureError(
-            "PDF 无文本层（扫描件），本服务不做 PDF 转图；"
-            "请由 Java 侧逐页转成图片后重新提交，或直接人工补录"
-        )
-
-    raise OcrUnavailableError(
-        f"不支持的 OCR 文件类型：{suffix}（仅支持图片与 PDF）", detail=file_path
+    if pdf_text.is_available() and pdf_text.has_text_layer(file_path):
+        pages = pdf_text.extract_text(file_path, page_from=1, page_to=1)
+        text = pages[0] if pages else ""
+        if text.strip():
+            return (
+                [
+                    OcrBlock(
+                        type=block_type,
+                        text=line.strip(),
+                        bbox=None,
+                        confidence=1.0,
+                    )
+                    for block_type, line in _classify_lines(text)
+                    if line.strip()
+                ],
+                1.0,
+            )
+    # 无文本层 = 扫描件 → 需先把 PDF 转成图片再走 OCR 通道。
+    # 本服务不做 PDF 转图（需要 poppler 等系统级依赖，Windows 部署成本高），
+    # 因此明确报结构化失败，由 Java 侧转图后重新提交，或直接人工补录。
+    raise OcrStructureError(
+        "PDF 无文本层（扫描件），本服务不做 PDF 转图；"
+        "请由 Java 侧逐页转成图片后重新提交，或直接人工补录"
     )
 
 

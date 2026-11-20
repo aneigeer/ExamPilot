@@ -42,6 +42,22 @@ DEFAULT_SIM_THRESHOLD = 0.60
 #: Top1 与 Top2 差值小于此值视为意图歧义（实测清晰意图 margin > 0.10）。
 DEFAULT_MARGIN_THRESHOLD = 0.05
 
+#: 技术域关键词白名单（2026-11-11 新增）。
+#: 背景：bge 用 passage 编码原型句、query 编码问句，二者存在不对称，
+#: 同一句话的相似度上限只有约 0.57，会被 0.60 阈值判成域外。
+#: 实测「什么是Claude Code」top1=0.5651 被误拒，而这些内容确实在 634 篇面试资料里。
+#: 命中关键词即视为域内（走课件问答），但仍要求 top1 不低于 ``_KEYWORD_SIM_FLOOR``，
+#: 避免「随便一句话里带个 Agent」就被当成技术问题。
+_DOMAIN_KEYWORDS = (
+    "claude", "cursor", "mcp", "agent", "智能体", "rag", "检索增强",
+    "微调", "lora", "transformer", "自注意力", "注意力机制",
+    "langchain", "llamaindex", "prompt", "提示词", "大模型", "llm",
+    "向量", "嵌入", "embedding", "推理加速", "量化", "多智能体",
+    "function call", "工具调用", "skill", "skills", "工作流", "编排",
+)
+#: 关键词兜底的最低相似度：低于此值仍判域外，防止误放行。
+_KEYWORD_SIM_FLOOR = 0.40
+
 
 def _dot(a: List[float], b: List[float]) -> float:
     """点积。bge 输出已 L2 归一化，点积即余弦相似度。"""
@@ -142,6 +158,17 @@ class IntentRouter:
         ]
 
         if top_sim < self.sim_threshold:
+            # 关键词兜底：技术域专有名词（Claude Code / MCP / RAG …）在 passage-query
+            # 不对称下相似度上不去，但内容确实在库内，不能判域外。
+            lowered = text.lower()
+            if top_sim >= _KEYWORD_SIM_FLOOR and any(
+                    kw in lowered for kw in _DOMAIN_KEYWORDS):
+                logger.info(
+                    "[Router] ROUTED(KEYWORD) skill=COURSEWARE_QA sim=%.4f q=%s",
+                    top_sim, text[:24],
+                )
+                return RouterDecision(
+                    SkillName.COURSEWARE_QA, top_sim, margin, candidates, "KEYWORD_HIT")
             logger.info(
                 "[Router] REFUSE sim=%.4f < %.2f q=%s", top_sim, self.sim_threshold, text[:24]
             )

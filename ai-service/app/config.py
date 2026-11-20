@@ -16,8 +16,42 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Mapping, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------------------------
+# 本阶段单模型约束：只允许本地 Ollama 3B
+# --------------------------------------------------------------------------------------
+# 为什么把常量放在这里而不是散落到 LlmSettings / from_env：护栏与默认值必须共用
+# 同一份「什么是本地 3B」的口径，否则改了一处、另一处仍可能悄悄指向在线服务。
+
+#: 默认模型（未显式指定时使用）
+LOCAL_LLM_MODEL = "qwen2.5-3b-instruct-q8_0-baseline"
+#: 本地模型白名单（2026-11-13：允许 7B 量化版，仍只允许本机 Ollama）
+#: 加新模型必须同时在这里登记——白名单之外一律回退，防止误连在线模型。
+LOCAL_LLM_ALLOWED_MODELS = frozenset({
+    "qwen2.5-3b-instruct-q8_0-baseline",
+    "qwen2.5-3b-instruct-q4_0-baseline",
+    "qwen2.5-7b-instruct-baseline",
+    "exam-prep-3b-v1",
+    "exam-prep-3b-v1-q8",
+    "exam-prep-7b",
+    "qwen3:8b",
+})
+#: 归一化：允许带 :latest 后缀
+def _normalize_model(name: str) -> str:
+    return (name or "").strip().split(":")[0] if (name or "").strip().endswith(":latest") else (name or "").strip()
+#: 本阶段唯一允许的上游（Ollama 本地 OpenAI 兼容端点）
+LOCAL_LLM_BASE_URL = "http://127.0.0.1:11434/v1"
+#: 本地回环主机名
+LOCAL_LLM_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+#: Ollama 默认端口
+LOCAL_LLM_PORT = 11434
+#: 本地 Ollama 不校验 Key，占位值仅用于让 LLM 客户端就绪
+LOCAL_LLM_API_KEY_PLACEHOLDER = "ollama"
+#: 本地生成器的 generator 标识
+LOCAL_LLM_GENERATOR_NAME = "ollama"
 
 # --------------------------------------------------------------------------------------
 # 服务基础路径
@@ -168,19 +202,111 @@ class QdrantSettings:
 
 @dataclass(frozen=True)
 class LlmSettings:
-    """大模型代理配置（GLM，OpenAI 兼容协议）。
+    """大模型代理配置（**本阶段仅本地 Ollama 3B**，OpenAI 兼容协议）。
 
-    ``api_key`` 为空即视为"未配置"，``/v1/llm`` 返回 503，Java 侧走抽取式兜底。
+    ``api_key`` 为空仍视为"未配置"，``/v1/llm`` 返回 503，Java 侧走抽取式兜底。
+    本地 Ollama 不校验 Key，占位值 ``ollama`` 由 ``.env`` / ``.env.example`` 提供；
+    代码默认值刻意保留空串，避免破坏上述降级契约（见 ``_enforce_local_llm`` 注释）。
     """
 
     api_key: str = ""
-    base_url: str = "https://open.bigmodel.cn/api/paas/v4"
-    model: str = "glm-4-flash"
+    base_url: str = LOCAL_LLM_BASE_URL
+    model: str = LOCAL_LLM_MODEL
     temperature: float = 0.3
     max_tokens: int = 1500
     timeout_seconds: float = 30.0
     #: 模型标识，写入响应的 ``generator`` 字段，便于 Java 侧区分生成器
-    generator_name: str = "glm"
+    generator_name: str = LOCAL_LLM_GENERATOR_NAME
+
+
+def is_local_ollama_3b(llm: LlmSettings) -> bool:
+    """判定一份 LLM 配置是否**严格**指向本阶段允许的本地 Ollama 3B 单模型。
+
+    四个条件全部满足才放行：模型名精确匹配、``http`` 协议、主机是回环地址、
+    端口是 Ollama 的 11434、路径为 ``/v1``（或为空）。只认回环是为了防止把
+    "搭在内网的在线代理"当成"本地模型"。
+
+    Args:
+        llm: 待判定的 LLM 配置。
+
+    Returns:
+        ``True`` 表示配置合规；否则 ``False``。
+    """
+    if _normalize_model(llm.model) not in LOCAL_LLM_ALLOWED_MODELS:
+        return False
+    try:
+        parsed = urlparse((llm.base_url or "").rstrip("/"))
+        host = (parsed.hostname or "").lower()
+        port = parsed.port
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "http"
+        and host in LOCAL_LLM_HOSTS
+        and (port or 80) == LOCAL_LLM_PORT
+        and parsed.path.rstrip("/") in ("", "/v1")
+    )
+
+
+def _enforce_local_llm(env: Mapping[str, str], llm: LlmSettings) -> LlmSettings:
+    """**单模型护栏**：本阶段只允许本地 Ollama 3B，禁止在线模型。
+
+    行为（``ALLOW_ONLINE_LLM`` 默认 ``false``）：
+
+    * 解析出的 ``model`` / ``base_url`` 合规 → 原样放行；
+    * 不合规且 ``ALLOW_ONLINE_LLM=false`` → 打 **ERROR** 日志，并**强制回退**为
+      完整的本地 3B 配置（含占位 Key），让服务仍能启动且绝不连在线 API；
+    * 不合规但 ``ALLOW_ONLINE_LLM=true`` → 打 WARNING 并放行（显式逃生开关，
+      仅限后续阶段解除单模型约束时使用）。
+
+    为什么用「强制回退」而不是「直接拒绝启动」：本服务的定位是被 Java 调用的
+    内部依赖，配置写错时让服务带着安全的本地默认值起来、同时打一条人眼必然看到
+    的 ERROR，比整站 503 更可控，也更符合既有「任何环境变量缺失都不抛异常」的
+    设计约定（见模块 docstring 第 2 条）。
+
+    **为什么 ``api_key`` 的代码默认值仍是空串**：``llm_configured`` 只看
+    ``api_key``，把它默认成 ``ollama`` 会让「未配置 Key → /v1/llm 503 → Java
+    抽取式兜底」这条既有契约与 4 个测试整体失效。占位 Key 因此由 ``.env`` /
+    ``.env.example`` 提供，并在护栏强制回退时补齐。
+
+    Args:
+        env: 环境变量 + ``.env`` 解析结果。
+        llm: 刚由环境变量构造出的 LLM 配置。
+
+    Returns:
+        合规的原配置，或被强制回退后的本地 3B 配置。
+    """
+    allow_online = _get_bool(env, "ALLOW_ONLINE_LLM", False)
+    if is_local_ollama_3b(llm):
+        if allow_online:
+            logger.warning(
+                "[单模型护栏] ALLOW_ONLINE_LLM=true 已开启，但当前配置本就是本地 3B；"
+                "该开关本阶段无需打开，建议移除"
+            )
+        return llm
+    if allow_online:
+        logger.warning(
+            "[单模型护栏] ALLOW_ONLINE_LLM=true：已显式放行非本地 LLM 配置 "
+            "（model=%s base_url=%s）。本阶段要求只用本地千问 3B，"
+            "此开关仅应在阶段切换时由负责人打开",
+            llm.model, llm.base_url,
+        )
+        return llm
+    logger.error(
+        "[单模型护栏] 检测到白名单外的模型配置（model=%s base_url=%s）："
+        "本阶段禁止在线模型，已强制回退为 model=%s base_url=%s。"
+        "如需解除，请显式设置 ALLOW_ONLINE_LLM=true（本阶段不应设置）",
+        llm.model, llm.base_url, LOCAL_LLM_MODEL, LOCAL_LLM_BASE_URL,
+    )
+    return LlmSettings(
+        api_key=LOCAL_LLM_API_KEY_PLACEHOLDER,
+        base_url=LOCAL_LLM_BASE_URL,
+        model=LOCAL_LLM_MODEL,
+        temperature=llm.temperature,
+        max_tokens=llm.max_tokens,
+        timeout_seconds=llm.timeout_seconds,
+        generator_name=LOCAL_LLM_GENERATOR_NAME,
+    )
 
 
 @dataclass(frozen=True)
@@ -200,6 +326,8 @@ class OcrSettings:
     stem_confidence_threshold: float = 0.75
     #: 低于该置信度的字段留空并高亮，强制人工补全
     field_confidence_threshold: float = 0.90
+    #: OCR 允许读取的根目录（逗号分隔的绝对路径）；空 = 仅系统临时目录
+    allowed_roots: str = ""
 
 
 @dataclass(frozen=True)
@@ -345,15 +473,17 @@ class Settings:
                 timeout_seconds=_get_float(env, "QDRANT_TIMEOUT_SECONDS", 5.0),
                 prefer_grpc=_get_bool(env, "QDRANT_PREFER_GRPC", False),
             ),
-            llm=LlmSettings(
+            # 单模型护栏：默认值已是本地 3B；即便 .env / 环境变量被写成在线模型，
+            # 也会在 _enforce_local_llm 里被强制回退，绝不连在线 API。
+            llm=_enforce_local_llm(env, LlmSettings(
                 api_key=_get(env, "LLM_API_KEY", ""),
-                base_url=_get(env, "LLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/"),
-                model=_get(env, "LLM_MODEL", "glm-4-flash"),
+                base_url=_get(env, "LLM_BASE_URL", LOCAL_LLM_BASE_URL).rstrip("/"),
+                model=_get(env, "LLM_MODEL", LOCAL_LLM_MODEL),
                 temperature=_get_float(env, "LLM_TEMPERATURE", 0.3),
                 max_tokens=_get_int(env, "LLM_MAX_TOKENS", 1500),
                 timeout_seconds=_get_float(env, "LLM_TIMEOUT_SECONDS", 30.0),
-                generator_name=_get(env, "LLM_GENERATOR_NAME", "glm"),
-            ),
+                generator_name=_get(env, "LLM_GENERATOR_NAME", LOCAL_LLM_GENERATOR_NAME),
+            )),
             ocr=OcrSettings(
                 enabled=_get_bool(env, "OCR_ENABLED", True),
                 lang=_get(env, "OCR_LANG", "ch"),
@@ -363,6 +493,7 @@ class Settings:
                 timeout_seconds=_get_float(env, "OCR_TIMEOUT_SECONDS", 60.0),
                 stem_confidence_threshold=_get_float(env, "OCR_STEM_CONFIDENCE_THRESHOLD", 0.75),
                 field_confidence_threshold=_get_float(env, "OCR_FIELD_CONFIDENCE_THRESHOLD", 0.90),
+                allowed_roots=_get(env, "OCR_ALLOWED_ROOTS", ""),
             ),
             agent=AgentSettings(
                 enabled=_get_bool(env, "AGENT_ENABLED", True),
@@ -519,6 +650,20 @@ def log_security_posture(settings: Settings) -> None:
             "[启动] Subagent 受控实验：enabled=false max_questions=%d"
             "（默认关闭：执行路径与事件序列与单 Agent 一致）",
             agent.subagent_max_questions,
+        )
+    # 单模型护栏姿态：启动时明确打印当前锁定的 LLM，让运维一眼确认没走在线服务。
+    llm = settings.llm
+    if is_local_ollama_3b(llm):
+        logger.info(
+            "[单模型护栏] 已锁定本地 Ollama 3B 单模型：model=%s base_url=%s "
+            "generator=%s（ALLOW_ONLINE_LLM 默认 false，禁止在线模型）",
+            llm.model, llm.base_url, llm.generator_name,
+        )
+    else:
+        logger.error(
+            "[单模型护栏] 当前 LLM 不是本地 3B（model=%s base_url=%s）："
+            "只有 ALLOW_ONLINE_LLM=true 显式放行时才会出现，本阶段不应出现",
+            llm.model, llm.base_url,
         )
 
 

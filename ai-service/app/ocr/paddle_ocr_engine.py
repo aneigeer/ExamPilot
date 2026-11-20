@@ -244,13 +244,19 @@ class PaddleOcrEngine:
         if raw.startswith("data:"):
             _, _, raw = raw.partition(",")
         try:
-            binary = base64.b64decode(raw, validate=False)
+            # A-09：validate=True 拒绝夹带非法字符/被污染的 base64
+            binary = base64.b64decode(raw, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise OcrUnavailableError(
                 "OCR 图片 base64 解码失败", detail=type(exc).__name__
             ) from exc
         if not binary:
             raise OcrUnavailableError("OCR 图片 base64 解码后为空")
+        # A-09：解码后大小上限，避免超大 base64 放大成内存/临时文件占用
+        if len(binary) > 10 * 1024 * 1024:
+            raise OcrUnavailableError(
+                "OCR 图片超过 10 MB 上限", detail=f"{len(binary)} bytes"
+            )
         suffix = _IMAGE_SUFFIX.get(_sniff_format(binary), ".png")
         temp_path = ""
         try:
