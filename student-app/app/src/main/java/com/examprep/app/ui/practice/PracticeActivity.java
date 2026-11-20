@@ -150,14 +150,23 @@ public class PracticeActivity extends AppCompatActivity {
         btn.setPadding(dp(14), 0, dp(14), 0);
         btn.setOnClickListener(v -> {
             if (!multi) {
+                // A-01：单选题选中后直接允许提交，不能再被下面的多选判断覆盖
                 singleChoiceAnswer = o.key;
                 binding.btnAction.setEnabled(true);
-            } else {
-                boolean now = !Boolean.TRUE.equals(multiSelection.get(o.key));
-                multiSelection.put(o.key, now);
-                btn.setStrokeWidth(now ? dp(2) : 0);
+                return;
             }
-            binding.btnAction.setEnabled(!multiSelection.isEmpty());
+            boolean now = !Boolean.TRUE.equals(multiSelection.get(o.key));
+            multiSelection.put(o.key, now);
+            btn.setStrokeWidth(now ? dp(2) : 0);
+            // A-01：按「是否存在值为 TRUE 的项」判断；put(key,false) 会保留键，不能用 isEmpty()
+            boolean anySelected = false;
+            for (Boolean selected : multiSelection.values()) {
+                if (Boolean.TRUE.equals(selected)) {
+                    anySelected = true;
+                    break;
+                }
+            }
+            binding.btnAction.setEnabled(anySelected);
         });
         return btn;
     }

@@ -123,7 +123,7 @@ public class HomeFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<Models.Home>> call,
                                    Response<Models.ApiResult<Models.Home>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 binding.refresh.setRefreshing(false);
                 Models.ApiResult<Models.Home> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
@@ -135,7 +135,7 @@ public class HomeFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<Models.Home>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 binding.refresh.setRefreshing(false);
                 toast("网络错误：" + t.getMessage());
             }
@@ -173,7 +173,7 @@ public class HomeFragment extends Fragment {
             examAdapter.submit(exams);
         }
 
-        adapter.submit(home.hotResources == null ? List.of() : home.hotResources);
+        adapter.submit(home.hotResources == null ? java.util.Collections.emptyList() : home.hotResources);
     }
 
     /** 考试类别卡片：切到题库 tab 并直达该类别科目列表 */
@@ -203,7 +203,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        if (!isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
+        if (binding == null || !isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
         Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
     }
 }

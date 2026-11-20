@@ -148,7 +148,7 @@ public class AskAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             sourceContainer.removeAllViews();
             List<Models.AskSource> sources = result == null || result.sources == null
-                    ? List.of() : result.sources;
+                    ? java.util.Collections.emptyList() : result.sources;
             if (sources.isEmpty()) {
                 tvSourceTitle.setVisibility(View.GONE);
             } else {

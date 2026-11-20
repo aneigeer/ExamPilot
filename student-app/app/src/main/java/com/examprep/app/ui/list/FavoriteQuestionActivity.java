@@ -28,7 +28,7 @@ public class FavoriteQuestionActivity extends SimpleListActivity {
                                    Response<Models.ApiResult<Models.Page<Models.FavoriteQuestion>>> resp) {
                 Models.ApiResult<Models.Page<Models.FavoriteQuestion>> r = resp.body();
                 List<Models.FavoriteQuestion> list = r != null && r.ok() && r.data != null && r.data.list != null
-                        ? r.data.list : List.of();
+                        ? r.data.list : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.FavoriteQuestion fq : list) {
                     String stem = fq.question != null && fq.question.stem != null ? fq.question.stem : "题目 #" + fq.questionId;

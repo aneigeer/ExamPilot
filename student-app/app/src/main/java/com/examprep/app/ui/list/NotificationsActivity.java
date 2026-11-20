@@ -24,7 +24,7 @@ public class NotificationsActivity extends SimpleListActivity {
                                    Response<Models.ApiResult<Models.Page<Models.Notification>>> resp) {
                 Models.ApiResult<Models.Page<Models.Notification>> r = resp.body();
                 List<Models.Notification> list = r != null && r.ok() && r.data != null && r.data.list != null
-                        ? r.data.list : List.of();
+                        ? r.data.list : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.Notification n : list) {
                     String head = (n.readAt == null ? "🔴 " : "") + n.title;

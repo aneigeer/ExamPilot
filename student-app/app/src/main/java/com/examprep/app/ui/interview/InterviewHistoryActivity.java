@@ -82,7 +82,7 @@ public class InterviewHistoryActivity extends AppCompatActivity {
                             return;
                         }
                         List<Models.InterviewHistoryItem> list =
-                                r.data.list == null ? List.of() : r.data.list;
+                                r.data.list == null ? java.util.Collections.emptyList() : r.data.list;
                         adapter.submit(list);
                         updateEmptyState();
                     }

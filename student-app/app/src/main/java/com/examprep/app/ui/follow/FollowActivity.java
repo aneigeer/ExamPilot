@@ -64,7 +64,7 @@ public class FollowActivity extends SimpleListActivity {
 
     private List<Map<String, Object>> body(Response<Models.ApiResult<List<Map<String, Object>>>> resp) {
         Models.ApiResult<List<Map<String, Object>>> r = resp.body();
-        return r != null && r.ok() && r.data != null ? r.data : List.of();
+        return r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
     }
 
     private void addSection(String type, List<Map<String, Object>> list) {

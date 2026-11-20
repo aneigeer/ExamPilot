@@ -22,7 +22,7 @@
 
     <!-- 局域网后端：走 nginx 443，禁止明文；锚点与 base 一致 -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="false">10.200.83.194</domain>
+        <domain includeSubdomains="false">10.200.34.206</domain>
         <trust-anchors>
             <certificates src="@raw/server_cert" />
             <certificates src="system" />

@@ -74,6 +74,7 @@
                 <TextView android:id="@+id/btnWrongBook" style="@style/MenuItem" android:text="错题本" />
                 <TextView android:id="@+id/btnNote" style="@style/MenuItem" android:text="我的笔记" />
                 <TextView android:id="@+id/btnFavQuestion" style="@style/MenuItem" android:text="收藏题" />
+                <TextView android:id="@+id/btnUploadResource" style="@style/MenuItem" android:text="上传资料" />
                 <TextView android:id="@+id/btnUploadRecords" style="@style/MenuItem" android:text="上传记录" />
                 <TextView android:id="@+id/btnFollows" style="@style/MenuItem" android:text="我的关注" />
                 <TextView android:id="@+id/btnAppeals" style="@style/MenuItem" android:text="我的申诉" />

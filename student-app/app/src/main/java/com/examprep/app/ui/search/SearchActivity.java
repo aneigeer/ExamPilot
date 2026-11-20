@@ -66,7 +66,7 @@ public class SearchActivity extends AppCompatActivity {
             public void onResponse(Call<Models.ApiResult<Models.Page<Models.Resource>>> call,
                                    Response<Models.ApiResult<Models.Page<Models.Resource>>> resp) {
                 Models.ApiResult<Models.Page<Models.Resource>> r = resp.body();
-                found = r != null && r.ok() && r.data != null && r.data.list != null ? r.data.list : List.of();
+                found = r != null && r.ok() && r.data != null && r.data.list != null ? r.data.list : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.Resource res : found) {
                     rows.add(new String[]{res.title,

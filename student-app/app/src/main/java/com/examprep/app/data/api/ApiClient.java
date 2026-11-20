@@ -24,9 +24,49 @@ public class ApiClient {
     private static volatile ApiService api;
     private static volatile ApiService longApi;
     private static Context appContext;
+    /** A-09：并发 401 只清态/跳转一次，避免 check-then-act 竞态 */
+    private static final Object LOGOUT_LOCK = new Object();
+    private static final String PREF_APP = "app";
+    private static final String KEY_BASE_URL = "custom_base_url";
 
     public static void init(Context context) {
         appContext = context.getApplicationContext();
+    }
+
+    /** 获取当前生效的接口基地址（优先用户配置，回退 BuildConfig.BASE_URL） */
+    public static String getBaseUrl(Context context) {
+        Context ctx = context != null ? context.getApplicationContext() : appContext;
+        if (ctx != null) {
+            String saved = ctx.getSharedPreferences(PREF_APP, Context.MODE_PRIVATE)
+                    .getString(KEY_BASE_URL, "");
+            if (saved != null && !saved.trim().isEmpty()) {
+                return ensureTrailingSlash(saved.trim());
+            }
+        }
+        return ensureTrailingSlash(BuildConfig.BASE_URL);
+    }
+
+    /** 运行时更新接口基地址（传空值恢复默认），并重建 Retrofit 客户端 */
+    public static void setBaseUrl(Context context, String rawUrl) {
+        Context ctx = context != null ? context.getApplicationContext() : appContext;
+        if (ctx != null) {
+            String trimmed = rawUrl == null ? "" : rawUrl.trim();
+            if (trimmed.isEmpty()) {
+                ctx.getSharedPreferences(PREF_APP, Context.MODE_PRIVATE)
+                        .edit().remove(KEY_BASE_URL).apply();
+            } else {
+                ctx.getSharedPreferences(PREF_APP, Context.MODE_PRIVATE)
+                        .edit().putString(KEY_BASE_URL, ensureTrailingSlash(trimmed)).apply();
+            }
+        }
+        synchronized (ApiClient.class) {
+            api = null;
+            longApi = null;
+        }
+    }
+
+    private static String ensureTrailingSlash(String url) {
+        return url.endsWith("/") ? url : url + "/";
     }
 
     public static ApiService api() {
@@ -74,7 +114,7 @@ public class ApiClient {
                 .build();
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BuildConfig.BASE_URL)
+                .baseUrl(getBaseUrl(appContext))
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
@@ -88,12 +128,18 @@ public class ApiClient {
             builder.header("Authorization", "Bearer " + token);
         }
         Response response = chain.proceed(builder.build());
-        if (response.code() == 401 && appContext != null && TokenStore.get(appContext).hasToken()) {
-            // 登录过期：清态 + 回登录页
-            TokenStore.get(appContext).clear();
-            Intent intent = new Intent(appContext, LoginActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            appContext.startActivity(intent);
+        // A-09：并发 401 的 check-then-act 竞态 —— 把 hasToken() 检查与清态一并放进同步块，
+        //       保证同一轮过期只清态/跳转一次；重新登录后 hasToken() 恢复，下一次 401 仍生效
+        if (response.code() == 401 && appContext != null) {
+            synchronized (LOGOUT_LOCK) {
+                if (TokenStore.get(appContext).hasToken()) {
+                    // 登录过期：清态 + 回登录页
+                    TokenStore.get(appContext).clear();
+                    Intent intent = new Intent(appContext, LoginActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    appContext.startActivity(intent);
+                }
+            }
         }
         return response;
     }

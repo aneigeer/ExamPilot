@@ -49,6 +49,16 @@ public class MockExamActivity extends AppCompatActivity {
     private boolean submitRequested;
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // A-04：退出模考页必须取消计时器，否则时间到会在已销毁的页面上自动交卷
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMockBinding.inflate(getLayoutInflater());
@@ -147,7 +157,7 @@ public class MockExamActivity extends AppCompatActivity {
                         }
                         recordId = r.data.recordId;
                         questions.clear();
-                        questions.addAll(r.data.questions == null ? List.of() : r.data.questions);
+                        questions.addAll(r.data.questions == null ? java.util.Collections.<Models.Question>emptyList() : r.data.questions);
                         enterExam(r.data.remainingSeconds);
                     }
 
@@ -168,12 +178,20 @@ public class MockExamActivity extends AppCompatActivity {
         timer = new CountDownTimer(remainingSeconds * 1000L, 1000) {
             @Override
             public void onTick(long ms) {
+                // A-04：页面已退出时不再触碰已销毁的视图
+                if (isFinishing() || isDestroyed() || binding == null) {
+                    return;
+                }
                 long s = ms / 1000;
                 binding.tvTimer.setText(String.format("剩余 %02d:%02d", s / 60, s % 60));
             }
 
             @Override
             public void onFinish() {
+                // A-04：onDestroy 已 cancel 计时器；此处再兜一层，避免退出后自动交卷
+                if (isFinishing() || isDestroyed() || binding == null) {
+                    return;
+                }
                 binding.tvTimer.setText("时间到");
                 toast("考试时间到，自动交卷");
                 submit();

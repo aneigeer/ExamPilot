@@ -97,7 +97,7 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.ExamBrief>>> call,
                                    Response<Models.ApiResult<List<Models.ExamBrief>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.ExamBrief>> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -116,7 +116,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.ExamBrief>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("网络错误：" + t.getMessage());
             }
         });
@@ -133,9 +133,9 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.Subject>>> call,
                                    Response<Models.ApiResult<List<Models.Subject>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.Subject>> r = resp.body();
-                List<Models.Subject> list = r != null && r.ok() && r.data != null ? r.data : List.of();
+                List<Models.Subject> list = r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
                 if (list.isEmpty()) {
                     addHint(binding.llSubjects, "该类别暂无科目");
                     return;
@@ -158,7 +158,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.Subject>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("网络错误");
             }
         });
@@ -172,9 +172,9 @@ public class QuestionBankFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.KnowledgeNode>>> call,
                                    Response<Models.ApiResult<List<Models.KnowledgeNode>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.KnowledgeNode>> r = resp.body();
-                List<Models.KnowledgeNode> roots = r != null && r.ok() && r.data != null ? r.data : List.of();
+                List<Models.KnowledgeNode> roots = r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
                 if (roots.isEmpty()) {
                     addHint(binding.llKnowledgeList, "该科目暂无知识点，可直接按科目刷题");
                 }
@@ -183,7 +183,7 @@ public class QuestionBankFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.KnowledgeNode>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("网络错误");
             }
         });
@@ -192,7 +192,12 @@ public class QuestionBankFragment extends Fragment {
     private void renderNodes(LinearLayout parent, List<Models.KnowledgeNode> nodes, int depth) {
         for (Models.KnowledgeNode node : nodes) {
             TextView tv = new TextView(getContext());
-            tv.setText(("　".repeat(depth)) + (depth > 0 ? "└ " : "") + node.name);
+            // A-03：String.repeat 是 Java 11 API（Android API 30+），minSdk 26 下手写缩进
+            StringBuilder indent = new StringBuilder();
+            for (int i = 0; i < depth; i++) {
+                indent.append('　');
+            }
+            tv.setText(indent.toString() + (depth > 0 ? "└ " : "") + node.name);
             tv.setTextSize(14);
             tv.setTextColor(0xFF1B1F27);
             tv.setPadding(dp(8), dp(10), dp(8), dp(10));
@@ -257,7 +262,7 @@ public class QuestionBankFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        if (!isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
+        if (binding == null || !isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
         Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
     }
 }

@@ -70,5 +70,13 @@
             android:padding="8dp"
             android:text="@string/go_register"
             android:textColor="@color/primary" android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvServerConfig"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="8dp"
+            android:text="@string/server_config"
+            android:textColor="@color/text_sub" android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

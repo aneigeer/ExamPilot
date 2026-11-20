@@ -38,6 +38,8 @@ import retrofit2.Response;
 public class UploadActivity extends AppCompatActivity {
 
     private static final int MAX_DIM = 1280;
+    /** A-07：科目未绑定考试类别时的兜底值；正常路径取所选科目的 examCategoryId */
+    private static final long DEFAULT_EXAM_CATEGORY_ID = 1L;
 
     private ActivityUploadBinding binding;
     private ApiService api;
@@ -160,12 +162,26 @@ public class UploadActivity extends AppCompatActivity {
                         toast("第 " + (i + 1) + " 张上传失败：" + (r == null ? "" : r.message));
                         return;
                     }
+                    // A-07：先取所选科目/类型的真实值，避免写死类别与下标越界
+                    int subjectPos = binding.spSubject.getSelectedItemPosition();
+                    int typePos = binding.spType.getSelectedItemPosition();
+                    if (subjectPos < 0 || subjectPos >= subjects.size()
+                            || typePos < 0 || typePos >= types.size()) {
+                        binding.btnSubmit.setEnabled(true);
+                        toast("请选择科目与资料类型");
+                        return;
+                    }
+                    Models.Subject selectedSubject = subjects.get(subjectPos);
+
                     // 每张图独立成一份图片资料（后端资料-文件为一对一）
                     ApiService.ResourceSubmitBody body = new ApiService.ResourceSubmitBody();
                     body.title = picked.size() > 1 ? title + "（" + (i + 1) + "/" + picked.size() + "）" : title;
-                    body.examCategoryId = 1L;
-                    body.subjectId = subjects.get(binding.spSubject.getSelectedItemPosition()).id;
-                    body.type = types.get(binding.spType.getSelectedItemPosition()).type;
+                    // A-07：考试类别取所选科目的 examCategoryId（Models.java:95），不再写死 1L
+                    // TODO 上传页尚无考试类别选择器（范围问题 R-07）；科目未绑定类别时回退默认类别
+                    body.examCategoryId = selectedSubject.examCategoryId != null
+                            ? selectedSubject.examCategoryId : DEFAULT_EXAM_CATEGORY_ID;
+                    body.subjectId = selectedSubject.id;
+                    body.type = types.get(typePos).type;
                     body.description = String.valueOf(binding.etDesc.getText()).trim();
                     body.tags = String.valueOf(binding.etTags.getText()).trim();
                     body.fileId = r.data.fileId;
@@ -174,6 +190,15 @@ public class UploadActivity extends AppCompatActivity {
                         @Override
                         public void onResponse(Call<Models.ApiResult<Models.Resource>> call,
                                                Response<Models.ApiResult<Models.Resource>> resp2) {
+                            // A-02：必须校验资料创建结果；失败时停止递归、恢复按钮并提示，
+                            //       否则后端拒绝创建也会被误报成「全部上传完成」
+                            Models.ApiResult<Models.Resource> r2 = resp2.body();
+                            if (!resp2.isSuccessful() || r2 == null || !r2.ok()) {
+                                binding.btnSubmit.setEnabled(true);
+                                toast("第 " + (i + 1) + " 张资料提交失败："
+                                        + (r2 == null ? ("HTTP " + resp2.code()) : r2.message));
+                                return;
+                            }
                             uploadOne(title, i + 1);
                         }
 

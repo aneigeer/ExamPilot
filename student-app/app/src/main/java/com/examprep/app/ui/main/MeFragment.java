@@ -49,14 +49,14 @@ public class MeFragment extends Fragment {
                 public void onResponse(Call<Models.ApiResult<Object>> call,
                                        Response<Models.ApiResult<Object>> resp) {
                     store.clear(); // 清除本地凭证与页面是否存活无关，必须执行
-                    if (!isAdded()) return; // Activity 可能已销毁，跳过跳转登录页的 UI 操作
+                    if (binding == null || !isAdded()) return; // Activity 可能已销毁，跳过跳转登录页的 UI 操作
                     goLogin();
                 }
 
                 @Override
                 public void onFailure(Call<Models.ApiResult<Object>> call, Throwable t) {
                     store.clear();
-                    if (!isAdded()) return;
+                    if (binding == null || !isAdded()) return;
                     goLogin();
                 }
             });
@@ -70,6 +70,16 @@ public class MeFragment extends Fragment {
         binding.btnNotifications.setOnClickListener(v -> open(com.examprep.app.ui.list.NotificationsActivity.class));
         binding.btnNote.setOnClickListener(v -> open(com.examprep.app.ui.note.NoteActivity.class));
         binding.btnFavQuestion.setOnClickListener(v -> open(com.examprep.app.ui.list.FavoriteQuestionActivity.class));
+        // D14 上传资料双入口之二：与首页 FAB 一致跳转 UploadActivity；游客沿用 store.hasToken()/goLogin() 锁定上传
+        binding.btnUploadResource.setOnClickListener(v -> {
+            if (!store.hasToken()) {
+                toast("游客不可上传，请先登录");
+                goLogin();
+                return;
+            }
+            startActivity(new Intent(requireContext(),
+                    com.examprep.app.ui.upload.UploadActivity.class));
+        });
         binding.btnUploadRecords.setOnClickListener(v -> open(com.examprep.app.ui.list.UploadRecordsActivity.class));
         binding.btnFollows.setOnClickListener(v -> open(com.examprep.app.ui.follow.FollowActivity.class));
         binding.btnAppeals.setOnClickListener(v -> open(com.examprep.app.ui.appeal.AppealActivity.class));
@@ -97,7 +107,7 @@ public class MeFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<Models.MyStats>> call,
                                    Response<Models.ApiResult<Models.MyStats>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<Models.MyStats> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -111,7 +121,7 @@ public class MeFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<Models.MyStats>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("统计加载失败");
             }
         });
@@ -128,7 +138,7 @@ public class MeFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        if (!isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
+        if (binding == null || !isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
         Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
     }
 }

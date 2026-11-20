@@ -46,7 +46,7 @@ public class RegisterActivity extends AppCompatActivity {
         api = ApiClient.api();
 
         // 学校下拉：先放兜底默认项，接口成功后刷新
-        showSchools(List.of());
+        showSchools(java.util.Collections.emptyList());
         binding.spSchool.setOnItemClickListener((parent, view, position, id) -> {
             if (position >= 0 && position < schools.size()) {
                 selectedSchoolId = schools.get(position).id;

@@ -17,7 +17,7 @@ public class ReportAdapter extends RecyclerView.Adapter<ReportAdapter.VH> {
     private final List<Models.ReportItem> data;
 
     public ReportAdapter(List<Models.ReportItem> data) {
-        this.data = data == null ? List.of() : data;
+        this.data = data == null ? java.util.Collections.emptyList() : data;
     }
 
     @NonNull

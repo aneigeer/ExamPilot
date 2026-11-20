@@ -3,6 +3,8 @@ package com.examprep.app.ui.login;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -65,6 +67,39 @@ public class LoginActivity extends AppCompatActivity {
         binding.btnGuest.setOnClickListener(v -> goMain());
         binding.tvGoRegister.setOnClickListener(v ->
                 startActivity(new Intent(this, RegisterActivity.class)));
+        binding.tvServerConfig.setOnClickListener(v -> showServerConfigDialog());
+    }
+
+    /** 运行时配置后端基地址（便于真机/不同局域网环境切换，无需重编 APK） */
+    private void showServerConfigDialog() {
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setText(ApiClient.getBaseUrl(this));
+        input.setSelection(input.getText().length());
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad / 2, pad, pad / 2);
+
+        new AlertDialog.Builder(this)
+                .setTitle("服务器地址设置")
+                .setMessage("输入后端 API 基地址（须以 http:// 或 https:// 开头）")
+                .setView(input)
+                .setPositiveButton("保存", (dialog, which) -> {
+                    String url = String.valueOf(input.getText()).trim();
+                    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                        toast("地址须以 http:// 或 https:// 开头");
+                        return;
+                    }
+                    ApiClient.setBaseUrl(this, url);
+                    api = ApiClient.api();
+                    toast("已切换服务器：" + ApiClient.getBaseUrl(this));
+                })
+                .setNeutralButton("恢复默认", (dialog, which) -> {
+                    ApiClient.setBaseUrl(this, null);
+                    api = ApiClient.api();
+                    toast("已恢复默认地址：" + ApiClient.getBaseUrl(this));
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     // ------------------------------------------------------------------
@@ -110,6 +145,12 @@ public class LoginActivity extends AppCompatActivity {
             public void onResponse(Call<Models.ApiResult<Models.LoginData>> call,
                                    Response<Models.ApiResult<Models.LoginData>> resp) {
                 binding.btnLogin.setEnabled(true);
+                // F2b：后端登录失败返回 401/400，Retrofit 在非 2xx 时 body() 为 null、
+                // 错误体在 errorBody()，这里先取具体原因再走成功分支，避免只提示「登录失败」。
+                if (!resp.isSuccessful()) {
+                    toast(parseErrorMessage(resp));
+                    return;
+                }
                 Models.ApiResult<Models.LoginData> r = resp.body();
                 if (r != null && r.ok() && r.data != null) {
                     TokenStore.get(LoginActivity.this).save(r.data.token, r.data.user);
@@ -131,6 +172,27 @@ public class LoginActivity extends AppCompatActivity {
     private void goMain() {
         startActivity(new Intent(this, MainActivity.class));
         finish();
+    }
+
+    /**
+     * F2b：解析非 2xx 响应体的 {code,message}。
+     * 后端改造后登录失败返回 401（业务码仍为 1001 等），Retrofit 的 body() 为 null，
+     * 只能从 errorBody() 取；errorBody 只能读一次，解析失败时降级为带状态码的通用文案。
+     */
+    private String parseErrorMessage(Response<?> resp) {
+        try {
+            if (resp.errorBody() != null) {
+                String raw = resp.errorBody().string();
+                Models.ApiResult<?> err = new com.google.gson.Gson()
+                        .fromJson(raw, Models.ApiResult.class);
+                if (err != null && err.message != null && !err.message.trim().isEmpty()) {
+                    return err.message;
+                }
+            }
+        } catch (Exception ignored) {
+            // 错误体为空或非 JSON，走下面兜底
+        }
+        return "登录失败（HTTP " + resp.code() + "）";
     }
 
     private void toast(String msg) {

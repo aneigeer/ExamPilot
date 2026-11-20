@@ -28,7 +28,7 @@ public class NoteActivity extends SimpleListActivity {
             public void onResponse(Call<Models.ApiResult<List<Models.QuestionNoteItem>>> call,
                                    Response<Models.ApiResult<List<Models.QuestionNoteItem>>> resp) {
                 Models.ApiResult<List<Models.QuestionNoteItem>> r = resp.body();
-                List<Models.QuestionNoteItem> list = r != null && r.ok() && r.data != null ? r.data : List.of();
+                List<Models.QuestionNoteItem> list = r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.QuestionNoteItem n : list) {
                     rows.add(new String[]{

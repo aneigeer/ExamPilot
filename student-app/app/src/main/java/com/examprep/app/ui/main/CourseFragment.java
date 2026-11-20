@@ -120,7 +120,7 @@ public class CourseFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.College>>> call,
                                    Response<Models.ApiResult<List<Models.College>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.College>> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -140,7 +140,7 @@ public class CourseFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.College>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("学院加载失败");
             }
         });
@@ -151,7 +151,7 @@ public class CourseFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.Semester>>> call,
                                    Response<Models.ApiResult<List<Models.Semester>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.Semester>> r = resp.body();
                 if (r == null || !r.ok() || r.data == null) {
                     return;
@@ -171,7 +171,7 @@ public class CourseFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.Semester>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("学期加载失败");
             }
         });
@@ -188,9 +188,9 @@ public class CourseFragment extends Fragment {
             @Override
             public void onResponse(Call<Models.ApiResult<List<Models.Course>>> call,
                                    Response<Models.ApiResult<List<Models.Course>>> resp) {
-                if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                 Models.ApiResult<List<Models.Course>> r = resp.body();
-                List<Models.Course> list = r != null && r.ok() && r.data != null ? r.data : List.of();
+                List<Models.Course> list = r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
                 binding.tvCourseEmpty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
 
                 List<String[]> rows = new ArrayList<>();
@@ -210,7 +210,7 @@ public class CourseFragment extends Fragment {
 
             @Override
             public void onFailure(Call<Models.ApiResult<List<Models.Course>>> call, Throwable t) {
-                if (!isAdded()) return;
+                if (binding == null || !isAdded()) return;
                 toast("课程加载失败");
             }
         });
@@ -283,12 +283,12 @@ public class CourseFragment extends Fragment {
                     @Override
                     public void onResponse(Call<Models.ApiResult<Models.Page<Models.Resource>>> call,
                                            Response<Models.ApiResult<Models.Page<Models.Resource>>> resp) {
-                        if (!isAdded()) return; // 异步响应到达时页面可能已销毁
+                        if (binding == null || !isAdded()) return; // 异步响应到达时页面可能已销毁
                         resLoading = false;
                         binding.refresh.setRefreshing(false);
                         Models.ApiResult<Models.Page<Models.Resource>> r = resp.body();
                         List<Models.Resource> list = r != null && r.ok() && r.data != null && r.data.list != null
-                                ? r.data.list : List.of();
+                                ? r.data.list : java.util.Collections.emptyList();
                         resTotal = r != null && r.ok() && r.data != null ? r.data.total : 0;
 
                         if (resPage == 1) {
@@ -326,7 +326,7 @@ public class CourseFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        if (!isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
+        if (binding == null || !isAdded()) return; // 页面已离开时 getContext() 为 null，忽略以防空指针闪退
         Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
     }
 

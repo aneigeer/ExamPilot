@@ -68,6 +68,12 @@ public class AccountActivity extends AppCompatActivity {
                     public void onResponse(Call<Models.ApiResult<Object>> call,
                                            Response<Models.ApiResult<Object>> resp) {
                         binding.btnChange.setEnabled(true);
+                        // F2b：旧密码错误现在返回 400，Retrofit 非 2xx 时 body() 为 null，
+                        // 具体原因在 errorBody()，否则只会提示「修改失败」。
+                        if (!resp.isSuccessful()) {
+                            toast(parseErrorMessage(resp, "修改失败"));
+                            return;
+                        }
                         Models.ApiResult<Object> r = resp.body();
                         if (r != null && r.ok()) {
                             toast("密码修改成功");
@@ -167,6 +173,12 @@ public class AccountActivity extends AppCompatActivity {
                     public void onResponse(Call<Models.ApiResult<Object>> call,
                                            Response<Models.ApiResult<Object>> resp) {
                         binding.btnDeactivate.setEnabled(true);
+                        // F2b：注销时原密码错误返回 400（OLD_PASSWORD_WRONG），body() 为 null，
+                        // 具体原因在 errorBody()，否则只会提示「注销失败」。
+                        if (!resp.isSuccessful()) {
+                            toast(parseErrorMessage(resp, "注销失败"));
+                            return;
+                        }
                         Models.ApiResult<Object> r = resp.body();
                         if (r != null && r.ok()) {
                             TokenStore.get(AccountActivity.this).clear();
@@ -187,6 +199,27 @@ public class AccountActivity extends AppCompatActivity {
                         toast("网络错误：" + t.getMessage());
                     }
                 });
+    }
+
+    /**
+     * F2b：解析非 2xx 响应体的 {code,message}，取出后端返回的具体失败原因。
+     * Retrofit 的 body() 在非 2xx 时为 null，错误体只能从 errorBody() 读且只能读一次；
+     * 解析失败时降级为「默认文案（HTTP 状态码）」。
+     */
+    private String parseErrorMessage(Response<?> resp, String fallback) {
+        try {
+            if (resp.errorBody() != null) {
+                String raw = resp.errorBody().string();
+                Models.ApiResult<?> err = new com.google.gson.Gson()
+                        .fromJson(raw, Models.ApiResult.class);
+                if (err != null && err.message != null && !err.message.trim().isEmpty()) {
+                    return err.message;
+                }
+            }
+        } catch (Exception ignored) {
+            // 错误体为空或非 JSON，走下面兜底
+        }
+        return fallback + "（HTTP " + resp.code() + "）";
     }
 
     private void toast(String msg) {

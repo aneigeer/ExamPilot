@@ -25,7 +25,7 @@ public class AppealActivity extends SimpleListActivity {
             public void onResponse(Call<Models.ApiResult<List<Models.Appeal>>> call,
                                    Response<Models.ApiResult<List<Models.Appeal>>> resp) {
                 Models.ApiResult<List<Models.Appeal>> r = resp.body();
-                List<Models.Appeal> list = r != null && r.ok() && r.data != null ? r.data : List.of();
+                List<Models.Appeal> list = r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.Appeal a : list) {
                     String status;

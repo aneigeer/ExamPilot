@@ -129,7 +129,7 @@ public class ResourceDetailActivity extends AppCompatActivity {
                     return;
                 }
                 Models.Preview p = r.data;
-                pageAdapter.submit(p.pages == null ? List.of() : p.pages);
+                pageAdapter.submit(p.pages == null ? java.util.Collections.emptyList() : p.pages);
                 binding.tvPreviewTip.setText(String.format("共 %d 页，当前可见 %d 页%s",
                         p.totalPages, p.visiblePages, p.guest ? "（游客仅前 3 页，登录看整本）" : ""));
             }
@@ -193,7 +193,7 @@ public class ResourceDetailActivity extends AppCompatActivity {
             public void onResponse(Call<Models.ApiResult<List<Models.Comment>>> call,
                                    Response<Models.ApiResult<List<Models.Comment>>> resp) {
                 Models.ApiResult<List<Models.Comment>> r = resp.body();
-                commentAdapter.submit(r != null && r.ok() && r.data != null ? r.data : List.of());
+                commentAdapter.submit(r != null && r.ok() && r.data != null ? r.data : java.util.Collections.emptyList());
             }
 
             @Override

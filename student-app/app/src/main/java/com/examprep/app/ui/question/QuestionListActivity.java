@@ -131,7 +131,7 @@ public class QuestionListActivity extends AppCompatActivity {
                                    Response<Models.ApiResult<Models.Page<Models.Question>>> resp) {
                 Models.ApiResult<Models.Page<Models.Question>> r = resp.body();
                 List<Models.Question> list = r != null && r.ok() && r.data != null && r.data.list != null
-                        ? r.data.list : List.of();
+                        ? r.data.list : java.util.Collections.emptyList();
                 adapter.submit(list);
             }
 

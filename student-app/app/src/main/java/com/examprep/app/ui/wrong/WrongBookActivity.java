@@ -55,7 +55,7 @@ public class WrongBookActivity extends AppCompatActivity {
                                    Response<Models.ApiResult<Models.Page<Models.WrongBookItem>>> resp) {
                 Models.ApiResult<Models.Page<Models.WrongBookItem>> r = resp.body();
                 List<Models.WrongBookItem> list = r != null && r.ok() && r.data != null && r.data.list != null
-                        ? r.data.list : List.of();
+                        ? r.data.list : java.util.Collections.emptyList();
                 binding.tvEmpty.setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
                 adapter.submit(list);
             }

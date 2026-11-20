@@ -29,7 +29,7 @@ public class WrongReviewActivity extends AppCompatActivity {
 
     private ActivityWrongReviewBinding binding;
     private ApiService api;
-    private List<Models.ReviewItem> queue = List.of();
+    private List<Models.ReviewItem> queue = java.util.Collections.emptyList();
     private int index = 0;
     private int masteredCount = 0;
     private Models.Question current;
@@ -57,7 +57,7 @@ public class WrongReviewActivity extends AppCompatActivity {
             public void onResponse(Call<Models.ApiResult<List<Models.ReviewItem>>> call,
                                    Response<Models.ApiResult<List<Models.ReviewItem>>> resp) {
                 Models.ApiResult<List<Models.ReviewItem>> r = resp.body();
-                queue = (r != null && r.ok() && r.data != null) ? r.data : List.of();
+                queue = (r != null && r.ok() && r.data != null) ? r.data : java.util.Collections.emptyList();
                 if (queue.isEmpty()) {
                     toast("当前没有到期的错题，去刷题或稍后再来");
                     finish();

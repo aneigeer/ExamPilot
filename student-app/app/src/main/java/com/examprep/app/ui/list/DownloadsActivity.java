@@ -24,7 +24,7 @@ public class DownloadsActivity extends SimpleListActivity {
                                    Response<Models.ApiResult<Models.Page<Models.Resource>>> resp) {
                 Models.ApiResult<Models.Page<Models.Resource>> r = resp.body();
                 List<Models.Resource> list = r != null && r.ok() && r.data != null && r.data.list != null
-                        ? r.data.list : List.of();
+                        ? r.data.list : java.util.Collections.emptyList();
                 List<String[]> rows = new ArrayList<>();
                 for (Models.Resource res : list) {
                     rows.add(new String[]{res.title,

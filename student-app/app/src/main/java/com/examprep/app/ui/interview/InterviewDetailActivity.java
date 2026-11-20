@@ -102,7 +102,7 @@ public class InterviewDetailActivity extends AppCompatActivity {
             meta.append(" · 已结束");
         }
         binding.tvSummaryMeta.setText(meta.toString());
-        adapter.submit(d.qaList == null ? java.util.List.of() : d.qaList);
+        adapter.submit(d.qaList == null ? java.util.Collections.emptyList() : d.qaList);
     }
 
     private void toast(String msg) {
