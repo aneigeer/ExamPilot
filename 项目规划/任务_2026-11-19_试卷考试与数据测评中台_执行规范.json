@@ -1,0 +1,358 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "TASK-2026-11-19-EXAM-DATA-EVAL-PLATFORMS",
+  "title": "试卷考试补齐 + 轻量级数据中台 + 双轨测评中台 实施执行规范",
+  "created_at": "2026-11-19",
+  "project_root": "d:/大学生多考试备考知识库与题库系统",
+  "objective": "在现有 Spring Boot + FastAPI + Vue3(CDN) + MySQL8 + Qdrant 单体/双服务架构上，依次完成：(1) 试卷考试（模拟考试）短板补齐并与错题本/AI学习计划闭环；(2) 面向资产治理、分层指标与质量巡检的轻量级数据中台；(3) 兼顾学生能力测评与 AI 模型/RAG/Agent 评测的双轨测评中台。",
+  "baseline_context": {
+    "tech_stack": {
+      "backend": "Java 21 + Spring Boot 3.5.3 + MyBatis-Plus + MySQL 8.0.46",
+      "ai_service": "Python 3.12 + FastAPI + Qdrant (local ./data/qdrant) + Ollama (exam-prep-7b / qwen2.5-3b) + PaddleOCR",
+      "frontend_admin": "admin-web/index.html (同步至 backend/src/main/resources/static/admin/index.html，Vue3 + Element Plus CDN)",
+      "frontend_student_web": "backend/src/main/resources/static/student/index.html (Vue3 + Element Plus CDN)",
+      "sql_dir": "sql/ (所有迁移脚本必须幂等可重复执行)"
+    },
+    "already_implemented_do_not_rebuild": [
+      {
+        "feature": "根据用户错题 AI 制定学习计划",
+        "files": [
+          "backend/src/main/java/com/examprep/service/ai/AiStudyPlanService.java",
+          "backend/src/main/java/com/examprep/dto/ai/AiStudyPlanRequest.java",
+          "backend/src/main/java/com/examprep/dto/ai/AiStudyPlanVO.java",
+          "backend/src/main/java/com/examprep/mapper/WrongBookMapper.java",
+          "backend/src/main/java/com/examprep/controller/MeController.java (POST /api/me/study-plan/ai)",
+          "backend/src/main/resources/static/student/index.html (tab: plan)",
+          "backend/src/test/java/com/examprep/service/ai/AiStudyPlanServiceTest.java"
+        ],
+        "note": "已完成并单测通过(13/13)，但尚未重打 jar 与重启 8080 进程。"
+      },
+      {
+        "feature": "模拟考试基础闭环",
+        "files": [
+          "backend/src/main/java/com/examprep/controller/MockExamController.java",
+          "backend/src/main/java/com/examprep/service/MockExamService.java",
+          "sql/migration-p1.sql (exam_paper / exam_paper_question / exam_record / exam_answer_detail)"
+        ],
+        "known_gaps": [
+          "仅支持临时随机组卷，缺少固定套卷/人工编排发布与试卷列表接口",
+          "缺少我的模拟考试历史列表接口与回看入口",
+          "MockExamService.gradeIfFinished 判分后未将错题写入 wrong_book",
+          "student/index.html 组卷按钮在 !subjectId 时禁用，阻塞全库/按类别年份组卷",
+          "MockExamService.buildPaper 未按 ExamPaperQuestion.sort 显式排序，FILL_BLANK 报告缺正确答案回显",
+          "backend/src/test/java 下 0 个 MockExam 单元/集成测试"
+        ]
+      },
+      {
+        "feature": "管理端基础统计与 AI 离线评估雏形",
+        "files": [
+          "backend/src/main/java/com/examprep/controller/AdminDataController.java",
+          "backend/src/main/java/com/examprep/service/ImportStatsService.java",
+          "backend/src/main/java/com/examprep/controller/AiOpsController.java",
+          "backend/src/main/java/com/examprep/service/ai/agent/EvalCompareService.java",
+          "ai-service/eval/retrieval_eval.py",
+          "ai-service/eval/agent_eval.py",
+          "sql/migration-question-source.sql"
+        ]
+      }
+    ]
+  },
+  "global_constraints": [
+    "不得将任何数据库密码、JWT 密钥、Token 明文硬编码或提交进代码/文档/日志。",
+    "所有 SQL 迁移脚本必须放在 sql/ 下，且遵循 MySQL 8.0 幂等写法（CREATE TABLE IF NOT EXISTS + information_schema 动态判断加列/加索引），可连续执行 2 次不报错。",
+    "所有 AI 能力必须保留静默降级兜底，不得因模型不可用或格式错误导致业务接口 500。",
+    "不得放宽既有安全门禁（如 /api/run 禁用、/internal/** Token 鉴权、/v1/ocr 路径白名单、限流 XFF 防绕过）。",
+    "每次修改 admin-web/index.html 后，必须同步复制到 backend/src/main/resources/static/admin/index.html（保持 SHA256 一致）。",
+    "每个工作流完成后必须编写并运行真实自动化测试，严禁只改代码不跑测试或把未运行验证写成 PASS。"
+  ],
+  "workstreams": [
+    {
+      "id": "WS-1",
+      "name": "试卷考试（模拟考试）完整闭环补齐",
+      "priority": "P0",
+      "depends_on": [],
+      "tasks": [
+        {
+          "id": "T1.1",
+          "title": "模考错题自动进入错题本，打通 AI 错题学习计划",
+          "target_files": [
+            "backend/src/main/java/com/examprep/service/MockExamService.java",
+            "backend/src/main/java/com/examprep/service/PracticeService.java"
+          ],
+          "requirements": [
+            "抽取或复用统一的错题本 upsert 逻辑（记录 wrong_count 累加、mastered=0、last_wrong_at、next_review_at），避免 MockExamService 与 PracticeService 逻辑重复。",
+            "在 MockExamService.gradeIfFinished 中，对本次模考答错的客观题调用错题本 upsert。",
+            "保持原超时自动交卷（EXPIRED）与防重复交卷（409 CONFLICT）契约不变。"
+          ],
+          "acceptance_criteria": [
+            "用户参加模考交卷后，答错的题目自动出现在 GET /api/wrong-book，且可被 POST /api/me/study-plan/ai 读取。"
+          ]
+        },
+        {
+          "id": "T1.2",
+          "title": "固定试卷（套卷）管理与学生端套卷开考",
+          "target_files": [
+            "sql/migration-exam-platform.sql",
+            "backend/src/main/java/com/examprep/entity/ExamPaper.java",
+            "backend/src/main/java/com/examprep/controller/MockExamController.java",
+            "backend/src/main/java/com/examprep/controller/AdminController.java",
+            "backend/src/main/java/com/examprep/service/MockExamService.java",
+            "admin-web/index.html"
+          ],
+          "requirements": [
+            "扩展 exam_paper 表（幂等迁移）：新增 paper_type VARCHAR(20) DEFAULT 'RANDOM'（RANDOM/OFFICIAL/CUSTOM）、exam_code VARCHAR(30) NULL、year SMALLINT NULL、published TINYINT DEFAULT 0、description VARCHAR(500) NULL。",
+            "管理端新增固定试卷管理接口（ROLE:ADMIN/AUDITOR）：创建固定试卷（指定名称、科目/类别、年份、时长、题目 ID 与每题分值）、发布/下架试卷、分页查看试卷。",
+            "学生端新增公开/认证接口：GET /api/exams/papers（只查 published=1 的 OFFICIAL/CUSTOM 套卷，支持按 examCode/subjectId/year 筛选）与 POST /api/exams/papers/{paperId}/start（基于固定试卷创建 exam_record 开考）。",
+            "在 admin-web/index.html 新增「试卷管理」页签，支持创建、选题组卷与发布。"
+          ],
+          "acceptance_criteria": [
+            "管理员可创建并发布套卷；学生可通过 GET /api/exams/papers 看到已发布套卷并点击开考；未发布套卷学生开考返回 404/403。"
+          ]
+        },
+        {
+          "id": "T1.3",
+          "title": "我的模考历史列表与页面体验修复",
+          "target_files": [
+            "backend/src/main/java/com/examprep/controller/MockExamController.java",
+            "backend/src/main/java/com/examprep/service/MockExamService.java",
+            "backend/src/main/resources/static/student/index.html"
+          ],
+          "requirements": [
+            "新增 GET /api/exams/mock/history?page=1&size=10，返回当前登录用户历次 exam_record（关联试卷名、paperType、状态、得分/总分、得分率、开考/交卷时间），严格按 userId 隔离。",
+            "修复 MockExamService.buildPaper：按 ExamPaperQuestion.sort 顺序组装 QuestionVO 列表（当前 selectBatchIds 会打乱顺序）。",
+            "修复 MockExamService.buildDetails：对于 FILL_BLANK 填空题，从 QuestionAnswerMapper 回填 correctAnswer 展示给成绩报告。",
+            "修复 student/index.html 模拟考试页：移除开始考试按钮的 !subjectId 禁用条件，支持不选科目直接按类别/年份/全库组卷；增加「固定套卷」列表与「我的模考历史」回看卡片。"
+          ],
+          "acceptance_criteria": [
+            "学生刷新页面或清除本地存储后，仍可在「我的模考历史」中查看历史试卷得分与错题详情；填空题报告显示参考答案；试卷题序与组卷顺序一致。"
+          ]
+        },
+        {
+          "id": "T1.4",
+          "title": "补齐模拟考试单元与接口测试",
+          "target_files": [
+            "backend/src/test/java/com/examprep/service/MockExamServiceTest.java"
+          ],
+          "requirements": [
+            "覆盖：随机组卷（全库/按类别年份）、固定套卷开考、未发布套卷拦截、题目按 sort 保序、重复交卷 409、超时自动交卷、答错自动写入 wrong_book、历史列表 userId 隔离。"
+          ],
+          "test_command": "mvn -B test -Dtest=MockExamServiceTest"
+        }
+      ]
+    },
+    {
+      "id": "WS-2",
+      "name": "轻量级「数据中台」建设（资产治理 + 分层汇总 + 质量巡检）",
+      "priority": "P1",
+      "depends_on": [
+        "WS-1"
+      ],
+      "tasks": [
+        {
+          "id": "T2.1",
+          "title": "数据中台分层存储与流水线表迁移",
+          "target_files": [
+            "sql/migration-data-hub.sql"
+          ],
+          "requirements": [
+            "新建 data_pipeline_job 表：记录离线/在线数据接入任务（job_type: IMPORT_QUESTIONS/OCR_BATCH/VECTOR_SYNC/CALIBRATION/METRICS_ETL，source_ref、status、total_rows、inserted_rows、dedup_rows、failed_rows、error_summary、started_at、finished_at）。",
+            "新建 data_quality_issue 表：记录数据质量巡检异常（issue_type: DUPLICATE_STEM/MISSING_ANSWER/NO_CHUNK/ORPHAN_VECTOR/OCR_BACKLOG/EMPTY_SUBJECT，severity、target_table、target_id、detail、status: OPEN/RESOLVED、detected_at）。",
+            "新建 ads_daily_metrics 表：按 stat_date 落盘日级核心指标（active_users、practice_count、mock_count、avg_accuracy、ai_ask_count、ai_refused_count、ai_degraded_count、question_approved_total、chunk_active_total）。",
+            "新建 ads_subject_coverage 表：按 exam_code / subject_id 汇总存活题量、已审核题量、待审核题量、已向量化块数、课件数、知识点数及覆盖健康度。"
+          ],
+          "acceptance_criteria": [
+            "sql/migration-data-hub.sql 在 MySQL 8.0 上连续执行两次均退出码 0，无报错。"
+          ]
+        },
+        {
+          "id": "T2.2",
+          "title": "数据质量巡检与日级指标 ETL 聚合服务",
+          "target_files": [
+            "backend/src/main/java/com/examprep/service/datahub/DataQualityService.java",
+            "backend/src/main/java/com/examprep/service/datahub/DataMetricsEtlService.java",
+            "backend/src/main/java/com/examprep/service/datahub/DataHubService.java"
+          ],
+          "requirements": [
+            "DataQualityService：支持手动或定时执行巡检，检测以下 5 类问题并幂等写入 data_quality_issue（已修复项自动标 RESOLVED）：(1) 同科目/同类别下完全重复题干；(2) APPROVED 客观题缺失答案或选项；(3) APPROVED 存活题无 ACTIVE QUESTION ai_chunk；(4) ai_chunk.status='ACTIVE' 但指向已删除题目/课件的孤儿块；(5) question_source 中 OCR_QUEUED / FAILED 积压统计。",
+            "DataMetricsEtlService：从 practice_record、exam_record、ai_agent_run、question(is_deleted=0)、ai_chunk(status='ACTIVE') 聚合生成指定日期（默认今天与昨天）的 ads_daily_metrics 与 ads_subject_coverage 快照，同时登记一条 data_pipeline_job 记录。",
+            "所有题量统计一律显式使用 is_deleted=0，并同时区隔「物理总行」与「可用已过审存活行」，杜绝口径混用。"
+          ],
+          "acceptance_criteria": [
+            "触发 ETL 与巡检后，ads_daily_metrics、ads_subject_coverage、data_quality_issue、data_pipeline_job 均有真实可复算数据，且重复触发幂等更新不翻倍。"
+          ]
+        },
+        {
+          "id": "T2.3",
+          "title": "数据中台接口与管理端看板",
+          "target_files": [
+            "backend/src/main/java/com/examprep/controller/AdminDataHubController.java",
+            "admin-web/index.html",
+            "backend/src/main/resources/static/admin/index.html"
+          ],
+          "requirements": [
+            "在 /api/admin/data-hub/* 下暴露（仅 ADMIN / AUDITOR 只读，触发写操作仅 ADMIN）：",
+            "  - GET /overview：资产总览（总题目/存活/已过审/AI块/向量同步状态/质量健康分/最近 ETL 时间）",
+            "  - GET /coverage：按考试类别与科目的覆盖矩阵（支持缺口筛选：0 题科目/低向量覆盖）",
+            "  - GET /trends?days=30：近 N 天平台学习与 AI 调用趋势（来自 ads_daily_metrics）",
+            "  - GET /pipelines：数据接入与 ETL 任务流水列表",
+            "  - GET /quality-issues：数据质量告警列表（支持按 issue_type/severity/status 筛选）",
+            "  - POST /run-etl 与 POST /run-quality-scan（仅 ADMIN）：手动触发指标刷新与质量巡检",
+            "  - GET /metric-dictionary：返回系统标准指标口径字典（明确每个指标的表来源、过滤条件与计算公式）",
+            "在 admin-web/index.html 新增「数据中台」导航菜单并同步 static/admin/index.html。"
+          ],
+          "acceptance_criteria": [
+            "管理员登录后可在「数据中台」页面看到各考试类别真实覆盖度、质量异常清单、任务流水，并可一键重算日指标与质量巡检。"
+          ]
+        },
+        {
+          "id": "T2.4",
+          "title": "数据中台服务单元测试",
+          "target_files": [
+            "backend/src/test/java/com/examprep/service/datahub/DataHubServiceTest.java"
+          ],
+          "requirements": [
+            "验证指标口径过滤 is_deleted=0、巡检重复触发幂等性、权限控制（非 ADMIN 禁止触发 run-etl/run-quality-scan）。"
+          ],
+          "test_command": "mvn -B test -Dtest=DataHubServiceTest"
+        }
+      ]
+    },
+    {
+      "id": "WS-3",
+      "name": "双轨「测评中台」建设（学生能力测评 + AI 模型/RAG/Agent 评测）",
+      "priority": "P1",
+      "depends_on": [
+        "WS-1",
+        "WS-2"
+      ],
+      "tasks": [
+        {
+          "id": "T3.1",
+          "title": "试题难度与区分度动态校准",
+          "target_files": [
+            "sql/migration-assessment-platform.sql",
+            "backend/src/main/java/com/examprep/service/assessment/QuestionCalibrationService.java"
+          ],
+          "requirements": [
+            "新建 question_calibration 表：question_id(PK)、attempt_count、correct_count、observed_accuracy、calibrated_difficulty(1..5)、discrimination_index(区分度，高分组27%正确率 - 低分组27%正确率，样本不足时置 null)、updated_at。",
+            "实现校准批处理：基于 practice_record 与 exam_answer_detail 的真实作答，当某题作答 >= 10 次时重算实测正确率并映射难度等级；样本 >= 30 次且存在多份试卷/总分时计算区分度。"
+          ],
+          "acceptance_criteria": [
+            "可一键或通过数据中台流水线触发试题校准，并在管理端查看高错误率/负区分度（疑似错题/偏题）试题清单。"
+          ]
+        },
+        {
+          "id": "T3.2",
+          "title": "学生智能组卷策略引擎与综合测评画像",
+          "target_files": [
+            "backend/src/main/java/com/examprep/service/assessment/AssessmentService.java",
+            "backend/src/main/java/com/examprep/controller/AssessmentController.java",
+            "backend/src/main/resources/static/student/index.html"
+          ],
+          "requirements": [
+            "新增智能诊断组卷 POST /api/assessment/diagnostic-paper：支持「按薄弱知识点优先 + 难度梯度配比（基础30%/中等50%/拔高20%）+ 避开近期已掌握题」自动生成一张 MockPaperVO 诊断测试卷（底层复用 exam_paper / exam_record）。",
+            "新增个人综合测评画像 GET /api/assessment/profile：整合近 30 天刷题正确率、模拟考试得分趋势、AI 模拟面试得分、各科目/知识点掌握度雷达与薄弱项 Top-5，并可直接一键跳转到 POST /api/me/study-plan/ai 生成提分计划。",
+            "在学生端网页新增「诊断测评」入口（可在模拟考试或学习统计页中直接发起智能诊断卷与查看能力画像）。"
+          ],
+          "acceptance_criteria": [
+            "学生可发起一场按薄弱点+难度配比生成的诊断考试，交卷后可在个人测评画像中看到成绩变化与薄弱知识点。"
+          ]
+        },
+        {
+          "id": "T3.3",
+          "title": "AI 评测中台能力升级（拒答/判分/学习计划基准 + 发布门禁）",
+          "target_files": [
+            "ai-service/eval/refusal_eval.py",
+            "ai-service/eval/grading_eval.py",
+            "ai-service/eval/study_plan_eval.py",
+            "backend/src/main/java/com/examprep/service/ai/agent/AsyncJobService.java",
+            "backend/src/main/java/com/examprep/controller/AiOpsController.java",
+            "backend/src/main/java/com/examprep/service/ai/agent/EvalCompareService.java"
+          ],
+          "requirements": [
+            "在 ai-service/eval/ 下补齐 3 个标准化评测脚本与基准数据集（支持直接 CLI 运行并写回 ai_eval_run）：",
+            "  1) refusal_eval.py（layer=REFUSAL）：固定检验域外拒答率（硬门槛 >= 0.90）与域内误拒率（硬门槛 <= 0.10），给出明确 gate_passed 布尔结论；",
+            "  2) grading_eval.py（layer=GRADING）：基于人工标注参考分档样题，评测主观题 AI 判分等级一致率与得分率 MAE；",
+            "  3) study_plan_eval.py（layer=STUDY_PLAN）：评测错题学习计划生成的 JSON 合规率、真实错题 ID 零幻觉率（必须 100%）与降级率。",
+            "在 AiOpsController 新增触发与汇总接口：POST /admin/ai/eval/refusal、POST /admin/ai/eval/grading、POST /admin/ai/eval/study-plan，以及 GET /admin/ai/eval/gate-summary（汇总各 layer 最新一次运行是否满足发布门禁）。",
+            "确保 EvalCompareService 对新增 layer 同样支持 compare(baseId, targetId) 指标差值对比。"
+          ],
+          "acceptance_criteria": [
+            "每个新评测脚本可通过 pytest 或独立评测命令跑出结构化 JSON 与 ai_eval_run 记录；gate-summary 接口准确标出不达标项（例如拒答率低于 90% 时不得绿灯）。"
+          ]
+        },
+        {
+          "id": "T3.4",
+          "title": "管理端「测评中台」看板升级",
+          "target_files": [
+            "admin-web/index.html",
+            "backend/src/main/resources/static/admin/index.html"
+          ],
+          "requirements": [
+            "将 admin-web 现有的「离线评估」升级为「测评中台」，包含两个子板块：",
+            "  1) 学生测评与题库标定：展示试题校准分布、负区分度/异常题预警、近期模考平均分与完成率；",
+            "  2) AI 评测与发布门禁：支持 5 类离线评估触发（检索 / Agent / 拒答 / 判分 / 学习计划）、门禁红绿灯总览与同层对比。"
+          ],
+          "acceptance_criteria": [
+            "admin-web 与 static/admin/index.html 字节一致，页面所有请求均有真实后端接口支撑，无前端 mock 假数据。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "WS-4",
+      "name": "回归验证、构建打包与真实联调验收",
+      "priority": "P0",
+      "depends_on": [
+        "WS-1",
+        "WS-2",
+        "WS-3"
+      ],
+      "tasks": [
+        {
+          "id": "T4.1",
+          "title": "数据库迁移幂等性实测",
+          "requirements": [
+            "对 sql/migration-exam-platform.sql、sql/migration-data-hub.sql、sql/migration-assessment-platform.sql 连续执行两轮，确认均退出码 0 且无重复键/重复列报错。"
+          ]
+        },
+        {
+          "id": "T4.2",
+          "title": "全量自动化测试验证",
+          "requirements": [
+            "Java 全量单测：在 backend 下运行 mvn -B test，逐条报告总数、通过数、失败数（若既有的 3 条拒答阈值测试仍未重标定，须如实单列，不得通过放宽或删除测试掩盖）。",
+            "Python 全量单测：在 ai-service 下运行 .venv-ai/Scripts/python.exe -m pytest -q，要求 100% PASS。"
+          ]
+        },
+        {
+          "id": "T4.3",
+          "title": "构件打包与真实 HTTP 端到端联调",
+          "requirements": [
+            "执行 mvn -B package -DskipTests 生成最新 jar 并记录 SHA256。",
+            "重启 8080 后端与 8000 AI 服务，在真实登录态下逐一实测：",
+            "  - 模拟考试：套卷列表 -> 开考 -> 作答 -> 交卷 -> 错题进入 wrong_book -> 历史回看；",
+            "  - AI 错题学习计划：POST /api/me/study-plan/ai（真实大模型返回 + 模拟降级场景）；",
+            "  - 数据中台：run-etl -> run-quality-scan -> overview/coverage/trends/quality-issues；",
+            "  - 测评中台：diagnostic-paper -> assessment/profile -> gate-summary。",
+            "将完整请求/响应证据与构建 SHA256 写入项目规划验收报告（如 项目规划/任务_2026-11-19_中台与模考验收报告.md）。"
+          ]
+        }
+      ]
+    }
+  ],
+  "execution_protocol": {
+    "recommended_order": [
+      "WS-1 (T1.1 -> T1.2 -> T1.3 -> T1.4)",
+      "WS-2 (T2.1 -> T2.2 -> T2.3 -> T2.4)",
+      "WS-3 (T3.1 -> T3.2 -> T3.3 -> T3.4)",
+      "WS-4 (T4.1 -> T4.2 -> T4.3)"
+    ],
+    "reporting_format": {
+      "must_include": [
+        "每项任务实际修改/新建的文件路径与关键符号名",
+        "每条迁移 SQL、Java 单测、Python pytest 与 HTTP 联调命令的原始结果",
+        "区分 PASS / PARTIAL / FAIL，严禁将未跑测试或未验证接口写成通过"
+      ]
+    }
+  }
+}

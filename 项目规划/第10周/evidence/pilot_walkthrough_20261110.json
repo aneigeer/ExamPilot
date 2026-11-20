@@ -1,0 +1,603 @@
+{
+  "meta": {
+    "report_id": "W10-P1-PILOT-20261110",
+    "mode": "internal_walkthrough",
+    "mode_note": "内部走查：由工程师按既定脚本模拟三类角色逐条执行，非真实外部用户试点。本文件所有数字均来自 2026-11-10 18:00-18:06 的实测 HTTP 调用，无估计值。",
+    "real_users": 0,
+    "week": "第10周",
+    "phase": "P1 小范围试点",
+    "executed_at": "2026-11-10T18:00:00+08:00 / 2026-11-10T18:06:00+08:00",
+    "executor": "software-engineer-pilot（工程师，代走查）",
+    "script": "项目规划/第10周/evidence/raw_pilot_20261110/pilot_walkthrough.py",
+    "raw_evidence_dir": "项目规划/第10周/evidence/raw_pilot_20261110/"
+  },
+  "environment": {
+    "backend": {
+      "base_url": "http://127.0.0.1:8080/api",
+      "health": "HTTP 200 /actuator/health -> {\"status\":\"UP\",\"groups\":[\"liveness\",\"readiness\"]}",
+      "student_page": "http://127.0.0.1:8080/api/student/index.html",
+      "admin_page": "http://127.0.0.1:8080/api/admin/index.html"
+    },
+    "ai_service": {
+      "base_url": "http://127.0.0.1:8000",
+      "probe": "GET / -> HTTP 200（/health、/healthz、/api/health 均 404，无独立健康端点）",
+      "capability": {
+        "available": true,
+        "generator": "ollama",
+        "provider": "ollama",
+        "llmConfigured": true,
+        "degraded": false,
+        "circuitOpen": false,
+        "extractiveMode": false,
+        "chunkCount": 12648,
+        "rejectThreshold": 0.15,
+        "vectorEnabled": true,
+        "vectorIndexReady": true,
+        "vectorChannelAvailable": true,
+        "aiServiceStatus": "ok",
+        "embeddingModel": "bge-small-zh-v1.5",
+        "embeddingDim": 512,
+        "ocrEnabled": true,
+        "storageProvider": "local",
+        "observed_elapsed_ms": 159.9
+      }
+    },
+    "database": {
+      "engine": "MySQL 8.0.46",
+      "note": "本轮不走 SQL 直连，全部结论来自后端接口返回；未修改任何表结构或业务数据。"
+    },
+    "version": {
+      "git_commit": "2d1a1cca9e9d50911eefa93e3d0b5ef0c3296fd7",
+      "git_commit_time": "2026-11-09 23:42:10 +0800",
+      "git_commit_subject": "docs(w9): 更正历史 P0 计数 4→3，A-07 归位 P1",
+      "jar_path": "backend/target/exam-prep-backend-1.0.0-SNAPSHOT.jar",
+      "jar_size_bytes": 78037981,
+      "jar_built_at": "2026-11-10 17:56:00 +0800",
+      "note": "代码 HEAD（2d1a1cc，11-09 23:42）早于 jar 构建时间（11-10 17:56），说明构建时工作区含未提交改动；本条为版本溯源说明，不作为 badcase。",
+      "static_pages_in_sync": {
+        "student_index": "源码 55808 B / 线上 55808 B / diff 0 行",
+        "admin_index": "源码 110364 B / 线上 110364 B / diff 0 行"
+      }
+    },
+    "accounts": {
+      "student": "2021001（uid=3，role=STUDENT，昵称 李同学）",
+      "admin": "admin（uid=1，role=ADMIN）；口令取自 config/secrets.local.yml 的 admin.password，未打印明文",
+      "login_rate_limit": "5 次/分钟/IP；本轮共触发 5 次登录（含 1 次错误口令用于 A-07 复核），token 取到后全程复用"
+    },
+    "request_stats": {
+      "samples": 58,
+      "unit": "ms（脚本内 58 次 HTTP 调用，含练习/AI/管理端）",
+      "min": 5.3,
+      "p50": 23.9,
+      "p95": 54.0,
+      "max": 282.5,
+      "mean": 31.9,
+      "outlier_note": "AI 首次 RAG 调用（非脚本内、ad-hoc 复测）耗时 9639 ms，其中 ollama 生成 9405 ms（冷启动）；WIKI 命中路径均在 20-54 ms。"
+    }
+  },
+  "tasks": [
+    {
+      "id": "A1",
+      "role": "A 第一次用的学生",
+      "title": "学生端页面可访问 + 标题正确",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": null,
+      "elapsed_ms": 24.7,
+      "detail": "GET /api/student/index.html -> HTTP 200，55808 B，<title>备考助手 · 学生端</title>，与源码一致（diff 0 行）。",
+      "issue_refs": []
+    },
+    {
+      "id": "A2",
+      "role": "A 第一次用的学生",
+      "title": "登录 → 题库 → 选有题科目 → 开始 5 题练习",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 46.4,
+      "detail": "POST /auth/login（studentNo=2021001）HTTP 200/10.5 ms；GET /subjects HTTP 200/20.0 ms，有题科目 9 个；按『题型≥2 种且有题』选出科目 5 C语言程序设计（17 题 / 9 种题型）；POST /practice/start {subjectId:5, mode:RANDOM, count:5} HTTP 200/46.4 ms，返回 practiceId=39，第一题 id=47（简答题）。",
+      "issue_refs": []
+    },
+    {
+      "id": "A3",
+      "role": "A 第一次用的学生",
+      "title": "逐题作答（覆盖 ≥2 种题型），提交后确认判分与解析",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 27.5,
+      "detail": "5 题全部作答完成，覆盖 4 种题型：SHORT_ANSWER×2（47、5）、LISTENING（37）、SINGLE_CHOICE（10）、MATCHING（32）。客观题立即判分并返回 analysis（如 id=10：judged=true, correct=true, correctAnswer=A, analysis=malloc/free 说明，14.3 ms）；主观题返回 judged=false + needSelfEval=true + reference/gradingPoints，自评 KNOW 后计入正确数。共 3 对 2 错。单次作答耗时 14.3-37.8 ms。",
+      "note": "题型覆盖达标，但 LISTENING（37）与 MATCHING（32）两题题面不可作答，见 BC-02/BC-03/BC-04。",
+      "issue_refs": ["BC-02", "BC-03", "BC-04"]
+    },
+    {
+      "id": "A4",
+      "role": "A 第一次用的学生",
+      "title": "结束练习，报告含总题数/已答/正确/正确率",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 45.2,
+      "detail": "POST /practice/39/finish HTTP 200/45.2 ms -> totalCount=5, answeredCount=5, correctCount=3, accuracy=60.0, status=FINISHED, details 5 条逐题明细；GET /practice/39/report HTTP 200/10.5 ms 两接口返回完全一致（raw_len 均 1873）；GET /practice/39/card HTTP 200/26.1 ms，5 格状态正确。",
+      "issue_refs": []
+    },
+    {
+      "id": "A5",
+      "role": "A 第一次用的学生",
+      "title": "查看错题本列表（只看不移除）",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 30.0,
+      "detail": "GET /wrong-book HTTP 200/30.0 ms，返回 17 条，本次新增的 32（MATCHING）与 37（LISTENING）位于首位；未调用 DELETE /wrong-book/{questionId}。",
+      "issue_refs": ["BC-11"]
+    },
+    {
+      "id": "A6",
+      "role": "A 第一次用的学生",
+      "title": "查看学习统计（练习次数/正确率/7 天趋势/掌握度）",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 33.0,
+      "detail": "GET /me/stats HTTP 200/26.9 ms -> practiceCount=36, totalAnswered=37, totalCorrect=14, accuracy=37.8, wrongBookCount=17；GET /me/practice-trend?days=7 HTTP 200/31.6 ms -> 7 天补零完整，2026-11-10 answered=5/correct=3（与本次练习一致）；GET /me/mastery HTTP 200/33.0 ms -> 9 个知识点；GET /me/mastery?subjectId=5 HTTP 200/5.3 ms -> 3 个知识点。四项均返回非空且与练习记录自洽。",
+      "issue_refs": []
+    },
+    {
+      "id": "B7",
+      "role": "B 查资料的学生",
+      "title": "AI 域内问题「进程和线程有什么区别」",
+      "status": "FAIL",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 54.0,
+      "detail": "refused=false（符合预期）；answer 非空，长 343 字（符合预期）；sources=1（wikiTitle=进程的描述与控制，wikiPageSlug=doc-506，refType=WIKI，offset=-1 表示整页）；engine=WIKI，generator=wiki，degraded=false，retrievalMode=WIKI_NGRAM，recallCount=1；服务端 costMillis=34；客户端总耗时 54.0 ms。契约字段全部满足，但答案内容是 4 段章节摘要（进程基本特征 / PCB 链接组织方式 / 进程通信类型 / 线程状态和控制块），没有回答『区别』。",
+      "note": "判 FAIL 的原因：不做内容评估时算 PASS，做了内容评估则为答非所问。本报告按内容评估判定。",
+      "issue_refs": ["BC-05"]
+    },
+    {
+      "id": "B8",
+      "role": "B 查资料的学生",
+      "title": "AI 域外问题「红烧肉怎么做」应拒答",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 282.5,
+      "detail": "refused=true；answer=未找到相关资料（7 字）；sources=0；contexts=0；generator=none；engine=RAG（fallbackFromWiki=true）；retrievalMode=NONE；recallCount=50；服务端 costMillis=274；客户端 282.5 ms。拒答行为与 AskVO 契约完全一致。",
+      "issue_refs": []
+    },
+    {
+      "id": "B9",
+      "role": "B 查资料的学生",
+      "title": "连续问 3 个同一科目问题，观察引用错题/答非所问/重复同一段",
+      "status": "FAIL",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 53.5,
+      "detail": "Q1「什么是进程调度算法」-> 命中 处理机调度/doc-507，sources=1，answer 458 字，内容切题（调度目标 + PR/RR/EDF），20-54 ms，PASS。Q2「死锁产生的四个必要条件是什么」-> 命中 顺丰Java一面/doc-396，sources=1，answer 430 字，内容是设计模式/AOF-RDB/缓存穿透/死锁/JVM 的面试摘要，四个必要条件（互斥、请求与保持、不可剥夺、循环等待）一个都没给出，FAIL。Q3「虚拟内存的作用是什么」-> 命中 第6章 虚拟存储器/doc-510，sources=1，answer 465 字，切题，29.5 ms，PASS。三次答案文本互不相同（未观察到『重复同一段』），但出现了『引用错页 + 答非所问』。",
+      "issue_refs": ["BC-06"]
+    },
+    {
+      "id": "C10",
+      "role": "C 管理员",
+      "title": "管理端页面可访问 + admin 登录 + 只读查看题目列表与待审列表",
+      "status": "PASS",
+      "executed": true,
+      "http": 200,
+      "biz_code": 200,
+      "elapsed_ms": 29.5,
+      "detail": "GET /api/admin/index.html HTTP 200/21.8 ms，<title>备考知识库 · 后台管理端</title>，110364 B，与源码 diff 0 行；POST /auth/login(admin) HTTP 200/77.1 ms，role=ADMIN；GET /admin/questions?page=1&size=5 HTTP 200/29.5 ms total=3080；GET /admin/questions?auditStatus=PENDING HTTP 200/7.1 ms total=580；GET /admin/audits/questions?page=1&size=3 HTTP 200 total=580；GET /admin/data/subjects HTTP 200/13.1 ms；GET /admin/dashboard HTTP 200/11.3 ms。全程未调用任何审核/删除/导入接口。",
+      "note": "走查中先按猜测路径请求 /admin/subjects 得到 404（{\"code\":404,\"message\":\"接口不存在：GET /api/admin/subjects\"}），经查源码实际前缀为 /admin/data/subjects —— 这是走查者路径猜错，不是产品缺陷，不计入 badcase。",
+      "issue_refs": []
+    }
+  ],
+  "badcases": [
+    {
+      "id": "BC-01",
+      "category": "内容/数据缺陷（题面缺失 → 无法作答）",
+      "severity": "高",
+      "scope": "题目级不可作答",
+      "title": "排序题（ORDERING）题面为空，学生无法知道 A/B/C 各自代表哪一步",
+      "symptom": "题干只有『把冒泡排序步骤按顺序排列』，question.options=[]，排序内容只存在于 answerContent.order=[\"C\",\"A\",\"B\"]（即答案本身），A/B/C 对应的步骤文本在题面中完全没有出现。",
+      "repro_steps": [
+        "GET /api/questions/31 或 /api/questions/33（公开接口）",
+        "观察 options 为空数组、answerContent.order 有值",
+        "POST /api/practice/start {subjectId:5, mode:BY_TYPE, questionType:ORDERING, count:1}",
+        "观察返回的 question.options 仍为 []"
+      ],
+      "input": "GET /api/questions/31；POST /api/practice/start {\"subjectId\":5,\"mode\":\"BY_TYPE\",\"questionType\":\"ORDERING\",\"count\":1}",
+      "version": "commit 2d1a1cc / jar 构建时间 2026-11-10 17:56",
+      "expected": "题面给出可排序的步骤列表（如 A=比较相邻元素…），学生可据此排序提交",
+      "actual": "options=[]，题面无任何可排序内容；仅 answerContent.order 含顺序",
+      "reproducible": true,
+      "repro_rate": "2/2（科目 5 的两道 ORDERING 题均如此）",
+      "impact": "该题型在题库内 100% 不可作答；学生只能盲猜，答对也只是巧合。后端判分逻辑本身正确（提交 C,A,B 得 correct=true），问题在题面数据。",
+      "evidence": "raw_pilot_20261110/pilot_run.json -> phases.extra.steps[ORDERING]；api.evidence=/api/questions/31",
+      "desensitization": "题库为项目自建语料，不含个人信息；已脱敏的仅为 token（未写入本文件）。"
+    },
+    {
+      "id": "BC-02",
+      "category": "内容/数据缺陷 + 接口字段不一致",
+      "severity": "高",
+      "scope": "题目级不可作答",
+      "title": "匹配题（MATCHING）左右列内容缺失；且『正确答案』在作答接口与报告接口不一致",
+      "symptom": "题干『把左列概念与右列解释配对』，options=[]，配对内容只在 answerContent.pairs={\"A\":\"1\",\"B\":\"3\",\"C\":\"2\"}。作答接口返回 correctAnswer=\"A:1,B:3,C:2\"，而 finish/report 的 details.correctAnswer 返回空字符串 \"\"，学生端模板对客观题显示『正确答案 —』。",
+      "repro_steps": [
+        "POST /api/practice/start {subjectId:5, mode:RANDOM, count:5}，抽到 questionId=32",
+        "POST /api/practice/39/answer {questionId:32, userAnswer:\"A,B\"}，记录 correctAnswer",
+        "POST /api/practice/39/finish，对比 details 中同一题目的 correctAnswer"
+      ],
+      "input": "{\"questionId\":32,\"userAnswer\":\"A,B\"}",
+      "version": "commit 2d1a1cc / jar 构建时间 2026-11-10 17:56",
+      "expected": "题面给出 A/B/C 与 1/2/3 的具体文本；两个接口对同一字段返回一致",
+      "actual": "题面无配对内容；answer 接口 correctAnswer=\"A:1,B:3,C:2\"，report 接口 correctAnswer=\"\"（空）",
+      "reproducible": true,
+      "repro_rate": "3/3（同一题在 answer / finish / report 三次读取中稳定复现）",
+      "impact": "学生既无法作答，也永远看不到正确答案；同时暴露『同一业务字段两处实现不一致』的接口契约问题。",
+      "evidence": "raw_pilot_20261110/pilot_run.json -> phases.student.steps[A3/A4-1/A4-2]；api.evidence=/api/questions/32",
+      "desensitization": "同上，无个人信息。"
+    },
+    {
+      "id": "BC-03",
+      "category": "内容/数据缺陷（音频为静音占位）+ 练习接口不支持子题",
+      "severity": "高",
+      "scope": "题目级不可作答",
+      "title": "听力题（LISTENING）音频为 1 秒纯静音；父题无法按子题作答，且把状态文案塞进『正确答案』字段",
+      "symptom": "questionId=37：audioUrl=/files/audio/6，options=[]，只有 subQuestions[0]（id=38，A=printf / B=scanf）。带 token 请求音频 HTTP 200、8044 字节、Content-Type=audio/wav;charset=UTF-8，但 data 块 8000 字节**全部为 0x80**（8-bit 8kHz 静音），即『听了也听不到任何内容』。POST /practice/39/answer 只接受 {questionId, userAnswer} 单值，按父题 id=37 提交后返回 judged=true、correct=false、correctAnswer=\"子题 0/1 正确\"。",
+      "repro_steps": [
+        "POST /api/practice/start {subjectId:5, mode:RANDOM, count:5}，第 2 题抽到 id=37",
+        "GET /api/files/audio/6 带 Authorization -> 200 / 8044 B / 全 0x80",
+        "POST /api/practice/39/answer {questionId:37, userAnswer:\"A\"} -> correctAnswer=\"子题 0/1 正确\""
+      ],
+      "input": "GET /api/files/audio/6（Bearer 学生 token）；{\"questionId\":37,\"userAnswer\":\"A\"}",
+      "version": "commit 2d1a1cc / jar 构建时间 2026-11-10 17:56",
+      "expected": "音频含可辨识语音；练习接口支持按 subQuestionId 逐子题提交；correctAnswer 返回实际答案文本",
+      "actual": "音频为静音占位；接口无子题作答通道；correctAnswer 返回状态文案『子题 0/1 正确』；父题 objective=false 却 judged=true（字段语义自相矛盾）",
+      "reproducible": true,
+      "repro_rate": "3/3（音频二进制特征与接口返回均可稳定复现）",
+      "impact": "听力题在题库内 100% 不可作答；『正确答案』字段被非答案文本污染，任何按该字段渲染前端的实现都会显示错误信息。",
+      "evidence": "raw_pilot_20261110/audio6.wav（8000/8000 字节 = 0x80）、pilot_run.json -> phases.student.steps[A3]",
+      "desensitization": "音频无真人语音，不含个人隐私。"
+    },
+    {
+      "id": "BC-04",
+      "category": "客户端缺陷（题型渲染缺失）",
+      "severity": "高",
+      "scope": "题目级不可作答",
+      "title": "学生端 Web 不渲染听力/排序/匹配题：audioUrl 全文件 0 处引用，子题只有一句提示，排序与配对落入『主观题文本框』分支",
+      "symptom": "backend/main/resources/static/student/index.html 中：audioUrl 出现 0 次；v-if=\"question.subQuestions\" 分支只输出『本题包含 N 个小问，请在下方作答』而不渲染子题题干与选项；ORDERING/MATCHING 因 options 为空、type 又不等于 TRUE_FALSE/FILL_BLANK，落入最后的『主观题 textarea』分支，但后端把这两种题型按客观题判分。",
+      "repro_steps": [
+        "grep -c \"audioUrl\" backend/src/main/resources/static/student/index.html -> 0",
+        "阅读 student/index.html 第 392-432 行渲染分支",
+        "以 ORDERING（options=[]）或 MATCHING（options=[]）题进入练习页，界面呈现为一段空白文本框"
+      ],
+      "input": "打开 /api/student/index.html 并进入科目 5 的练习（含 id=37/32/31/33）",
+      "version": "static/student/index.html 55808 B（Nov 9 18:25），与线上 diff 0 行",
+      "expected": "听力题渲染 <audio> + 子题选项卡；排序题渲染可拖拽/可填序号的步骤列表；匹配题渲染左右两列配对控件",
+      "actual": "三者均无对应交互；排序/匹配退化为纯文本输入框，学生输入任何内容都会被判错",
+      "reproducible": true,
+      "repro_rate": "100%（代码静态事实 + 接口数据共同决定，与随机种子无关）",
+      "impact": "与 BC-01/02/03 叠加后，科目 5 的 17 题中有 4 题（31、33 ORDERING、32 MATCHING、37 LISTENING，占 24%）在 Web 端不可作答；Android/APK 端未在本轮验证范围内。",
+      "evidence": "backend/src/main/resources/static/student/index.html:392-432；pilot_run.json -> phases.student.steps[A3]",
+      "desensitization": "无个人信息。"
+    },
+    {
+      "id": "BC-05",
+      "category": "错误答案 / 答非所问",
+      "severity": "高",
+      "scope": "AI 答疑内容质量",
+      "title": "AI 域内问题「进程和线程有什么区别」返回整页章节摘要，未回答『区别』",
+      "symptom": "refused=false、answer 非空（343 字）、sources=1，但 answer 由『进程的基本特征 / PCB 链接组织方式 / 进程通信类型 / 线程状态和控制块』四段章节摘要构成，全篇没有任何一句把进程与线程做对比（如『进程有独立地址空间、线程共享』『线程切换开销更小』）。",
+      "repro_steps": [
+        "POST /api/ai/ask {\"question\":\"进程和线程有什么区别\"}（Bearer 学生 token）",
+        "读取 answer 与 sources[0]；sources[0].offset=-1 表示整页引用而非片段"
+      ],
+      "input": "{\"question\":\"进程和线程有什么区别\"}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56 / AI 服务 generator=ollama(qwen2.5-7b-instruct-baseline)",
+      "expected": "给出进程与线程在资源分配/调度单位、地址空间、切换开销、通信方式上的对比结论",
+      "actual": "输出 WIKI 页「进程的描述与控制」的章节摘要；引擎 engine=WIKI、retrievalMode=WIKI_NGRAM、recallCount=1",
+      "reproducible": true,
+      "repro_rate": "2/2（同一问题在 B7 与 B4 两次调用返回逐字相同的答案）",
+      "impact": "AI 答疑是本项目核心卖点之一；首个域内问题即答非所问，学生会认为『AI 只会背目录』。WIKI 热层把整页摘要当答案，是系统性问题而非个例。",
+      "evidence": "pilot_run.json -> phases.ai.steps[B1]、[B4]",
+      "desensitization": "题目与知识库为项目自建语料，不含个人信息。"
+    },
+    {
+      "id": "BC-06",
+      "category": "错误引用 + 答非所问",
+      "severity": "高",
+      "scope": "AI 答疑内容质量",
+      "title": "AI「死锁产生的四个必要条件是什么」命中断言无关的面试题页面，四条件一个都没给出",
+      "symptom": "命中 wikiTitle=顺丰Java一面 / wikiPageSlug=doc-396 / refId=22，sources=1，answer 430 字为『设计模式 / AOF 与 RDB / 缓存穿透雪崩击穿 / 死锁问题 / JVM 类加载』的面试摘要；四大必要条件（互斥、请求与保持、不可剥夺、循环等待）全部缺失。答案还把『缓存技术』『AOF/RDB』等与问题无关的内容当作主体。",
+      "repro_steps": [
+        "POST /api/ai/ask {\"question\":\"死锁产生的四个必要条件是什么\"}",
+        "对比 answer 与教科书四条件；读取 sources[0].title"
+      ],
+      "input": "{\"question\":\"死锁产生的四个必要条件是什么\"}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56（generator=wiki）",
+      "expected": "命中『死锁』知识点页并列出互斥、请求与保持、不可剥夺、循环等待四条",
+      "actual": "命中『顺丰Java一面』面试题汇总页，输出该页多主题摘要，四条件缺失",
+      "reproducible": true,
+      "repro_rate": "1/1（本轮只问 1 次；但同类『命中多主题面试页 → 输出无关摘要』在 BC-05 已复现，故判为可复现的系统性行为）",
+      "impact": "学生按此内容复习会漏掉必考点；且答案里混入 AOF/RDB、缓存雪崩等无关内容，属『错误引用』最典型形态。相比 BC-05 更严重：BC-05 是回答得太泛，BC-06 是回答得太偏。",
+      "evidence": "pilot_run.json -> phases.ai.steps[B3-2]",
+      "desensitization": "命中的『顺丰Java一面』为公开面试题汇总语料，不含真实求职者个人信息。"
+    },
+    {
+      "id": "BC-07",
+      "category": "接口契约不符 / 错误引用",
+      "severity": "中",
+      "scope": "AI 答疑契约",
+      "title": "拒答时仍返回 3 条与问题无关的 sources，与 AskVO『拒答时 sources=[]』契约不符",
+      "symptom": "「矩阵的秩怎么求」refused=true、answer=\"未找到相关资料\"，但 sources=3（大模型LoRA微调面试题×2、编码器和解码器面试题）、contexts=5、generator=ollama、retrievalMode=VECTOR_HYBRID、recallCount=11。对照「红烧肉怎么做」拒答时 sources=0 —— 两条拒答路径行为不一致。",
+      "repro_steps": [
+        "POST /api/ai/ask {\"question\":\"矩阵的秩怎么求\"}（不带 subjectId）",
+        "读取 refused / sources / contexts",
+        "对照 POST /api/ai/ask {\"question\":\"红烧肉怎么做\"} 的 sources=0"
+      ],
+      "input": "{\"question\":\"矩阵的秩怎么求\"}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "AskVO 文档：检索无命中时 refused=true、answer=\"未找到相关资料\"、sources=[]",
+      "actual": "refused=true 但 sources=3、contexts=5，且 3 条来源与『矩阵的秩』毫无关系",
+      "reproducible": true,
+      "repro_rate": "2/2（18:03:18 与 18:03:28 两次调用日志同型，返回 sources=3）",
+      "impact": "前端若按契约渲染溯源，会在『未找到资料』下面挂 3 条大模型面试题引用，误导学生；后端日志已显式承认该不一致。",
+      "backend_log": "2026-11-10 18:03:18.055 WARN [AI] 拒答但正文非空（generator=ollama, sources=3），按不变量归一为拒答文案，原正文 18 字已丢弃：未找到相关资料 [1][2][3]。",
+      "evidence": "raw_pilot_20261110/ai_subjectid_ab.json、ai_subjectid_ab2.json；backend_w10_20261110.log:8821,9121",
+      "desensitization": "来源片段为公开技术面试语料，不含个人信息。"
+    },
+    {
+      "id": "BC-08",
+      "category": "错误答案 / 答非所问（抽取式降级）",
+      "severity": "中",
+      "scope": "AI 答疑内容质量",
+      "title": "限定科目后降级为抽取式，输出 40 字壳答案，未回答『秩怎么求』",
+      "symptom": "「矩阵的秩怎么求」+ subjectId=2（线性代数）：refused=false、generator=extractive、degraded=true、retrievalMode=VECTOR_ONLY、sources=1，answer=\"根据《矩阵》：知识点：矩阵 / 相关题目：简述 n 阶方阵 A 可逆的充分必要条件。\"——只是把命中的知识点标题与相关题目罗列出来，不是答案。",
+      "repro_steps": [
+        "POST /api/ai/ask {\"question\":\"矩阵的秩怎么求\",\"subjectId\":2}",
+        "读取 generator=extractive / degraded=true / answer 长度 40"
+      ],
+      "input": "{\"question\":\"矩阵的秩怎么求\",\"subjectId\":2}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "给出求秩的方法（初等行变换化阶梯形、非零行数即为秩；或子式判定）",
+      "actual": "输出知识点/相关题目名称；degraded=true 被置位",
+      "reproducible": true,
+      "repro_rate": "1/1（同一请求重复 2 次均返回 degraded=true/extractive，见 backend_log 8971-8974）",
+      "impact": "抽取式兜底输出的是『目录』而不是『答案』，学生拿到的是索引不是知识；这类壳答案比直接拒答更容易被误认为已答。",
+      "backend_log": "2026-11-10 18:03:18.825 INFO [AI] ollama 生成成功（耗时 361 ms），正文引用编号 []；18:03:18.826 INFO [AI] 抽取式生成完成，引用 1 个来源，耗时 1 ms；18:03:18.826 INFO [AI] L3 校验替换了大模型输出，generator: ollama → extractive",
+      "evidence": "raw_pilot_20261110/ai_subjectid_ab.json；backend_w10_20261110.log:8971-8974",
+      "desensitization": "无个人信息。"
+    },
+    {
+      "id": "BC-09",
+      "category": "接口契约 / 可观测性",
+      "severity": "中",
+      "scope": "AI 答疑契约",
+      "title": "degraded=true 的语义与文档不符：实测是『L3 溯源校验判幻觉』，文档说『主生成器不可用』",
+      "symptom": "AskVO 文档：degraded『true 表示主生成器不可用，已走本地抽取』。实测：ollama 调用成功耗时 361 ms，仅因『正文引用编号 []』被 L3 校验判为无溯源，替换为抽取式，同时 degraded 被置 true。客户端与运维无法区分『模型挂了』与『模型答了但没引用』。",
+      "repro_steps": [
+        "POST /api/ai/ask {\"question\":\"矩阵的秩怎么求\",\"subjectId\":2}",
+        "观察 degraded=true 与 generator=extractive",
+        "对照 backend 日志中的 ollama 生成成功记录与 L3 校验替换记录"
+      ],
+      "input": "{\"question\":\"矩阵的秩怎么求\",\"subjectId\":2}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "区分『模型不可用（故障降级）』与『模型输出未通过溯源校验（质量降级）』，后者应有独立字段或 degradedReason 说明原因",
+      "actual": "两者共用 degraded=true；degradedReason 字段在响应中不存在（与第 9 周 R3 同源）",
+      "reproducible": true,
+      "repro_rate": "1/1（另可见 /ai/capability 同时刻返回 degraded=false，说明该标志是逐请求的，更需字段级解释）",
+      "impact": "熔断/降级告警会被『质量降级』刷屏而掩盖真实模型故障；与第 9 周 R2/R3 属同一类可观测性缺口，本轮再次实测复现。",
+      "backend_log": "backend_w10_20261110.log:8974 [AI] L3 校验替换了大模型输出，generator: ollama → extractive",
+      "evidence": "raw_pilot_20261110/ai_subjectid_ab.json（degraded=true）、ai_subjectid_ab2.json；/api/ai/capability degraded=false",
+      "desensitization": "无个人信息。"
+    },
+    {
+      "id": "BC-10",
+      "category": "客户端/接口报错（第 9 周 A-07 未修复）",
+      "severity": "中",
+      "scope": "接口语义 / 监控可用性",
+      "title": "错误口令与非法 practiceId 仍返回 HTTP 200 + 业务码",
+      "symptom": "POST /auth/login 错误口令 -> HTTP 200，body code=1001『学号或密码错误』；GET /practice/999999/report -> HTTP 200，body code=2003『练习记录不存在』。与第 9 周 A-07 记录完全一致。",
+      "repro_steps": [
+        "POST /api/auth/login {\"studentNo\":\"2021001\",\"password\":\"<错误口令>\"}",
+        "GET /api/practice/999999/report（Bearer 学生 token）",
+        "分别读取 HTTP 状态码与 body.code"
+      ],
+      "input": "{\"studentNo\":\"2021001\",\"password\":\"<错误口令，已脱敏>\"}；GET /api/practice/999999/report",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "认证失败返回 401，资源不存在返回 404（或至少 REST 语义一致）；便于网关按 4xx 统计爆破与越权",
+      "actual": "两者均返回 HTTP 200，业务码分别为 1001 / 2003",
+      "reproducible": true,
+      "repro_rate": "2/2",
+      "impact": "按 4xx 统计的告警看不到登录爆破与越权探测；App 若按 HTTP 码判成败会把失败当成功。与第 9 周 S-2（限流仅按 IP、失败登录 HTTP 200）叠加后风险更高。",
+      "evidence": "本次走查 ad-hoc 复测（未落盘为独立文件）；第 9 周记录：项目规划/第9周/00_第9周执行记录.md §6 A-07",
+      "desensitization": "错误口令为走查者临时构造，未使用真实口令。"
+    },
+    {
+      "id": "BC-11",
+      "category": "体验问题（列表体积）",
+      "severity": "低",
+      "scope": "错题本 / 客户端性能",
+      "title": "错题本列表接口返回全量解析文本，单条 analysis 最长约 500+ 字",
+      "symptom": "GET /wrong-book 返回 15 条，其中 questionId=2584、3218、3827 等行测题的 analysis 为完整『第一步…第二步…拓展 A/B/C/D』解析，单条 400-600 字；列表页并不需要解析正文。",
+      "repro_steps": ["GET /api/wrong-book（Bearer 学生 token）", "统计 data[].analysis 长度"],
+      "input": "GET /api/wrong-book",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "列表只返回题干摘要与状态，解析按需在详情接口取",
+      "actual": "列表一次性返回全部解析文本",
+      "reproducible": true,
+      "repro_rate": "15/15（当前错题本每条都带解析字段）",
+      "impact": "当前 15 条影响很小；错题本到 100+ 条时移动端首屏体积与渲染开销会明显上升。属提前登记。",
+      "evidence": "pilot_run.json -> phases.student.steps[A5]",
+      "desensitization": "题目为公开题库语料，不含个人信息。"
+    },
+    {
+      "id": "BC-12",
+      "category": "体验问题 / 设计取舍（已披露）",
+      "severity": "低",
+      "scope": "练习判分口径",
+      "title": "简答题自评 KNOW 即无条件记满分，与作答内容无关",
+      "symptom": "把与题目完全无关的文本（『进程是资源分配单位…』）提交到『简述指针和数组的关系』（id=47）与『值传递与地址传递的区别』（id=5），自评 KNOW 后均返回 correct=true、scoreGot=5.0，并计入正确数（本次练习正确率 60% 中有 10 分来自这两题）。",
+      "repro_steps": [
+        "POST /practice/39/answer {questionId:47, userAnswer:\"<与题目无关的文本>\"}",
+        "POST /practice/39/self-eval {questionId:47, result:\"KNOW\"}",
+        "POST /practice/39/finish 查看 details[0]"
+      ],
+      "input": "{\"questionId\":47,\"result\":\"KNOW\"}",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "至少对明显无关的作答给出提示，或把 AI 判分（/questions/{id}/grade）作为自评参考",
+      "actual": "无条件满分；无任何内容校验",
+      "reproducible": true,
+      "repro_rate": "2/2",
+      "impact": "属接口文档已声明的折算规则（KNOW→满分），不计为缺陷；但『正确率』作为对外可见指标会被自评轻易抬高，建议 RC 前明确指标口径（是否把自评题计入正确率）。",
+      "evidence": "pilot_run.json -> phases.student.steps[A3/A4-1]",
+      "desensitization": "无个人信息。"
+    },
+    {
+      "id": "BC-13",
+      "category": "内容/数据缺陷（重复题）",
+      "severity": "低",
+      "scope": "题库质量",
+      "title": "排序题 id=31 与 id=33 题干与答案完全相同",
+      "symptom": "两题 stem 均为『把冒泡排序步骤按顺序排列』，answerContent.order 均为 [\"C\",\"A\",\"B\"]，type 均为 ORDERING，subjectId 均为 5。",
+      "repro_steps": ["GET /api/questions/31", "GET /api/questions/33", "对比 stem 与 answerContent"],
+      "input": "GET /api/questions/31；GET /api/questions/33",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "题库内同一科目不出现完全相同的题目",
+      "actual": "完全重复，仅 id 不同",
+      "reproducible": true,
+      "repro_rate": "1/1",
+      "impact": "同一套练习可能抽到两道一样的题，浪费题量并虚高正确率；科目 5 仅 17 题，重复题占比 12%。",
+      "evidence": "本次走查 ad-hoc 复测 + pilot_run.json -> phases.extra（ORDERING 抽到 id=33）",
+      "desensitization": "无个人信息。"
+    },
+    {
+      "id": "BC-14",
+      "category": "体验问题（静态资源响应头）",
+      "severity": "低",
+      "scope": "音频资源可用性",
+      "title": "音频接口需 Bearer 头且 Content-Type 带 charset，<audio src> 直连会 401",
+      "symptom": "GET /api/files/audio/6 无 Authorization -> HTTP 401（81 B）；带 Bearer -> HTTP 200、8044 B、Content-Type=audio/wav;charset=UTF-8。浏览器 <audio src=\"/api/files/audio/6\"> 无法附加 Authorization 头，直连必然 401；二进制响应附加 charset 也不规范。",
+      "repro_steps": [
+        "curl 无 token 请求 /api/files/audio/6 -> 401",
+        "curl 带 token 请求 -> 200 / audio/wav;charset=UTF-8"
+      ],
+      "input": "GET /api/files/audio/6（有/无 Bearer）",
+      "version": "commit 2d1a1cc / jar 2026-11-10 17:56",
+      "expected": "二进制资源不附加 charset；鉴权方式便于前端媒体标签使用（如签名 URL 或 cookie）",
+      "actual": "需自取 token 后用 fetch+blob 播放；Content-Type 带 charset",
+      "reproducible": true,
+      "repro_rate": "2/2",
+      "impact": "当前学生端完全未引用 audioUrl（见 BC-04），故尚未实际触发；一旦前端接入音频播放就会踩到。登记为 RC 前需确认项。",
+      "evidence": "本次走查 ad-hoc 复测 + 响应头实测",
+      "desensitization": "无个人信息。"
+    }
+  ],
+  "observed_but_not_counted": [
+    {
+      "id": "OBS-01",
+      "title": "HEAD /api/student/index.html 返回 401，GET 返回 200",
+      "detail": "curl -I 得到 HTTP/1.1 401，GET 得到 200 并正确返回页面。静态页对 GET 放行、对 HEAD 未放行，可能是 SecurityConfig 只按 GET 匹配。浏览器正常访问走 GET，不影响用户；仅影响用 HEAD 做探活的监控脚本。",
+      "reason_not_badcase": "未观察到用户可感知影响，且与第 9 周 R5『应以 /actuator/health 为就绪判据』重叠，并入该条跟踪。"
+    },
+    {
+      "id": "OBS-02",
+      "title": "判断题（TRUE_FALSE）无选项兜底分支提交『正确/错误』文本，与后端 key 判分不兼容（潜在）",
+      "detail": "student/index.html 第 408 行对 options 为空的 TRUE_FALSE 渲染『正确/错误』两个单选项，提交值为中文文本；后端按选项 key 判分。当前题库唯一的 TRUE_FALSE 题（id=3）带 A=正确/B=错误 选项，走的是 hasOptions 分支，实测提交 \"B\" 判分正确（correct=true），故该兜底分支未被触发。",
+      "reason_not_badcase": "前置条件（TRUE_FALSE 且 options 为空）在当前数据中不存在，无法实测复现，按『潜在风险』登记。"
+    },
+    {
+      "id": "OBS-03",
+      "title": "/ai/capability 的 generator 与单次请求的 generator 可不同",
+      "detail": "capability 返回 generator=ollama，单次请求返回 generator=extractive（L3 替换）。属逐请求行为，但 capability 未提供『最近 N 次降级比例』之类指标，运维仍难判断整体健康度。",
+      "reason_not_badcase": "与 BC-09 同源，不重复计数。"
+    },
+    {
+      "id": "OBS-04",
+      "title": "AI 服务无独立健康端点",
+      "detail": "http://127.0.0.1:8000 的 /health、/healthz、/api/health 均 404，仅 / 返回 200。后端 /ai/capability 的 aiServiceStatus=ok 可作为间接探活。",
+      "reason_not_badcase": "本轮 AI 服务可用；登记供 RC 前的就绪探针设计参考。"
+    }
+  ],
+  "summary": {
+    "mode": "internal_walkthrough",
+    "real_users": 0,
+    "tasks_total": 10,
+    "tasks_executed": 10,
+    "completion_rate": 1.0,
+    "completion_rate_note": "完成率 = 可执行完成的走查任务数 / 计划任务数。所有 10 项均成功发起并拿到响应，无 NOT_EXECUTED。",
+    "tasks_pass": 7,
+    "task_pass_rate": 0.7,
+    "task_pass_note": "通过率 = 结果符合预期（含内容正确性）的任务数 / 任务总数。B7（域内问答答非所问）与 B9（死锁题答非所问）判 FAIL；A3 因 2 道题面不可作答虽流程完成，仍计 PASS 并在 issue_refs 中挂 BC-02/03/04。",
+    "badcase_total": 14,
+    "blocking_count": 0,
+    "blocking_definition": "阻断 = 使某条主流程（学生练习闭环 / AI 答疑 / 管理端只读）整体无法完成。本轮三条主流程均能跑完，故阻断为 0。",
+    "severity_counts": {
+      "阻断": 0,
+      "高": 6,
+      "中": 4,
+      "低": 4
+    },
+    "severity_note": "高 6 条 = BC-01、BC-02、BC-03、BC-04（题目级不可作答 4 条）+ BC-05、BC-06（AI 答疑答非所问/错误引用 2 条）。若验收口径为『AI 答疑必须能直接回答学科问题』，BC-05/BC-06 应上调为阻断，则阻断数为 2 —— 该口径分歧已写入报告结论供 RC 决策。",
+    "category_counts": {
+      "错误答案": 2,
+      "错误引用": 2,
+      "误拒答": 0,
+      "检索失败": 0,
+      "Agent 失败": 1,
+      "客户端/接口报错": 2,
+      "体验问题": 3,
+      "内容/数据缺陷": 4
+    },
+    "category_mapping": {
+      "错误答案": ["BC-05", "BC-08"],
+      "错误引用": ["BC-06", "BC-07"],
+      "误拒答": [],
+      "检索失败": [],
+      "Agent 失败": ["BC-09"],
+      "客户端/接口报错": ["BC-04", "BC-10"],
+      "体验问题": ["BC-11", "BC-12", "BC-14"],
+      "内容/数据缺陷": ["BC-01", "BC-02", "BC-03", "BC-13"]
+    },
+    "category_note": "一条 badcase 只归一个主类，逐条映射见 category_mapping（合计 14）。误拒答与检索失败本轮未出现（红烧肉正确拒答、域内问题均能召回），但样本很小（域外 2 例 / 域内 5 例），不构成拒答率结论。",
+    "practice_records_created": {
+      "ids": [39, 40, 41, 42, 43],
+      "range": "39-43（连续 5 条，全部为本次走查产生）",
+      "detail": "39 = 科目5 RANDOM 5 题（主流程）；40 = TRUE_FALSE 1 题；41 = ORDERING 1 题；42 = FILL_BLANK 1 题；43 = MULTI_CHOICE 1 题（后 4 条为按题型补测）",
+      "stats_delta": "GET /me/stats 由 practiceCount=36/totalAnswered=37 变为 practiceCount=40/totalAnswered=41（+4 条练习、+4 次作答；39 在首次读统计前已计入）"
+    },
+    "data_side_effects": [
+      {
+        "what": "错题本条目由 17 条降为 15 条",
+        "why": "补测中 id=3（TRUE_FALSE）、id=4（FILL_BLANK）两题被答对，系统按『掌握即移出错题本』规则自动移出",
+        "is_manual_delete": false,
+        "verify": "走查前后 id 集合差集恰为 {3, 4}；未调用 DELETE /wrong-book/{questionId}",
+        "note": "属系统正常规则，非走查者删除数据；已在报告中披露。"
+      },
+      {
+        "what": "账号 2021001 的 practice / answer_record / wrong_book / 统计计数发生变化",
+        "why": "走查必须产生练习记录（任务书已允许）",
+        "is_manual_delete": false
+      }
+    ],
+    "hard_constraints_respected": {
+      "code_changed": false,
+      "services_restarted_or_stopped": false,
+      "data_deleted": false,
+      "maven_invoked": false,
+      "upload_api_called": false,
+      "register_api_called": false,
+      "audit_or_delete_api_called": false,
+      "note": "仅新增 5 条 practice 记录与其衍生记录；所有管理端调用均为 GET。新增文件只有本证据目录下的走查脚本与响应快照。"
+    }
+  }
+}

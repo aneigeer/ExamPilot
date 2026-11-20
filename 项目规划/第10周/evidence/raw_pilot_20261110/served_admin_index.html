@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>备考知识库 · 后台管理端</title>
+<link rel="stylesheet" href="vendor/element-plus.css">
+<script src="vendor/vue.global.prod.js"></script>
+<script src="vendor/element-plus.full.min.js"></script>
+<script src="vendor/element-icons.min.js"></script>
+<style>
+  :root{--brand:#315fea;--brand-soft:#edf2ff;--ink:#182230;--muted:#5c6472;--line:#e7ebf2;--canvas:#f4f6fa}
+  *{box-sizing:border-box}html,body,#app{height:100%;margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif}
+  [v-cloak]{display:none}.login-box{width:min(420px,calc(100% - 32px));margin:10vh auto;padding:34px;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 60px rgba(29,48,82,.12)}
+  .login-box:before{content:"知";display:grid;place-items:center;width:48px;height:48px;margin:0 auto 14px;border-radius:15px;background:linear-gradient(145deg,#4b7aff,#315fea);color:#fff;font-size:23px;font-weight:800;box-shadow:0 8px 18px #315fea35}
+  .login-title{text-align:center;font-size:21px;font-weight:750;margin-bottom:26px;color:var(--ink);letter-spacing:-.04em}
+  .el-container[style*="height:100vh"]{height:100vh;min-height:600px;background:var(--canvas)}
+  .aside{background:#fff;border-right:1px solid var(--line);min-height:100vh;overflow:auto}
+  .logo{color:#202c40;text-align:left;padding:19px 16px;font-size:14px;font-weight:750;border-bottom:1px solid #edf0f5;letter-spacing:-.02em}
+  .el-menu{padding:10px 9px!important}.el-menu-item{height:43px!important;line-height:43px!important;margin:3px 0;border-radius:9px;font-size:13px!important}.el-menu-item:hover{background:#f5f7fc!important}.el-menu-item.is-active{background:var(--brand-soft)!important;color:var(--brand)!important;font-weight:700}.el-menu-item [class^=el-icon]{font-size:16px}
+  .head{background:#fff;padding:0 25px;display:flex;align-items:center;justify-content:space-between;height:62px!important;border-bottom:1px solid var(--line)}
+  .el-main{background:var(--canvas)}.page{padding:25px;max-width:1600px;margin:0 auto}.el-card{border:1px solid var(--line)!important;border-radius:13px!important}.el-card__header{font-size:13px;font-weight:700;color:#29364a;border-bottom:1px solid #edf0f4!important;padding:14px 16px!important}.el-card__body{padding:16px!important}
+  .dashboard-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}.dashboard-heading h1{font-size:24px;letter-spacing:-.04em;margin:0;color:#19263a}.dashboard-heading p{margin:5px 0 0;color:#697589;font-size:13px}.dashboard-date{border:1px solid var(--line);background:#fff;color:#56647a;padding:8px 12px;border-radius:8px;font-size:12px}
+  .stat-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:14px}.stat-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 17px;text-align:left;min-height:105px;box-shadow:0 3px 10px rgba(29,48,82,.025);transition:transform .16s,box-shadow .16s}.stat-card.actionable{cursor:pointer}.stat-card.actionable:hover{transform:translateY(-2px);box-shadow:0 9px 22px rgba(29,48,82,.09)}.stat-label{font-size:12px;color:#68758a}.stat-num{font-size:27px;font-weight:750;color:#202d42;margin-top:7px;letter-spacing:-.04em}.stat-hint{font-size:11px;color:#6b7789;margin-top:1px}.stat-icon{position:absolute;right:15px;top:14px;width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:#edf2ff;color:var(--brand);font-size:15px}.stat-card.warning .stat-icon{background:#fff2df;color:#aa630d}.stat-card.danger .stat-icon{background:#fff0ed;color:#c24145}.dashboard-panels{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:14px;margin-bottom:14px}.distribution-row{display:grid;grid-template-columns:85px 1fr 42px;gap:9px;align-items:center;padding:9px 2px;font-size:12px;color:#58667b}.distribution-track{height:7px;background:#edf0f5;border-radius:10px;overflow:hidden}.distribution-track i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,#5279f5,#7c91f5)}.role-row{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid #f0f2f6;font-size:12px;color:#5c687b}.role-row:last-child{border-bottom:0}.role-row b{color:#26344a}.dashboard-tables{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.dashboard-tables .el-card{min-width:0}.el-table{font-size:12px!important}.el-table th.el-table__cell{background:#f8f9fc!important;color:#67758a!important;font-weight:650!important}.el-table td.el-table__cell,.el-table th.el-table__cell{padding:10px 0!important}.el-table tr:hover>td.el-table__cell{background:#f7f9ff!important}
+  .pager{margin-top:12px;display:flex;justify-content:flex-end}.stem-cell{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.el-button--primary{--el-color-primary:var(--brand)}.el-input__wrapper,.el-select__wrapper{border-radius:8px!important}.el-dialog{border-radius:15px!important}
+  @media(max-width:1120px){.stat-row{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-tables{grid-template-columns:1fr 1fr}.dashboard-tables>.el-col:last-child{grid-column:1/-1}}
+  @media(max-width:760px){.aside{width:165px!important}.head{padding:0 14px}.page{padding:16px}.dashboard-panels,.dashboard-tables{grid-template-columns:1fr}.dashboard-tables>.el-col:last-child{grid-column:auto}.dashboard-heading{align-items:start;gap:12px;flex-direction:column}.stat-card{padding:13px}.el-main{min-width:0}.el-table{min-width:680px}}
+  /* Agent 轨迹时间轴 */
+  .agent-timeline{max-height:520px;overflow:auto;padding-right:4px}
+  .agent-step{display:grid;grid-template-columns:86px 74px 1fr;gap:10px;align-items:start;padding:10px 0;border-bottom:1px dashed #eef1f6}
+  .agent-step:last-child{border-bottom:0}
+  .agent-badge{display:inline-block;text-align:center;font-size:11px;font-weight:700;padding:3px 6px;border-radius:7px;background:#eef2ff;color:#315fea}
+  .agent-badge.ev-final{background:#e8f7ee;color:#1f7a4d}
+  .agent-badge.ev-tool_call{background:#fff4e5;color:#a35400}
+  .agent-badge.ev-tool_result{background:#eef7fb;color:#0b6e75}
+  .agent-badge.ev-error{background:#fff0ed;color:#c24145}
+  .agent-time{font-size:11px;color:#8290a2;padding-top:3px}
+  .agent-body{font-size:13px;color:#334155;min-width:0}
+  .agent-body pre{margin:6px 0 0;padding:8px 10px;background:#f7f9fc;border:1px solid #e7ebf2;border-radius:8px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto}
+  .agent-answer{white-space:pre-wrap;line-height:1.7}
+  .agent-meta{margin-top:6px;font-size:11px;color:#8290a2}
+  /* 运行指标（只读）：复用 .stat-row/.dashboard-panels/.stat-card 体系，只补标题与口径区 */
+  .metrics-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .metrics-title{font-size:19px;letter-spacing:-.03em;margin:0;color:#19263a}
+  .metrics-sub{margin:5px 0 0;color:#697589;font-size:12px;line-height:1.6}
+  .metrics-scope{margin-top:12px;padding:10px 13px;background:#f7f9fc;border:1px solid var(--line);border-radius:10px}
+  .metrics-note{font-size:12px;color:#7a8190;line-height:1.75;padding:1px 0}
+  .metrics-empty{padding:26px 0}
+  .metrics-err{margin-bottom:14px}
+  /* 评估对比 / 保留期清理 */
+  .eval-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .eval-toolbar .tip{font-size:12px;color:#7a8190}
+  .delta-up{color:#1f7a4d;font-weight:650}
+  .delta-down{color:#c24145;font-weight:650}
+  .delta-flat{color:#5c6472}
+  .compare-metric{font-family:"JetBrains Mono",Consolas,Monaco,monospace;font-size:12px}
+  .purge-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .purge-day{width:150px}
+  /* 原生按钮：避免 Element Plus 按钮在部分快照/窄屏下不可见 */
+  .btn-primary{appearance:none;border:0;border-radius:8px;background:var(--brand);color:#fff;
+    font-size:13px;font-weight:600;padding:0 18px;height:38px;cursor:pointer;white-space:nowrap}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- ============ 登录 ============ -->
+  <div v-if="!token" class="login-box">
+    <div class="login-title">备考知识库 · 后台管理端</div>
+    <el-form @submit.prevent="login">
+      <el-form-item><el-input v-model="loginForm.studentNo" placeholder="账号（admin / auditor）" size="large"/></el-form-item>
+      <el-form-item><el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" show-password/></el-form-item>
+      <el-button type="primary" size="large" style="width:100%" :loading="logging" @click="login">登 录</el-button>
+    </el-form>
+  </div>
+
+  <!-- ============ 主布局 ============ -->
+  <el-container v-else style="height:100vh">
+    <el-aside width="210px" class="aside">
+      <div class="logo">📚 备考知识库管理端</div>
+      <el-menu :default-active="view" background-color="#001529" text-color="#a6adb4"
+               active-text-color="#ffffff" style="border-right:none"
+               @select="v => { view = v; loadView(); }">
+        <el-menu-item index="dashboard">📊 仪表盘</el-menu-item>
+        <el-menu-item index="questions">📝 题目审核</el-menu-item>
+        <el-menu-item index="resources">📁 资料审核</el-menu-item>
+        <el-menu-item index="reports">🚨 举报处理</el-menu-item>
+        <el-menu-item index="appeals">⚖️ 申诉处理</el-menu-item>
+        <el-menu-item index="users">👥 用户管理</el-menu-item>
+        <el-menu-item index="announcements">📢 公告管理</el-menu-item>
+        <el-menu-item index="question-admin">✍️ 题目管理</el-menu-item>
+        <el-menu-item index="upload-doc">📤 文件上传</el-menu-item>
+        <el-menu-item index="data">🗂️ 基础数据</el-menu-item>
+        <el-menu-item index="logs">📜 操作日志</el-menu-item>
+        <el-menu-item index="agent">🤖 AI 运行观测</el-menu-item>
+        <el-menu-item index="eval">🧪 离线评估</el-menu-item>
+        <el-menu-item index="wiki">📖 LLM Wiki</el-menu-item>
+      </el-menu>
+    </el-aside>
+
+    <el-container>
+      <el-header class="head" height="56px">
+        <span style="color:#7a8190;font-size:14px">大学生多考试备考知识库与题库系统 · 管理端</span>
+        <span>
+          <el-tag type="info" effect="plain" style="margin-right:10px">{{ whoami }}</el-tag>
+          <el-button text type="danger" @click="logout">退出</el-button>
+        </span>
+      </el-header>
+
+      <el-main style="padding:0;overflow:auto">
+
+        <!-- ======== 仪表盘 ======== -->
+        <div v-if="view==='dashboard'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>工作台</h1><p>平台内容概况与待办审核一览</p></div>
+            <span class="dashboard-date">{{ new Date().toLocaleDateString('zh-CN', {year:'numeric', month:'long', day:'numeric'}) }}</span>
+          </div>
+          <div class="stat-row">
+            <div v-for="(v,k) in dashboard" :key="k"
+                 class="stat-card" :class="[dashboardTone(k), {'actionable': dashboardView(k)}]"
+                 @click="openDashboardMetric(k)">
+              <span class="stat-icon">{{ dashboardIcon(k) }}</span>
+              <div class="stat-label">{{ dashLabel(k) }}</div>
+              <div class="stat-num">{{ v }}</div>
+              <div class="stat-hint">{{ dashboardHint(k) }}</div>
+            </div>
+          </div>
+          <div class="dashboard-panels">
+            <el-card shadow="never"><template #header>资料类型分布</template>
+              <div v-for="(v,k) in resourceTypes" :key="k" class="distribution-row">
+                <span>{{ k }}</span><div class="distribution-track"><i :style="{width: resourcePercent(v) + '%'}"></i></div><b>{{ v }}</b>
+              </div>
+              <el-empty v-if="!Object.keys(resourceTypes).length" description="暂无资料统计" :image-size="60" />
+            </el-card>
+            <el-card shadow="never"><template #header>用户角色分布</template>
+              <div v-for="(v,k) in roleStats" :key="k" class="role-row"><span>{{ k }}</span><b>{{ v }} 人</b></div>
+              <el-empty v-if="!Object.keys(roleStats).length" description="暂无用户统计" :image-size="60" />
+            </el-card>
+          </div>
+          <div class="dashboard-tables">
+            <el-card shadow="never"><template #header>热门科目 TOP10</template>
+              <el-table :data="hotSubjects" size="small" empty-text="暂无数据">
+                <el-table-column prop="name" label="科目" show-overflow-tooltip/>
+                <el-table-column prop="resourceCount" label="资料" width="62"/>
+                <el-table-column prop="downloadCount" label="下载" width="68"/>
+              </el-table>
+            </el-card>
+            <el-card shadow="never"><template #header>活跃用户 TOP10</template>
+              <el-table :data="activeUsers" size="small" empty-text="暂无数据">
+                <el-table-column prop="nickname" label="用户" show-overflow-tooltip/>
+                <el-table-column prop="practiceCount" label="练习" width="62"/>
+                <el-table-column prop="correctTotal" label="答对" width="62"/>
+              </el-table>
+            </el-card>
+            <el-card shadow="never"><template #header>题型正确率</template>
+              <el-table :data="typeAccuracy" size="small" empty-text="暂无数据">
+                <el-table-column prop="type" label="题型" show-overflow-tooltip/>
+                <el-table-column prop="total" label="答题" width="62"/>
+                <el-table-column prop="accuracy" label="正确率 %" width="78"/>
+              </el-table>
+            </el-card>
+          </div>
+        </div>
+
+        <!-- ======== 题目审核 ======== -->
+        <div v-if="view==='questions'" class="page">
+          <el-card shadow="never">
+            <template #header>
+              <div style="display:flex;gap:10px;align-items:center">
+                <el-select v-model="qFilter.type" placeholder="全部题型" clearable style="width:160px" @change="loadQuestions">
+                  <el-option v-for="t in questionTypes" :key="t.type" :label="t.label" :value="t.type"/>
+                </el-select>
+                <el-input v-model="qFilter.keyword" placeholder="题干关键词" style="width:220px" clearable @keyup.enter="loadQuestions"/>
+                <el-button type="primary" @click="loadQuestions">查询</el-button>
+              </div>
+            </template>
+            <el-table :data="questions" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="typeName" label="题型" width="90"/>
+              <el-table-column label="题干" show-overflow-tooltip><template #default="s">{{ s.row.stem }}</template></el-table-column>
+              <el-table-column prop="difficulty" label="难度" width="60"/>
+              <el-table-column prop="auditStatus" label="状态" width="90">
+                <template #default="s"><el-tag :type="s.row.auditStatus==='PENDING'?'warning':'success'" size="small">{{ s.row.auditStatus }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="操作" width="160" fixed="right">
+                <template #default="s">
+                  <el-button v-if="s.row.auditStatus==='PENDING'" size="small" type="success" @click="auditQuestion(s.row.id,'approve')">通过</el-button>
+                  <el-button v-if="s.row.auditStatus==='PENDING'" size="small" type="danger" @click="auditQuestion(s.row.id,'reject')">驳回</el-button>
+                  <el-button v-if="s.row.auditStatus==='APPROVED'" size="small" type="warning" @click="auditQuestion(s.row.id,'offline')">下架</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="qTotal" :page-size="20"
+              :current-page="qFilter.page" @current-change="p => { qFilter.page = p; loadQuestions(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== 资料审核 ======== -->
+        <div v-if="view==='resources'" class="page">
+          <el-card shadow="never">
+            <template #header>
+              <el-radio-group v-model="rFilter.audited" @change="loadResources">
+                <el-radio-button :value="false">待审核</el-radio-button>
+                <el-radio-button :value="true">已审核</el-radio-button>
+              </el-radio-group>
+            </template>
+            <el-table :data="resources" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column label="标题" show-overflow-tooltip><template #default="s">{{ s.row.title }}</template></el-table-column>
+              <el-table-column prop="typeName" label="类型" width="90"/>
+              <el-table-column prop="subjectName" label="科目" width="130"/>
+              <el-table-column prop="uploaderName" label="上传人" width="100"/>
+              <el-table-column prop="auditStatus" label="状态" width="100">
+                <template #default="s"><el-tag :type="statusTag(s.row.auditStatus)" size="small">{{ s.row.auditStatus }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="操作" width="210" fixed="right">
+                <template #default="s">
+                  <el-button v-if="s.row.auditStatus==='PENDING'" size="small" type="success" @click="auditResource(s.row.id,'approve')">通过</el-button>
+                  <el-button v-if="s.row.auditStatus==='PENDING'" size="small" type="danger" @click="auditResource(s.row.id,'reject')">驳回</el-button>
+                  <el-button v-if="s.row.auditStatus==='APPROVED'" size="small" type="warning" @click="auditResource(s.row.id,'offline')">下架</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="rTotal" :page-size="20"
+              :current-page="rFilter.page" @current-change="p => { rFilter.page = p; loadResources(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== 举报处理 ======== -->
+        <div v-if="view==='reports'" class="page">
+          <el-card shadow="never">
+            <template #header><el-radio-group v-model="repFilter.status" @change="loadReports">
+              <el-radio-button value="">全部</el-radio-button>
+              <el-radio-button value="PENDING">待处理</el-radio-button>
+              <el-radio-button value="VALID">成立</el-radio-button>
+              <el-radio-button value="INVALID">不成立</el-radio-button>
+            </el-radio-group></template>
+            <el-table :data="reports" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="targetType" label="对象" width="100"/>
+              <el-table-column prop="targetId" label="对象ID" width="80"/>
+              <el-table-column label="理由" show-overflow-tooltip><template #default="s">{{ s.row.reason }}</template></el-table-column>
+              <el-table-column prop="status" label="状态" width="90">
+                <template #default="s"><el-tag :type="s.row.status==='PENDING'?'warning':(s.row.status==='VALID'?'danger':'info')" size="small">{{ s.row.status }}</el-tag></template>
+              </el-table-column>
+              <el-table-column prop="createdAt" label="时间" width="160"/>
+              <el-table-column label="操作" width="200" fixed="right">
+                <template #default="s">
+                  <template v-if="s.row.status==='PENDING'">
+                    <el-button size="small" type="danger" @click="handleReport(s.row.id,'VALID',true)">成立并下架</el-button>
+                    <el-button size="small" @click="handleReport(s.row.id,'INVALID',false)">不成立</el-button>
+                  </template>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="repTotal" :page-size="20"
+              :current-page="repFilter.page" @current-change="p => { repFilter.page = p; loadReports(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== 申诉处理 ======== -->
+        <div v-if="view==='appeals'" class="page">
+          <el-card shadow="never">
+            <template #header><el-radio-group v-model="appFilter.status" @change="loadAppeals">
+              <el-radio-button value="PENDING">待处理</el-radio-button>
+              <el-radio-button value="">全部</el-radio-button>
+            </el-radio-group></template>
+            <el-table :data="appeals" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="userId" label="申诉人" width="80"/>
+              <el-table-column label="对象" width="110"><template #default="s">{{ s.row.targetType }}#{{ s.row.targetId }}</template></el-table-column>
+              <el-table-column label="理由" show-overflow-tooltip><template #default="s">{{ s.row.reason }}</template></el-table-column>
+              <el-table-column prop="status" label="状态" width="100">
+                <template #default="s"><el-tag :type="s.row.status==='PENDING'?'warning':(s.row.status==='APPROVED'?'success':'danger')" size="small">{{ s.row.status }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="操作" width="180" fixed="right">
+                <template #default="s">
+                  <template v-if="s.row.status==='PENDING'">
+                    <el-button size="small" type="success" @click="handleAppeal(s.row.id,'approve')">通过恢复</el-button>
+                    <el-button size="small" type="danger" @click="handleAppeal(s.row.id,'reject')">驳回</el-button>
+                  </template>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="appTotal" :page-size="20"
+              :current-page="appFilter.page" @current-change="p => { appFilter.page = p; loadAppeals(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== 用户管理 ======== -->
+        <div v-if="view==='users'" class="page">
+          <el-card shadow="never">
+            <el-table :data="users" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="maskedStudentNo" label="学号" width="140"/>
+              <el-table-column prop="nickname" label="昵称" width="140"/>
+              <el-table-column prop="role" label="角色" width="110">
+                <template #default="s"><el-tag size="small">{{ s.row.role }}</el-tag></template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="90">
+                <template #default="s"><el-tag :type="s.row.status===1?'success':'danger'" size="small">{{ s.row.status===1?'正常':'禁用' }}</el-tag></template>
+              </el-table-column>
+              <el-table-column prop="lastLoginAt" label="最近登录" width="170"/>
+              <el-table-column label="操作" width="230" fixed="right">
+                <template #default="s">
+                  <el-select :model-value="s.row.role" size="small" style="width:110px" @change="v => changeRole(s.row, v)">
+                    <el-option v-for="r in ['GUEST','STUDENT','AUDITOR','ADMIN']" :key="r" :label="r" :value="r"/>
+                  </el-select>
+                  <el-button size="small" :type="s.row.status===1?'danger':'success'" style="margin-left:8px"
+                             @click="changeStatus(s.row)">{{ s.row.status===1?'禁用':'启用' }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="uTotal" :page-size="20"
+              :current-page="uPage" @current-change="p => { uPage = p; loadUsers(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== 公告管理 ======== -->
+        <div v-if="view==='announcements'" class="page">
+          <el-card shadow="never">
+            <template #header>
+              <el-button type="primary" @click="annDialog = true">发布公告</el-button>
+            </template>
+            <el-table :data="announcements" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="title" label="标题" show-overflow-tooltip/>
+              <el-table-column prop="status" label="状态" width="90"/>
+              <el-table-column prop="publishAt" label="发布时间" width="170"/>
+              <el-table-column label="操作" width="150" fixed="right">
+                <template #default="s">
+                  <el-button size="small" @click="editAnn(s.row)">编辑</el-button>
+                  <el-button size="small" type="danger" @click="deleteAnn(s.row.id)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+          <el-dialog v-model="annDialog" :title="annForm.id ? '编辑公告' : '发布公告'" width="520px">
+            <el-form label-width="60px">
+              <el-form-item label="标题"><el-input v-model="annForm.title"/></el-form-item>
+              <el-form-item label="内容"><el-input v-model="annForm.content" type="textarea" :rows="4"/></el-form-item>
+            </el-form>
+            <template #footer>
+              <el-button @click="annDialog=false">取消</el-button>
+              <el-button type="primary" @click="saveAnn">保存</el-button>
+            </template>
+          </el-dialog>
+        </div>
+
+        <!-- ======== 基础数据 ======== -->
+        <!-- ======== 题目管理 ======== -->
+        <div v-if="view==='question-admin'" class="page">
+          <el-card shadow="never">
+            <template #header>
+              <div style="display:flex;gap:10px;align-items:center">
+                <el-button type="primary" @click="openQCreate">新建题目</el-button>
+                <el-input v-model="qaFilter.keyword" placeholder="题干关键词" style="width:200px" clearable @keyup.enter="loadQuestionAdmin"/>
+                <el-button @click="loadQuestionAdmin">查询</el-button>
+              </div>
+            </template>
+            <el-table :data="questionAdmin" stripe>
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="typeName" label="题型" width="90"/>
+              <el-table-column label="题干" show-overflow-tooltip><template #default="s">{{ s.row.stem }}</template></el-table-column>
+              <el-table-column prop="difficulty" label="难度" width="60"/>
+              <el-table-column prop="auditStatus" label="状态" width="90"/>
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="s">
+                  <el-popconfirm title="确定删除该题目？" @confirm="deleteQuestion(s.row.id)">
+                    <template #reference><el-button size="small" type="danger">删除</el-button></template>
+                  </el-popconfirm>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="qaTotal" :page-size="20"
+              :current-page="qaFilter.page" @current-change="p => { qaFilter.page = p; loadQuestionAdmin(); }"/></div>
+          </el-card>
+
+          <el-dialog v-model="qDialog" title="新建题目（P0 已开放题型）" width="640px">
+            <el-form label-width="70px">
+              <el-form-item label="科目">
+                <el-select v-model="qForm.subjectId" style="width:100%">
+                  <el-option v-for="s in subjectAdmin" :key="s.id" :label="s.name" :value="s.id"/>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="题型">
+                <el-select v-model="qForm.type" style="width:100%" @change="onQTypeChange">
+                  <el-option v-for="t in questionTypes" :key="t.type" :label="t.label" :value="t.type"/>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="题干"><el-input v-model="qForm.stem" type="textarea" :rows="2"/></el-form-item>
+              <el-form-item v-if="qForm.type==='SINGLE_CHOICE'||qForm.type==='MULTI_CHOICE'||qForm.type==='TRUE_FALSE'" label="选项">
+                <div v-for="(o,i) in qForm.options" :key="i" style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+                  <el-tag size="small">{{ o.key }}</el-tag>
+                  <el-input v-model="o.content" style="flex:1"/>
+                  <el-checkbox :model-value="o.isAnswer" @update:model-value="v => setAnswer(i, v)">正确</el-checkbox>
+                </div>
+              </el-form-item>
+              <el-form-item v-if="qForm.type==='FILL_BLANK'" label="答案">
+                <el-input v-model="qForm.blanksText" placeholder="多个空用 | 分隔，如：printf|int"/>
+              </el-form-item>
+              <el-form-item v-if="!isObjective(qForm.type)" label="参考答案">
+                <el-input v-model="qForm.reference" type="textarea" :rows="3"/>
+              </el-form-item>
+              <el-form-item label="难度">
+                <el-select v-model="qForm.difficulty" style="width:100%">
+                  <el-option v-for="n in [1,2,3,4,5]" :key="n" :label="'难度 '+n" :value="n"/>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="解析"><el-input v-model="qForm.analysis" type="textarea" :rows="2"/></el-form-item>
+            </el-form>
+            <template #footer>
+              <el-button @click="qDialog=false">取消</el-button>
+              <el-button type="primary" @click="submitQuestion">提交（进入待审核）</el-button>
+            </template>
+          </el-dialog>
+        </div>
+
+        <!-- ======== 文件上传（文档类唯一入口，大纲 8） ======== -->
+        <div v-if="view==='upload-doc'" class="page">
+          <el-card shadow="never">
+            <template #header>上传文档类资料（PDF / DOCX / ZIP 等，App 端仅收图片）</template>
+            <el-form label-width="80px" style="max-width:560px">
+              <el-form-item label="文件">
+                <el-upload :action="uploadUrl" :headers="uploadHeaders" :on-success="onDocUploaded"
+                           :on-error="onUploadError"
+                           :limit="1" :auto-upload="true" drag style="width:100%">
+                  <el-icon style="font-size:40px;color:#909399"><upload-filled /></el-icon>
+                  <div>拖拽文件或点击选择（PDF/DOCX/XLSX/PPTX/ZIP/MP4/MP3，≤200MB）</div>
+                </el-upload>
+                <div v-if="docForm.fileId" style="color:#2E7D32">✓ 文件已上传，fileId = {{ docForm.fileId }}</div>
+              </el-form-item>
+              <el-form-item label="标题"><el-input v-model="docForm.title"/></el-form-item>
+              <el-form-item label="类型">
+                <el-select v-model="docForm.type" style="width:100%">
+                  <el-option v-for="t in resourceTypes2" :key="t.type" :label="t.label" :value="t.type"/>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="科目">
+                <el-select v-model="docForm.subjectId" style="width:100%">
+                  <el-option v-for="s in subjectAdmin" :key="s.id" :label="s.name" :value="s.id"/>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="简介"><el-input v-model="docForm.description" type="textarea" :rows="2"/></el-form-item>
+              <el-form-item label="标签"><el-input v-model="docForm.tags" placeholder="重点必考,含答案"/></el-form-item>
+              <el-button type="primary" :disabled="!docForm.fileId" @click="submitDoc">提交审核</el-button>
+            </el-form>
+          </el-card>
+        </div>
+
+        <div v-if="view==='data'" class="page">
+          <el-row :gutter="14">
+            <el-col :span="12">
+              <el-card shadow="never">
+                <template #header><div style="display:flex;justify-content:space-between;align-items:center">
+                  <span>考试类别</span>
+                  <el-button size="small" type="primary" @click="promptNewExam">新增</el-button>
+                </div></template>
+                <el-table :data="exams" size="small">
+                  <el-table-column prop="id" label="ID" width="50"/>
+                  <el-table-column prop="name" label="名称"/>
+                  <el-table-column prop="code" label="代码" width="80"/>
+                  <el-table-column label="操作" width="70">
+                    <template #default="s"><el-button size="small" text type="primary" @click="promptEditExam(s.row)">改</el-button></template>
+                  </el-table-column>
+                </el-table>
+              </el-card>
+            </el-col>
+            <el-col :span="12">
+              <el-card shadow="never">
+                <template #header><div style="display:flex;justify-content:space-between;align-items:center">
+                  <span>科目</span>
+                  <el-button size="small" type="primary" @click="promptNewSubject">新增</el-button>
+                </div></template>
+                <el-table :data="subjectAdmin" size="small">
+                  <el-table-column prop="id" label="ID" width="50"/>
+                  <el-table-column prop="name" label="名称"/>
+                  <el-table-column prop="examCategoryId" label="类别" width="60"/>
+                  <el-table-column label="操作" width="70">
+                    <template #default="s"><el-button size="small" text type="primary" @click="promptEditSubject(s.row)">改</el-button></template>
+                  </el-table-column>
+                </el-table>
+              </el-card>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="14" style="margin-top:14px">
+            <el-col :span="12">
+              <el-card shadow="never">
+                <template #header><div style="display:flex;justify-content:space-between;align-items:center">
+                  <span>知识点</span>
+                  <el-button size="small" type="primary" @click="promptNewKnowledge">新增</el-button>
+                </div></template>
+                <el-input v-model="knowledgeSubjectId" placeholder="输入科目 ID 加载" size="small" style="width:160px;margin-bottom:8px">
+                  <template #append><el-button @click="loadKnowledgeAdmin">加载</el-button></template>
+                </el-input>
+                <el-table :data="knowledgeAdmin" size="small" max-height="260">
+                  <el-table-column prop="id" label="ID" width="50"/>
+                  <el-table-column prop="name" label="名称"/>
+                  <el-table-column prop="level" label="层级" width="60"/>
+                  <el-table-column label="操作" width="70">
+                    <template #default="s"><el-button size="small" text type="danger" @click="deleteKnowledge(s.row.id)">删</el-button></template>
+                  </el-table-column>
+                </el-table>
+              </el-card>
+            </el-col>
+            <el-col :span="12">
+              <el-card shadow="never">
+                <template #header>学院 / 教师 / 课程维护</template>
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                  <el-button size="small" @click="promptNewCollege">新增学院</el-button>
+                  <el-button size="small" @click="promptNewTeacher">新增教师</el-button>
+                </div>
+                <el-table :data="collegeAdmin" size="small" max-height="120">
+                  <el-table-column prop="id" label="ID" width="50"/>
+                  <el-table-column prop="name" label="学院"/>
+                </el-table>
+                <el-table :data="teacherAdmin" size="small" max-height="140" style="margin-top:8px">
+                  <el-table-column prop="id" label="ID" width="50"/>
+                  <el-table-column prop="name" label="教师"/>
+                </el-table>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- ======== 操作日志 ======== -->
+        <div v-if="view==='logs'" class="page">
+          <el-card shadow="never">
+            <el-table :data="logs" stripe size="small">
+              <el-table-column prop="id" label="ID" width="60"/>
+              <el-table-column prop="username" label="操作人" width="100"/>
+              <el-table-column prop="module" label="模块" width="90"/>
+              <el-table-column prop="action" label="动作" width="90"/>
+              <el-table-column prop="targetType" label="对象" width="100"/>
+              <el-table-column prop="targetId" label="对象ID" width="80"/>
+              <el-table-column label="详情" show-overflow-tooltip><template #default="s">{{ s.row.detail }}</template></el-table-column>
+              <el-table-column prop="ip" label="IP" width="120"/>
+              <el-table-column prop="createdAt" label="时间" width="170"/>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total" :total="logTotal" :page-size="20"
+              :current-page="logPage" @current-change="p => { logPage = p; loadLogs(); }"/></div>
+          </el-card>
+        </div>
+
+        <!-- ======== AI 运行观测 ======== -->
+        <div v-if="view==='agent'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>AI 运行观测</h1><p>实时查看 Agent 的思考、工具调用与最终答案</p></div>
+          </div>
+          <el-card shadow="never">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <el-input v-model="agent.question" placeholder="输入问题，例如：我的薄弱知识点有哪些？"
+                        style="flex:1;min-width:260px" @keyup.enter="startAgent"/>
+              <button type="button" class="btn-primary" :disabled="agent.running" @click="startAgent">
+                {{ agent.running ? '运行中…' : '开始会话' }}
+              </button>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#68758a">
+              每用户同时仅 1 个会话；事件流：meta → thought → tool_call → tool_result → final → done
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>执行轨迹</template>
+            <div v-if="!agent.steps.length" style="color:#7a8190;font-size:13px">暂无轨迹，先发起一次会话。</div>
+            <div class="agent-timeline" ref="agentLog">
+              <div v-for="(s,i) in agent.steps" :key="i" class="agent-step">
+                <span class="agent-badge" :class="'ev-'+s.event">{{ s.event }}</span>
+                <span class="agent-time">{{ s.time }}</span>
+                <div class="agent-body">
+                  <template v-if="s.event==='thought'">{{ s.data.text }}</template>
+                  <template v-else-if="s.event==='tool_call'">
+                    调用 <b>{{ s.data.tool }}</b>
+                    <pre>{{ JSON.stringify(s.data.arguments || {}, null, 2) }}</pre>
+                  </template>
+                  <template v-else-if="s.event==='tool_result'">
+                    <span :style="{color: s.data.ok ? '#1f7a4d' : '#c24145'}">
+                      {{ s.data.ok ? '成功' : '失败' }}</span>
+                    · {{ s.data.summary }}
+                    <el-collapse v-if="s.data.data">
+                      <el-collapse-item title="查看结果数据">
+                        <pre>{{ JSON.stringify(s.data.data, null, 2) }}</pre>
+                      </el-collapse-item>
+                    </el-collapse>
+                  </template>
+                  <template v-else-if="s.event==='final'">
+                    <div class="agent-answer">{{ s.data.answer }}</div>
+                    <div class="agent-meta">
+                      生成器：{{ s.data.generator }} · 步数：{{ s.data.step_count }}
+                      · 工具：{{ s.data.tool_calls }} · 降级：{{ s.data.degraded }}
+                    </div>
+                  </template>
+                  <template v-else-if="s.event==='budget_truncated'">
+                    已丢弃最老的工具结果：{{ s.data.droppedTool }}
+                  </template>
+                  <template v-else-if="s.event==='meta'">
+                    会话启动 · trace {{ s.data.traceId }}
+                  </template>
+                  <template v-else>{{ JSON.stringify(s.data) }}</template>
+                </div>
+              </div>
+            </div>
+          </el-card>
+
+          <!-- 「运行指标」区：只读，数据来源 ai_agent_run（契约 §2 管理端断言①） -->
+          <metrics-panel :metrics="metrics" @change-days="changeMetricsDays"></metrics-panel>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>历史会话（点击回放）</template>
+            <el-table :data="agent.runs" size="small" empty-text="暂无记录">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="question" label="问题" show-overflow-tooltip/>
+              <el-table-column prop="status" label="状态" width="100"/>
+              <el-table-column prop="stepCount" label="步数" width="70"/>
+              <el-table-column prop="toolCalls" label="工具" width="70"/>
+              <el-table-column prop="totalMs" label="耗时ms" width="90"/>
+              <el-table-column prop="createdAt" label="时间" width="170"/>
+              <el-table-column label="操作" width="90">
+                <template #default="s">
+                  <el-button text type="primary" @click="replayRun(s.row.id)">回放</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total"
+              :total="agent.runTotal" :page-size="20" :current-page="agent.page"
+              @current-change="p => { agent.page = p; loadAgentRuns(); }"/></div>
+          </el-card>
+
+          <el-dialog v-model="agent.replayDialog" title="轨迹回放" width="860px">
+            <div class="agent-timeline" v-if="agent.replay">
+              <div v-for="(s,i) in (agent.replay.steps || [])" :key="i" class="agent-step">
+                <span class="agent-badge" :class="'ev-'+s.event">{{ s.event }}</span>
+                <span class="agent-time">{{ agent.replay.createdAt }}</span>
+                <div class="agent-body">
+                  <pre>{{ typeof s.data === 'string' ? s.data : JSON.stringify(s.data, null, 2) }}</pre>
+                </div>
+              </div>
+            </div>
+          </el-dialog>
+        </div>
+
+        <!-- ======== 离线评估 ======== -->
+        <div v-if="view==='eval'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>离线评估</h1><p>检索侧 Golden Set + Agent 侧合成任务集</p></div>
+          </div>
+
+          <el-card shadow="never">
+            <el-tabs v-model="eval.tab">
+              <el-tab-pane label="检索侧（Recall@K / MRR）" name="retrieval">
+                <p style="color:#5c6472;font-size:13px;line-height:1.8">
+                  评估生产混合检索链路（向量 + ngram + 融合）。纯召回用 applyGate=false；
+                  拒答与误拒另用 applyGate=true 统计。目标：Recall@5 ≥ 0.8、MRR ≥ 0.7。
+                </p>
+                <button type="button" class="btn-primary" :disabled="eval.running"
+                        @click="startEval('retrieval')">
+                  {{ eval.running ? '运行中…' : '开始检索评估' }}
+                </button>
+              </el-tab-pane>
+              <el-tab-pane label="Agent 侧（工具链 / 规则判定）" name="agent">
+                <p style="color:#5c6472;font-size:13px;line-height:1.8">
+                  120 条合成任务，规则判定：工具序列、禁止工具、工具成功、必需内容、步数上限。
+                  目标：通过率 ≥ 0.8。
+                </p>
+                <button type="button" class="btn-primary" :disabled="eval.running"
+                        @click="startEval('agent')">
+                  {{ eval.running ? '运行中…' : '开始 Agent 评估' }}
+                </button>
+              </el-tab-pane>
+            </el-tabs>
+            <div v-if="eval.task" style="margin-top:14px;font-size:13px;color:#5c6472">
+              当前任务 #{{ eval.task.id }} · {{ eval.task.type }} · {{ eval.task.status }}
+              <el-progress :percentage="eval.task.progress || 0" :stroke-width="8" style="margin-top:8px"/>
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>评估运行记录</template>
+            <el-table :data="eval.runs" size="small" empty-text="暂无评估记录">
+              <el-table-column prop="id" label="ID" width="70"/>
+              <el-table-column prop="layer" label="层" width="100"/>
+              <el-table-column prop="status" label="状态" width="100"/>
+              <el-table-column prop="total" label="用例" width="80"/>
+              <el-table-column prop="passed" label="通过" width="80"/>
+              <el-table-column prop="reportPath" label="报告路径" show-overflow-tooltip/>
+              <el-table-column prop="createdAt" label="时间" width="170"/>
+              <el-table-column label="操作" width="90">
+                <template #default="s">
+                  <el-button text type="primary" @click="openEvalRun(s.row.id)">详情</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pager"><el-pagination layout="prev, pager, next, total"
+              :total="eval.total" :page-size="20" :current-page="eval.page"
+              @current-change="p => { eval.page = p; loadEvalRuns(); }"/></div>
+          </el-card>
+
+          <!-- ===== 评估对比（同 layer 两次运行） ===== -->
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>评估对比（delta = target − base）</template>
+            <div class="eval-toolbar">
+              <el-select v-model="eval.compareBase" placeholder="选择基准运行（base）" size="small"
+                         filterable style="width:330px" :loading="eval.compareLoading"
+                         @change="loadEvalCompare">
+                <el-option v-for="r in eval.runs" :key="'b' + r.id" :value="r.id"
+                           :label="compareOptionLabel(r)"></el-option>
+              </el-select>
+              <span class="tip">→</span>
+              <el-select v-model="eval.compareTarget" placeholder="选择目标运行（target）" size="small"
+                         filterable style="width:330px" :loading="eval.compareLoading"
+                         @change="loadEvalCompare">
+                <el-option v-for="r in eval.runs" :key="'t' + r.id" :value="r.id"
+                           :label="compareOptionLabel(r)"></el-option>
+              </el-select>
+              <button type="button" class="btn-primary" :disabled="eval.compareLoading"
+                      @click="loadEvalCompare">对比</button>
+              <span class="tip" v-if="!eval.runs.length">当前页暂无运行记录，先跑一次评估</span>
+            </div>
+            <div class="metrics-note" style="margin-top:8px">
+              仅比较同 layer 的两次运行；delta = target − base（正数表示目标更好，负数表示变差）。
+            </div>
+
+            <el-alert v-if="eval.compareError" class="metrics-err" style="margin-top:12px"
+                      type="error" :title="eval.compareError" :closable="false" show-icon></el-alert>
+            <el-alert v-else-if="eval.compare && eval.compare.comparable === false"
+                      class="metrics-err" style="margin-top:12px" type="warning"
+                      :title="compareWarnText" :closable="false" show-icon></el-alert>
+
+            <div v-loading="eval.compareLoading" style="min-height:60px">
+              <el-empty v-if="!eval.compareError && !eval.compare" :image-size="70"
+                        description="选择两次运行后自动对比（同层比较才有效）"></el-empty>
+              <template v-else-if="eval.compare">
+                <el-table :data="compareOverviewRows" size="small" style="margin-top:4px">
+                  <el-table-column prop="field" label="项目" width="150"></el-table-column>
+                  <el-table-column label="基准（base）">
+                    <template #default="s">{{ s.row.base }}</template>
+                  </el-table-column>
+                  <el-table-column label="目标（target）">
+                    <template #default="s">{{ s.row.target }}</template>
+                  </el-table-column>
+                </el-table>
+
+                <div class="metrics-note" style="margin-top:12px">逐指标差异</div>
+                <el-table :data="compareDeltaRows" size="small" empty-text="两次运行都没有可比较的指标">
+                  <el-table-column label="指标" min-width="220">
+                    <template #default="s"><span class="compare-metric">{{ s.row.key }}</span></template>
+                  </el-table-column>
+                  <el-table-column label="delta" width="150" align="right">
+                    <template #default="s">
+                      <span :class="'delta-' + s.row.tone">{{ s.row.text }}</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </template>
+            </div>
+          </el-card>
+
+          <!-- ===== 保留期清理（ADMIN，不可恢复） ===== -->
+          <el-card shadow="never" style="margin-top:14px">
+            <template #header>运行轨迹保留期清理</template>
+            <div class="purge-row">
+              <span class="tip">保留天数</span>
+              <el-input-number v-model="eval.purge.days" :min="1" :max="3650" :step="10"
+                               size="small" class="purge-day" :disabled="eval.purge.running"></el-input-number>
+              <button type="button" class="btn-primary" :disabled="eval.purge.running"
+                      @click="purgeRetention">
+                {{ eval.purge.running ? '清理中…' : '清理早于该天数的运行轨迹' }}
+              </button>
+            </div>
+            <div class="metrics-note" style="margin-top:8px">
+              删除 ai_agent_run 中 created_at 早于 N 天的运行轨迹，不可恢复；仅 ADMIN。
+            </div>
+            <el-alert v-if="eval.purge.notice" style="margin-top:12px" :closable="false" show-icon
+                      :type="eval.purge.noticeType" :title="eval.purge.notice"></el-alert>
+          </el-card>
+
+          <el-dialog v-model="eval.detailDialog" title="评估详情" width="900px">
+            <div v-if="eval.detail">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+                <div v-for="(v,k) in eval.detail.metrics" :key="k" class="stat-card">
+                  <div class="stat-label">{{ k }}</div>
+                  <div class="stat-num" style="font-size:20px">{{ v }}</div>
+                </div>
+              </div>
+              <p style="margin-top:12px;font-size:12px;color:#5c6472">报告：{{ eval.detail.reportPath }}</p>
+              <el-table :data="eval.detail.rows" size="small" max-height="420">
+                <el-table-column v-for="c in eval.detail.columns" :key="c.key"
+                                 :prop="c.key" :label="c.label" show-overflow-tooltip/>
+              </el-table>
+            </div>
+          </el-dialog>
+        </div>
+
+        <!-- ======== LLM Wiki ======== -->
+        <div v-if="view==='wiki'" class="page">
+          <div class="dashboard-heading">
+            <div><h1>LLM Wiki 知识库</h1>
+              <p>RAG 即时可用 · Wiki 异步沉淀：蒸馏 → 人工审核 → 发布 → 问答热层优先</p></div>
+          </div>
+          <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+            <div class="stat-card">
+              <div class="stat-label">已发布主题页</div>
+              <div class="stat-num">{{ wiki.stats.published || 0 }}</div>
+              <div class="stat-hint">问答热层直接命中，不走向量生成</div>
+            </div>
+            <div class="stat-card warning">
+              <div class="stat-label">待审草稿</div>
+              <div class="stat-num">{{ wiki.stats.pendingRevisions || 0 }}</div>
+              <div class="stat-hint">LLM 草稿必须人工审核后发布</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">向量集合</div>
+              <div class="stat-num" style="font-size:19px">{{ wiki.stats.vectorCollection || '-' }}</div>
+              <div class="stat-hint">与 RAG 的 exam_chunks 隔离</div>
+            </div>
+          </div>
+
+          <el-card shadow="never">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <el-select v-model="wiki.scope" style="width:130px">
+                <el-option label="全部科目" value="ALL"/>
+                <el-option label="指定科目" value="SUBJECT"/>
+              </el-select>
+              <el-input v-if="wiki.scope==='SUBJECT'" v-model="wiki.subjectId"
+                        placeholder="科目 ID" style="width:120px"/>
+              <button type="button" class="btn-primary" :disabled="wiki.running"
+                      @click="startWikiDistill">
+                {{ wiki.running ? '蒸馏中…' : '触发一次蒸馏' }}
+              </button>
+              <el-button :disabled="wiki.running" @click="rebuildWikiVector">重建 Wiki 向量</el-button>
+              <span style="font-size:12px;color:#68758a">
+                蒸馏走独立队列 exam:wiki；本地 7B 约 20–40 秒/页，只产出待审草稿
+              </span>
+            </div>
+            <div v-if="wiki.task" style="margin-top:12px;font-size:13px;color:#5c6472">
+              当前任务 #{{ wiki.task.id }} · {{ wiki.task.type }} · {{ wiki.task.status }}
+              <el-progress :percentage="wiki.task.progress || 0" :stroke-width="8" style="margin-top:8px"/>
+            </div>
+          </el-card>
+
+          <el-card shadow="never" style="margin-top:14px">
+            <el-tabs v-model="wiki.tab">
+              <el-tab-pane label="待审草稿" name="revisions">
+                <el-table :data="wiki.revisions" size="small" empty-text="暂无待审草稿">
+                  <el-table-column prop="id" label="ID" width="64"/>
+                  <el-table-column prop="title" label="主题" show-overflow-tooltip/>
+                  <el-table-column prop="slug" label="Slug" width="120"/>
+                  <el-table-column prop="subjectId" label="科目" width="70"/>
+                  <el-table-column label="质量分" width="86">
+                    <template #default="s">{{ s.row.qualityScore == null ? '-' : s.row.qualityScore }}</template>
+                  </el-table-column>
+                  <el-table-column prop="model" label="模型" width="120" show-overflow-tooltip/>
+                  <el-table-column prop="createdAt" label="生成时间" width="160"/>
+                  <el-table-column label="操作" width="180">
+                    <template #default="s">
+                      <el-button text type="primary" @click="openWikiRevision(s.row)">查看</el-button>
+                      <el-button text type="success" @click="approveWikiRevision(s.row.id)">通过</el-button>
+                      <el-button text type="danger" @click="rejectWikiRevision(s.row.id)">驳回</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pager"><el-pagination layout="prev, pager, next, total"
+                  :total="wiki.revTotal" :page-size="20" :current-page="wiki.revPage"
+                  @current-change="p => { wiki.revPage = p; loadWikiRevisions(); }"/></div>
+              </el-tab-pane>
+
+              <el-tab-pane label="已发布页面" name="pages">
+                <el-table :data="wiki.pages" size="small" empty-text="暂无已发布页面">
+                  <el-table-column prop="id" label="ID" width="64"/>
+                  <el-table-column prop="title" label="主题" show-overflow-tooltip/>
+                  <el-table-column prop="slug" label="Slug" width="120"/>
+                  <el-table-column prop="subjectId" label="科目" width="70"/>
+                  <el-table-column prop="version" label="版本" width="60"/>
+                  <el-table-column label="质量分" width="86">
+                    <template #default="s">{{ s.row.qualityScore == null ? '-' : s.row.qualityScore }}</template>
+                  </el-table-column>
+                  <el-table-column prop="updatedAt" label="更新时间" width="160"/>
+                  <el-table-column label="操作" width="150">
+                    <template #default="s">
+                      <el-button text type="primary" @click="openWikiPage(s.row.id)">查看</el-button>
+                      <el-button text type="danger" @click="offlineWikiPage(s.row.id)">下架</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pager"><el-pagination layout="prev, pager, next, total"
+                  :total="wiki.pageTotal" :page-size="20" :current-page="wiki.pagePage"
+                  @current-change="p => { wiki.pagePage = p; loadWikiPages(); }"/></div>
+              </el-tab-pane>
+
+              <el-tab-pane label="导航图" name="graph">
+                <p style="font-size:12px;color:#68758a">
+                  节点 {{ (wiki.graph.nodes || []).length }} · 有向边 {{ (wiki.graph.edges || []).length }}
+                  （同级链接保证不出现孤岛）
+                </p>
+                <el-table :data="wiki.graph.edges" size="small" max-height="420" empty-text="暂无链接">
+                  <el-table-column prop="source" label="起点页面" width="110"/>
+                  <el-table-column prop="target" label="终点页面" width="110"/>
+                  <el-table-column prop="relation" label="关系" width="130"/>
+                  <el-table-column prop="weight" label="权重" width="80"/>
+                </el-table>
+              </el-tab-pane>
+            </el-tabs>
+          </el-card>
+
+          <el-dialog v-model="wiki.revisionDialog" title="Wiki 草稿审核" width="900px">
+            <div v-if="wiki.revision">
+              <h3 style="margin:0 0 8px">{{ wiki.revision.title }}</h3>
+              <p style="font-size:12px;color:#68758a;margin:0 0 10px">
+                slug={{ wiki.revision.slug }} · 模型 {{ wiki.revision.model }} ·
+                质量分 {{ wiki.revision.qualityScore }} · 来源块 {{ (wiki.revision.sourceChunkIds || []).join(', ') }}
+              </p>
+              <el-card shadow="never"><template #header>摘要</template>{{ wiki.revision.summary }}</el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>要点</template>
+                <ul style="margin:0;padding-left:18px">
+                  <li v-for="(p,i) in (wiki.revision.keyPoints || [])" :key="i">{{ p }}</li>
+                </ul>
+              </el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>正文</template>
+                <pre style="white-space:pre-wrap;margin:0;font-size:13px;line-height:1.7">{{ wiki.revision.content }}</pre>
+              </el-card>
+              <p style="margin-top:10px">
+                <button type="button" class="btn-primary" @click="approveWikiRevision(wiki.revision.id)">审核通过并发布</button>
+                <el-button style="margin-left:8px" @click="rejectWikiRevision(wiki.revision.id)">驳回</el-button>
+              </p>
+            </div>
+          </el-dialog>
+
+          <el-dialog v-model="wiki.pageDialog" title="Wiki 页面" width="900px">
+            <div v-if="wiki.page">
+              <h3 style="margin:0 0 8px">{{ wiki.page.title }}</h3>
+              <p style="font-size:12px;color:#68758a;margin:0 0 10px">
+                slug={{ wiki.page.slug }} · v{{ wiki.page.version }} · 质量分 {{ wiki.page.qualityScore }}
+              </p>
+              <el-card shadow="never"><template #header>摘要</template>{{ wiki.page.summary }}</el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>正文</template>
+                <pre style="white-space:pre-wrap;margin:0;font-size:13px;line-height:1.7">{{ wiki.page.content }}</pre>
+              </el-card>
+              <el-card shadow="never" style="margin-top:10px"><template #header>关联页</template>
+                <div v-for="p in (wiki.page.relatedPages || [])" :key="p.id" style="font-size:13px;padding:4px 0">
+                  #{{ p.id }} {{ p.title }}（{{ p.slug }}）
+                </div>
+              </el-card>
+            </div>
+          </el-dialog>
+        </div>
+      </el-main>
+    </el-container>
+  </el-container>
+</div>
+
+<script>
+const { createApp } = Vue;
+const API = '/api';
+
+async function api(method, path, body) {
+  const token = localStorage.getItem('token') || '';
+  try {
+    const resp = await fetch(API + path, {
+      method,
+      headers: Object.assign({'Content-Type': 'application/json'},
+        token ? {Authorization: 'Bearer ' + token} : {}),
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    if (resp.status === 401) {
+      localStorage.removeItem('token');
+      location.reload();
+      throw new Error('登录已过期');
+    }
+    const json = await resp.json();
+    if (json.code !== 200) {
+      // 附带 code：调用方需要按 403/400 给不同文案时不必再猜 HTTP 状态
+      const err = new Error(json.message || '请求失败');
+      err.code = Number(json.code) || resp.status;
+      throw err;
+    }
+    return json.data;
+  } catch (e) {
+    // 统一错误提示：页面级裸 await 失败时也能看到具体原因，不再静默白屏
+    ElementPlus.ElMessage.error((e && e.message) ? e.message : '网络异常，请稍后重试');
+    throw e;
+  }
+}
+
+/**
+ * 运行指标面板（只读），作为「AI 运行观测」页内的「运行指标」区（契约 §2 管理端断言①）。
+ *
+ * 数据契约（docs/Agent阶段三接口契约.md §2）：
+ *   GET /admin/ai/metrics?days=1|7|30 → data.{total,running,terminal,statusCounts,
+ *   successRate,refusedRate,failureRate,cancelRate,degradedCount,degradedDenominator,
+ *   degradedRate,latency{samples,avgMs,p95Ms,maxMs},generators[],errorTop5[]}
+ *   · 各比率分母一律是「终态数」terminal = total − running；分母为 0 时后端返回 null
+ *   · 空窗口（total=0）仍返回 200，各比率为 null、samples=0、两个数组为空
+ *   · days 非法（1..90 之外）后端直接 400，本面板只给 1/7/30，不做静默纠正
+ *
+ * 纯展示组件：状态与取数由根实例持有（data().metrics + loadMetrics()），
+ * 组件只负责派生与格式化，保证「进入观测页即加载」而不是只在切换时加载。
+ */
+const MetricsPanel = {
+  name: 'MetricsPanel',
+  props: {
+    /** {days, data, loading, error}，结构同根实例 data().metrics。 */
+    metrics: {type: Object, required: true}
+  },
+  emits: ['change-days'],
+  computed: {
+    /** 当前窗口天数（1/7/30）。 */
+    days() {
+      return Number(this.metrics.days) || 7;
+    },
+    loading() {
+      return this.metrics.loading === true;
+    },
+    error() {
+      return this.metrics.error || '';
+    },
+    /** 接口返回体；未加载成功时为 {}，模板可直接取值。 */
+    payload() {
+      return this.metrics.data || {};
+    },
+    /** 耗时统计子对象（samples/avgMs/p95Ms/maxMs 均可能为 null）。 */
+    latency() {
+      return this.payload.latency || {};
+    },
+    statusCounts() {
+      return this.payload.statusCounts || {};
+    },
+    /** 5 个状态恒定展示：无数据补 0，不省略。 */
+    statusRows() {
+      const defs = [
+        {code: 'SUCCESS', label: '成功', tag: 'success'},
+        {code: 'REFUSED', label: '拒答', tag: 'warning'},
+        {code: 'FAILED', label: '失败', tag: 'danger'},
+        {code: 'RUNNING', label: '进行中', tag: 'primary'},
+        {code: 'CANCELLED', label: '已取消', tag: 'info'}
+      ];
+      const total = this.num(this.payload.total);
+      return defs.map(d => {
+        const count = this.num(this.statusCounts[d.code]);
+        return {
+          code: d.code,
+          label: d.label,
+          tag: d.tag,
+          count: count,
+          ratio: total > 0 ? (count / total) : null
+        };
+      });
+    },
+    generators() {
+      return this.payload.generators || [];
+    },
+    errorTop5() {
+      return this.payload.errorTop5 || [];
+    },
+    /** 空窗口：接口成功返回且 total=0。请求出错时走顶部 alert，不算空窗口。 */
+    isEmpty() {
+      if (this.error) return false;
+      if (this.metrics.data === null || this.metrics.data === undefined) return false;
+      return this.num(this.payload.total) === 0;
+    }
+  },
+  methods: {
+    /** 安全转数字：非数字/空值一律按 0 处理（仅用于计数与占比，不用于比率展示）。 */
+    num(v) {
+      const n = Number(v);
+      return isFinite(n) ? n : 0;
+    },
+    /** 计数：千分位；null/undefined → 「—」。 */
+    fmtCount(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return n.toLocaleString('zh-CN');
+    },
+    /** 比率（入参为 0..1 小数）：百分比保留 1 位；null → 「—」（不是 0%）。 */
+    fmtPercent(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return (n * 100).toFixed(1) + '%';
+    },
+    /** 耗时（毫秒）：整数不带小数、非整数保留 1 位；null → 「—」。 */
+    fmtMs(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return Number(n.toFixed(1)).toLocaleString('zh-CN');
+    },
+    /** 成功率卡片配色：≥80% 正常、≥50% 警示、其余危险；null 不加色。 */
+    rateTone(v) {
+      if (v === null || v === undefined || v === '') return '';
+      const n = Number(v);
+      if (!isFinite(n)) return '';
+      if (n >= 0.8) return '';
+      if (n >= 0.5) return 'warning';
+      return 'danger';
+    },
+    /** 取某个状态的次数（缺省 0）。 */
+    countOf(code) {
+      return this.num(this.statusCounts[code]);
+    }
+  },
+  template: `
+  <div class="metrics-panel">
+    <div class="metrics-head">
+      <div>
+        <h2 class="metrics-title">Agent 运行指标</h2>
+        <p class="metrics-sub">
+          只读视图 · 来源 ai_agent_run · 窗口 {{ payload.from || '—' }} ~ {{ payload.to || '—' }}
+          （{{ payload.timezone || 'Asia/Shanghai' }}，近 {{ days }} 天）· 数据截至 {{ payload.generatedAt || '—' }}
+        </p>
+      </div>
+      <el-radio-group :model-value="days" size="small" @change="v => $emit('change-days', v)">
+        <el-radio-button :value="1">近 1 天</el-radio-button>
+        <el-radio-button :value="7">近 7 天</el-radio-button>
+        <el-radio-button :value="30">近 30 天</el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <el-alert v-if="error" class="metrics-err" type="warning"
+              :title="error" :closable="false" show-icon/>
+
+    <div v-loading="loading" element-loading-text="指标加载中…" style="min-height:80px">
+      <el-card v-if="isEmpty" shadow="never">
+        <el-empty class="metrics-empty" :image-size="80"
+                  :description="'该窗口无运行记录（近 ' + days + ' 天）'"/>
+      </el-card>
+
+      <template v-else>
+        <div class="stat-row">
+          <div class="stat-card">
+            <span class="stat-icon">▶</span>
+            <div class="stat-label">总运行数</div>
+            <div class="stat-num">{{ fmtCount(payload.total) }}</div>
+            <div class="stat-hint">含进行中 · 终态 {{ fmtCount(payload.terminal) }}</div>
+          </div>
+          <div class="stat-card" :class="rateTone(payload.successRate)">
+            <span class="stat-icon">✓</span>
+            <div class="stat-label">成功率</div>
+            <div class="stat-num">{{ fmtPercent(payload.successRate) }}</div>
+            <div class="stat-hint">SUCCESS ÷ 终态</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">⏱</span>
+            <div class="stat-label">平均耗时（ms）</div>
+            <div class="stat-num">{{ fmtMs(latency.avgMs) }}</div>
+            <div class="stat-hint">P95 {{ fmtMs(latency.p95Ms) }} · 样本 {{ fmtCount(latency.samples) }}</div>
+          </div>
+          <div class="stat-card" :class="payload.degradedRate > 0 ? 'warning' : ''">
+            <span class="stat-icon">⚠</span>
+            <div class="stat-label">降级率</div>
+            <div class="stat-num">{{ fmtPercent(payload.degradedRate) }}</div>
+            <div class="stat-hint">{{ fmtCount(payload.degradedCount) }} / {{ fmtCount(payload.degradedDenominator) }}（SUCCESS+REFUSED）</div>
+          </div>
+        </div>
+
+        <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="stat-card" :class="payload.refusedRate > 0 ? 'warning' : ''">
+            <div class="stat-label">拒答率</div>
+            <div class="stat-num">{{ fmtPercent(payload.refusedRate) }}</div>
+            <div class="stat-hint">REFUSED {{ countOf('REFUSED') }} 次 · 拒答不计入成功或失败</div>
+          </div>
+          <div class="stat-card" :class="payload.failureRate > 0 ? 'danger' : ''">
+            <div class="stat-label">失败率</div>
+            <div class="stat-num">{{ fmtPercent(payload.failureRate) }}</div>
+            <div class="stat-hint">FAILED {{ countOf('FAILED') }} 次</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">取消率</div>
+            <div class="stat-num">{{ fmtPercent(payload.cancelRate) }}</div>
+            <div class="stat-hint">CANCELLED {{ countOf('CANCELLED') }} 次</div>
+          </div>
+        </div>
+
+        <div class="dashboard-panels">
+          <el-card shadow="never"><template #header>状态分布（statusCounts）</template>
+            <el-table :data="statusRows" size="small">
+              <el-table-column label="状态" width="110">
+                <template #default="s">
+                  <el-tag :type="s.row.tag" effect="plain" size="small">{{ s.row.label }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="code" label="枚举值" width="110"/>
+              <el-table-column prop="count" label="次数" width="80" align="right"/>
+              <el-table-column label="占 total" align="right">
+                <template #default="s">{{ fmtPercent(s.row.ratio) }}</template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+          <el-card shadow="never"><template #header>错误 Top5（errorTop5）</template>
+            <div v-if="!errorTop5.length" class="metrics-note">近 {{ days }} 天无错误</div>
+            <el-table v-else :data="errorTop5" size="small">
+              <el-table-column prop="error" label="错误原文" show-overflow-tooltip/>
+              <el-table-column prop="count" label="次数" width="80" align="right"/>
+            </el-table>
+          </el-card>
+        </div>
+
+        <el-card shadow="never" style="margin-top:14px">
+          <template #header>生成器分布（generators，按 count 倒序，最多 20 组）</template>
+          <el-table :data="generators" size="small" empty-text="暂无生成器数据">
+            <el-table-column prop="generator" label="generator" min-width="160" show-overflow-tooltip/>
+            <el-table-column prop="count" label="运行数" width="90" align="right"/>
+            <el-table-column label="成功率" width="100" align="right">
+              <template #default="s">{{ fmtPercent(s.row.successRate) }}</template>
+            </el-table-column>
+            <el-table-column label="平均耗时 ms" width="120" align="right">
+              <template #default="s">{{ fmtMs(s.row.avgMs) }}</template>
+            </el-table-column>
+            <el-table-column label="P95 ms" width="110" align="right">
+              <template #default="s">{{ fmtMs(s.row.p95Ms) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <div class="metrics-scope">
+          <div class="metrics-note">① 成功率 = SUCCESS ÷ 终态（total − running）；分母为 0 显示「—」，不是 0%。拒答单列，不计入成功也不计入失败。</div>
+          <div class="metrics-note">② P95 采用 MySQL 8 窗口函数最近秩法（rn = CEIL(0.95 × n)），仅统计终态且 total_ms > 0 的样本，样本数见 samples 可核对。</div>
+          <div class="metrics-note">③ 降级率分母 = SUCCESS + REFUSED 子集（只有真正产出回答的轮次，降级才有意义）。</div>
+        </div>
+      </template>
+    </div>
+  </div>
+  `
+};
+
+createApp({
+  data() {
+    return {
+      token: localStorage.getItem('token') || '',
+      whoami: localStorage.getItem('whoami') || '',
+      logging: false,
+      loginForm: {studentNo: '', password: ''},
+      view: 'dashboard',
+
+      dashboard: {}, resourceTypes: {}, roleStats: {},
+      hotSubjects: [], activeUsers: [], typeAccuracy: [],
+      questionTypes: [],
+
+      questions: [], qTotal: 0, qFilter: {page: 1, type: null, keyword: null},
+      resources: [], rTotal: 0, rFilter: {page: 1, audited: false},
+      reports: [], repTotal: 0, repFilter: {page: 1, status: 'PENDING'},
+      appeals: [], appTotal: 0, appFilter: {page: 1, status: 'PENDING'},
+      users: [], uTotal: 0, uPage: 1,
+      announcements: [], annDialog: false,
+      questionAdmin: [], qaTotal: 0, qaFilter: {page: 1, keyword: null}, qDialog: false,
+      qForm: {subjectId: null, type: 'SINGLE_CHOICE', stem: '', difficulty: 3, analysis: '',
+        options: [
+          {key: 'A', content: '', isAnswer: true}, {key: 'B', content: '', isAnswer: false},
+          {key: 'C', content: '', isAnswer: false}, {key: 'D', content: '', isAnswer: false}],
+        blanksText: '', reference: ''},
+      docForm: {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''},
+      uploadUrl: '/api/files/document',
+      resourceTypes2: [],
+      knowledgeAdmin: [], knowledgeSubjectId: '5',
+      collegeAdmin: [], teacherAdmin: [],
+      annForm: {id: null, title: '', content: ''},
+      exams: [], subjectAdmin: [],
+      logs: [], logTotal: 0, logPage: 1,
+
+      // 运行指标（只读）：随「AI 运行观测」页一起加载；data=null 表示尚未成功拉取过
+      metrics: {days: 7, data: null, loading: false, error: ''},
+      agent: {question: '', running: false, steps: [], page: 1, runs: [], runTotal: 0,
+        replayDialog: false, replay: null},
+      eval: {tab: 'retrieval', running: false, task: null, runs: [], total: 0, page: 1,
+        detailDialog: false, detail: null,
+        // 评估对比：baseId / targetId 取自当前页运行记录
+        compareBase: null, compareTarget: null, compare: null, compareLoading: false,
+        compareError: '',
+        // 保留期清理：days 默认 90，仅 ADMIN，不可恢复
+        purge: {days: 90, running: false, notice: '', noticeType: 'info'}},
+      wiki: {tab: 'revisions', stats: {}, revisions: [], revTotal: 0, revPage: 1,
+        pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null,
+        running: false, task: null, graph: {nodes: [], edges: []},
+        revisionDialog: false, revision: null, pageDialog: false, page: null}
+    };
+  },
+  computed: {
+    // 上传头改为计算属性：每次上传时实时读取 localStorage 里的最新 token。
+    // 原先在 data() 初始化时一次性读取，登录后不更新，导致上传永远带空 token 而 401。
+    uploadHeaders() {
+      return {Authorization: 'Bearer ' + (localStorage.getItem('token') || '')};
+    },
+    /** 对比概览两列：base / target 同字段并排，缺值统一显示「—」。 */
+    compareOverviewRows() {
+      const c = this.eval.compare;
+      if (!c) return [];
+      const b = c.base || {};
+      const t = c.target || {};
+      return [
+        {field: '运行 ID', base: this.idText(b.id), target: this.idText(t.id)},
+        {field: '层（layer）', base: this.cellText(b.layer), target: this.cellText(t.layer)},
+        {field: '时间', base: this.cellText(b.createdAt), target: this.cellText(t.createdAt)},
+        {field: '用例数（total）', base: this.cellText(b.total), target: this.cellText(t.total)},
+        {field: '通过数（passed）', base: this.cellText(b.passed), target: this.cellText(t.passed)},
+        {field: '通过率（passRate）', base: this.pctText(b.passRate), target: this.pctText(t.passRate)}
+      ];
+    },
+    /**
+     * 逐指标 delta 行：数值型 → `+0.0123 / -0.0200` 并带正负色；非数值原样显示。
+     * 键形如 `passRate` 或 `metrics.recallAt5`，按原文展示不做改写。
+     */
+    compareDeltaRows() {
+      const c = this.eval.compare;
+      const delta = (c && c.delta) || {};
+      return Object.keys(delta).sort().map(function (key) {
+        const v = delta[key];
+        const numeric = typeof v === 'number' && isFinite(v);
+        return {
+          key: key,
+          numeric: numeric,
+          text: numeric ? ((v > 0 ? '+' : '') + v.toFixed(4)) : String(v),
+          tone: numeric ? (v > 0 ? 'up' : (v < 0 ? 'down' : 'flat')) : 'flat'
+        };
+      });
+    },
+    /** 跨 layer 时同时展示后端给的 note（若有）。 */
+    compareWarnText() {
+      const c = this.eval.compare || {};
+      const note = c.note ? String(c.note) : '';
+      return note ? ('跨 layer 不可直接比较，仅作参考：' + note) : '跨 layer 不可直接比较，仅作参考';
+    }
+  },
+  methods: {
+    statusTag(s) {
+      return {PENDING: 'warning', APPROVED: 'success', REJECTED: 'danger', OFFLINE: 'info', APPEALING: 'warning'}[s] || 'info';
+    },
+    dashLabel(k) {
+      return {userCount: '用户数', questionCount: '题目数', resourceCount: '资料数',
+        pendingResourceCount: '待审资料', pendingQuestionCount: '待审题目',
+        pendingReportCount: '待处理举报', downloadCount: '下载量', todayResourceCount: '今日新增资料'}[k] || k;
+    },
+    dashboardIcon(k) {
+      return {userCount: '♙', questionCount: '✎', resourceCount: '▤', pendingResourceCount: '▤',
+        pendingQuestionCount: '✎', pendingReportCount: '⚑', downloadCount: '⇩', todayResourceCount: '＋'}[k] || '•';
+    },
+    dashboardView(k) {
+      return {pendingResourceCount: 'resources', pendingQuestionCount: 'questions', pendingReportCount: 'reports'}[k] || '';
+    },
+    dashboardTone(k) {
+      if (k === 'pendingReportCount') return 'danger';
+      if (k === 'pendingResourceCount' || k === 'pendingQuestionCount') return 'warning';
+      return '';
+    },
+    dashboardHint(k) {
+      if (this.dashboardView(k)) return '点击查看待处理内容 →';
+      return ({userCount: '平台累计账号', questionCount: '已收录练习题', resourceCount: '已公开学习资料',
+        downloadCount: '累计资料下载', todayResourceCount: '今日提交'})[k] || '平台统计';
+    },
+    openDashboardMetric(k) {
+      const target = this.dashboardView(k);
+      if (!target) return;
+      this.view = target;
+      this.loadView();
+    },
+    resourcePercent(value) {
+      const values = Object.values(this.resourceTypes).map(Number).filter(Number.isFinite);
+      const max = Math.max(0, ...values);
+      return max ? Math.max(5, Math.round(Number(value || 0) / max * 100)) : 0;
+    },
+    async login() {
+      if (!this.loginForm.studentNo || !this.loginForm.password) {
+        ElementPlus.ElMessage.warning('请输入账号和密码');
+        return;
+      }
+      this.logging = true;
+      try {
+        const resp = await fetch(API + '/auth/login', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(this.loginForm)
+        });
+        const json = await resp.json();
+        if (json.code !== 200) throw new Error(json.message);
+        if (!['AUDITOR', 'ADMIN'].includes(json.data.user.role)) {
+          throw new Error('该账号无管理端权限（需 AUDITOR / ADMIN）');
+        }
+        this.token = json.data.token;
+        localStorage.setItem('token', this.token);
+        this.whoami = json.data.user.nickname + '（' + json.data.user.role + '）';
+        localStorage.setItem('whoami', this.whoami);
+        ElementPlus.ElMessage.success('登录成功');
+        this.loadView();
+      } catch (e) {
+        ElementPlus.ElMessage.error(e.message);
+      } finally {
+        this.logging = false;
+      }
+    },
+    logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('whoami');
+      this.token = '';
+    },
+    loadView() {
+      const map = {
+        dashboard: 'loadDashboard', questions: 'loadQuestions', resources: 'loadResources',
+        reports: 'loadReports', appeals: 'loadAppeals', users: 'loadUsers',
+        announcements: 'loadAnnouncements', data: 'loadData', logs: 'loadLogs',
+        'question-admin': 'loadQuestionAdmin', 'upload-doc': 'loadUploadDoc',
+        agent: 'loadAgentRuns', eval: 'loadEvalRuns', wiki: 'loadWiki'
+      };
+      if (map[this.view]) this[map[this.view]]();
+      // 「AI 运行观测」页含「运行指标」区：进入该页时与历史会话一起加载，而不是只在切换时加载
+      if (this.view === 'agent') this.loadMetrics();
+    },
+
+    async loadDashboard() {
+      this.dashboard = await api('GET', '/admin/dashboard');
+      this.resourceTypes = await api('GET', '/admin/stats/resource-types');
+      this.roleStats = await api('GET', '/admin/stats/roles');
+      this.hotSubjects = await api('GET', '/admin/stats/hot-subjects');
+      this.activeUsers = await api('GET', '/admin/stats/active-users');
+      this.typeAccuracy = await api('GET', '/admin/stats/type-accuracy');
+    },
+    async loadQuestions() {
+      const f = this.qFilter;
+      const data = await api('GET', '/admin/audits/questions?page=' + f.page +
+        '&size=20' + (f.type ? '&type=' + f.type : '') + (f.keyword ? '&keyword=' + encodeURIComponent(f.keyword) : ''));
+      this.questions = data.list || [];
+      this.qTotal = data.total;
+      if (!this.questionTypes.length) {
+        this.questionTypes = await api('GET', '/questions/types');
+      }
+    },
+    async auditQuestion(id, action) {
+      let body = {};
+      if (action === 'reject' || action === 'offline') {
+        const r = await ElementPlus.ElMessageBox.prompt('请输入' + (action === 'reject' ? '驳回' : '下架') + '原因', '审核');
+        body = {reason: r.value};
+      }
+      await api('POST', '/admin/audits/questions/' + id + '/' + action, body);
+      ElementPlus.ElMessage.success('已' + {approve: '通过', reject: '驳回', offline: '下架'}[action]);
+      this.loadQuestions();
+    },
+    async loadResources() {
+      const f = this.rFilter;
+      const data = await api('GET', '/admin/audits/resources' + (f.audited ? '/audited' : '') +
+        '?page=' + f.page + '&size=20');
+      this.resources = data.list || [];
+      this.rTotal = data.total;
+    },
+    async auditResource(id, action) {
+      let body = {};
+      if (action !== 'approve') {
+        const r = await ElementPlus.ElMessageBox.prompt('请输入原因', '审核');
+        body = {reason: r.value};
+      }
+      await api('POST', '/admin/audits/resources/' + id + '/' + action, body);
+      ElementPlus.ElMessage.success('操作成功');
+      this.loadResources();
+    },
+    async loadReports() {
+      const f = this.repFilter;
+      const data = await api('GET', '/admin/reports?page=' + f.page + '&size=20' +
+        (f.status ? '&status=' + f.status : ''));
+      this.reports = data.list || [];
+      this.repTotal = data.total;
+    },
+    async handleReport(id, status, offline) {
+      const r = await ElementPlus.ElMessageBox.prompt('处理说明（可空）', '举报处理');
+      await api('POST', '/admin/reports/' + id + '/handle',
+        {status, note: r.value || '', offlineTarget: offline});
+      ElementPlus.ElMessage.success('已处理');
+      this.loadReports();
+    },
+    async loadAppeals() {
+      const f = this.appFilter;
+      const data = await api('GET', '/admin/appeals?page=' + f.page + '&size=20' +
+        (f.status ? '&status=' + f.status : ''));
+      this.appeals = data.list || [];
+      this.appTotal = data.total;
+    },
+    async handleAppeal(id, action) {
+      const r = await ElementPlus.ElMessageBox.prompt('处理说明（可空）', '申诉处理');
+      await api('POST', '/admin/appeals/' + id + '/' + action, {reason: r.value || ''});
+      ElementPlus.ElMessage.success('已处理');
+      this.loadAppeals();
+    },
+    async loadUsers() {
+      const data = await api('GET', '/admin/users?page=' + this.uPage + '&size=20');
+      this.users = data.list || [];
+      this.uTotal = data.total;
+    },
+    async changeRole(user, role) {
+      await api('PUT', '/admin/users/' + user.id + '/role', {role});
+      ElementPlus.ElMessage.success('角色已调整');
+      this.loadUsers();
+    },
+    async changeStatus(user) {
+      await api('PUT', '/admin/users/' + user.id + '/status', {status: user.status === 1 ? 0 : 1});
+      ElementPlus.ElMessage.success('状态已调整');
+      this.loadUsers();
+    },
+    // ---------- 题目管理 ----------
+    isObjective(t) {
+      return ['SINGLE_CHOICE', 'MULTI_CHOICE', 'TRUE_FALSE', 'FILL_BLANK', 'MATCHING', 'ORDERING'].includes(t);
+    },
+    async loadQuestionAdmin() {
+      const f = this.qaFilter;
+      const data = await api('GET', '/admin/questions?page=' + f.page + '&size=20' +
+        (f.keyword ? '&keyword=' + encodeURIComponent(f.keyword) : ''));
+      this.questionAdmin = data.list || [];
+      this.qaTotal = data.total;
+      if (!this.subjectAdmin.length) await this.loadData();
+    },
+    deleteQuestion(id) {
+      // 错误提示已由 api() 统一弹出，这里只吞掉 rejection 避免重复提示
+      api('DELETE', '/admin/questions/' + id).then(() => {
+        ElementPlus.ElMessage.success('已删除');
+        this.loadQuestionAdmin();
+      }).catch(() => {});
+    },
+    openQCreate() {
+      if (!this.questionTypes.length) {
+        api('GET', '/questions/types').then(d => this.questionTypes = d);
+      }
+      this.qForm = {subjectId: this.subjectAdmin.length ? this.subjectAdmin[0].id : null,
+        type: 'SINGLE_CHOICE', stem: '', difficulty: 3, analysis: '',
+        options: [{key: 'A', content: '', isAnswer: true}, {key: 'B', content: '', isAnswer: false},
+          {key: 'C', content: '', isAnswer: false}, {key: 'D', content: '', isAnswer: false}],
+        blanksText: '', reference: ''};
+      this.qDialog = true;
+    },
+    onQTypeChange() {
+      if (this.qForm.type === 'TRUE_FALSE') {
+        this.qForm.options = [{key: 'A', content: '对', isAnswer: true}, {key: 'B', content: '错', isAnswer: false}];
+      } else if (this.qForm.type === 'SINGLE_CHOICE' || this.qForm.type === 'MULTI_CHOICE') {
+        this.qForm.options = [{key: 'A', content: '', isAnswer: true}, {key: 'B', content: '', isAnswer: false},
+          {key: 'C', content: '', isAnswer: false}, {key: 'D', content: '', isAnswer: false}];
+      }
+    },
+    setAnswer(i, v) {
+      if (v) {
+        if (this.qForm.type === 'SINGLE_CHOICE' || this.qForm.type === 'TRUE_FALSE') {
+          this.qForm.options.forEach(o => o.isAnswer = false);
+        }
+        this.qForm.options[i].isAnswer = true;
+      } else {
+        this.qForm.options[i].isAnswer = false;
+      }
+    },
+    async submitQuestion() {
+      const f = this.qForm;
+      if (!f.subjectId || !f.stem) {
+        ElementPlus.ElMessage.warning('请填写科目与题干');
+        return;
+      }
+      const body = {subjectId: f.subjectId, type: f.type, stem: f.stem,
+        difficulty: f.difficulty, score: 2, analysis: f.analysis};
+      if (this.isObjective(f.type) && f.type !== 'FILL_BLANK') {
+        if (f.options.some(o => !o.content)) {
+          ElementPlus.ElMessage.warning('选项内容不能为空');
+          return;
+        }
+        body.options = f.options.map(o => ({key: o.key, content: o.content, isAnswer: !!o.isAnswer}));
+        if (!body.options.some(o => o.isAnswer)) {
+          ElementPlus.ElMessage.warning('请勾选正确答案');
+          return;
+        }
+      } else if (f.type === 'FILL_BLANK') {
+        body.answerContent = {blanks: f.blanksText.split('|').map(x => x.trim()).filter(Boolean), caseSensitive: false};
+      } else {
+        body.answerContent = {reference: f.reference};
+      }
+      await api('POST', '/admin/questions', body);
+      ElementPlus.ElMessage.success('已创建，进入待审核');
+      this.qDialog = false;
+      this.loadQuestionAdmin();
+    },
+    // ---------- 文件上传 ----------
+    async loadResourceTypes2() {
+      if (!this.resourceTypes2.length) this.resourceTypes2 = await api('GET', '/resources/types');
+    },
+    onDocUploaded(resp) {
+      if (resp.code === 200) {
+        this.docForm.fileId = resp.data.fileId;
+        ElementPlus.ElMessage.success('文件上传成功');
+      } else {
+        ElementPlus.ElMessage.error(resp.message || '上传失败');
+      }
+    },
+    onUploadError() {
+      // el-upload 网络层失败（4xx/5xx/断网）不会走 on-success，必须单独提示
+      ElementPlus.ElMessage.error('上传失败');
+    },
+    async submitDoc() {
+      const f = this.docForm;
+      if (!f.title || !f.subjectId) {
+        ElementPlus.ElMessage.warning('请填写标题与科目');
+        return;
+      }
+      f.examCategoryId = 1;
+      await api('POST', '/resources', f);
+      ElementPlus.ElMessage.success('资料已提交审核');
+      this.docForm = {fileId: null, title: '', type: 'NOTE', subjectId: null, description: '', tags: ''};
+    },
+    // ---------- 基础数据扩展 ----------
+    async loadKnowledgeAdmin() {
+      this.knowledgeAdmin = await api('GET', '/admin/data/knowledge?subjectId=' + (this.knowledgeSubjectId || 5));
+    },
+    async promptNewKnowledge() {
+      const r = await ElementPlus.ElMessageBox.prompt('知识点名称', '新增知识点');
+      await api('POST', '/admin/data/knowledge', {name: r.value, subjectId: Number(this.knowledgeSubjectId || 5), parentId: 0, level: 1, sort: 99});
+      this.loadKnowledgeAdmin();
+    },
+    async deleteKnowledge(id) {
+      await api('DELETE', '/admin/data/knowledge/' + id);
+      this.loadKnowledgeAdmin();
+    },
+    async promptNewCollege() {
+      const r = await ElementPlus.ElMessageBox.prompt('学院名称', '新增学院');
+      await api('POST', '/admin/data/colleges', {name: r.value});
+      this.collegeAdmin = await api('GET', '/colleges');
+    },
+    async promptNewTeacher() {
+      const r = await ElementPlus.ElMessageBox.prompt('教师姓名', '新增教师');
+      await api('POST', '/admin/data/teachers', {name: r.value, title: '讲师'});
+      this.teacherAdmin = await api('GET', '/teachers');
+    },
+    async loadAnnouncements() {
+      this.announcements = await api('GET', '/admin/announcements');
+    },
+    editAnn(row) {
+      this.annForm = {id: row.id, title: row.title, content: row.content};
+      this.annDialog = true;
+    },
+    async saveAnn() {
+      if (!this.annForm.title || !this.annForm.content) {
+        ElementPlus.ElMessage.warning('标题和内容必填');
+        return;
+      }
+      if (this.annForm.id) {
+        await api('PUT', '/admin/announcements/' + this.annForm.id, this.annForm);
+      } else {
+        await api('POST', '/admin/announcements', this.annForm);
+      }
+      ElementPlus.ElMessage.success('已保存');
+      this.annDialog = false;
+      this.loadAnnouncements();
+    },
+    async deleteAnn(id) {
+      await ElementPlus.ElMessageBox.confirm('确定删除该公告？', '删除');
+      await api('DELETE', '/admin/announcements/' + id);
+      ElementPlus.ElMessage.success('已删除');
+      this.loadAnnouncements();
+    },
+    async loadData() {
+      this.exams = await api('GET', '/admin/data/exams');
+      this.subjectAdmin = await api('GET', '/admin/data/subjects');
+    },
+    async loadUploadDoc() {
+      await this.loadData();
+      await this.loadResourceTypes2();
+    },
+    async loadHotStats() {
+      this.hotSubjects = await api('GET', '/admin/stats/hot-subjects');
+      this.activeUsers = await api('GET', '/admin/stats/active-users');
+      this.typeAccuracy = await api('GET', '/admin/stats/type-accuracy');
+    },
+    async promptNewExam() {
+      const r = await ElementPlus.ElMessageBox.prompt('考试类别名称', '新增考试类别');
+      await api('POST', '/admin/data/exams', {name: r.value, code: 'EXAM' + Date.now() % 10000, type: 'NATIONAL', sort: 99});
+      this.loadData();
+    },
+    async promptEditExam(row) {
+      const r = await ElementPlus.ElMessageBox.prompt('考试类别名称', '编辑', {inputValue: row.name});
+      await api('PUT', '/admin/data/exams/' + row.id, Object.assign({}, row, {name: r.value}));
+      this.loadData();
+    },
+    async promptNewSubject() {
+      const r = await ElementPlus.ElMessageBox.prompt('科目名称', '新增科目');
+      await api('POST', '/admin/data/subjects', {name: r.value, examCategoryId: 1, sort: 99});
+      this.loadData();
+    },
+    async promptEditSubject(row) {
+      const r = await ElementPlus.ElMessageBox.prompt('科目名称', '编辑', {inputValue: row.name});
+      await api('PUT', '/admin/data/subjects/' + row.id, Object.assign({}, row, {name: r.value}));
+      this.loadData();
+    },
+    async loadAgentRuns() {
+      const data = await api('GET', '/admin/ai/agent/runs?page=' + this.agent.page + '&size=20');
+      this.agent.runs = data.list || [];
+      this.agent.runTotal = data.total;
+    },
+    // ---------- 运行指标（只读，契约 §2） ----------
+    /**
+     * 拉取近 N 天 Agent 运行指标。
+     * days 只取契约允许的 1/7/30（越界后端会 400，前端不静默纠正成别的值）。
+     * 失败时保留上一次成功数据（api() 已统一弹错），并记录 error 供面板顶部 alert 展示，
+     * 绝不写入假数据，避免把「查不到」显示成「0 条 / 0%」。
+     */
+    async loadMetrics() {
+      if (this.metrics.loading) return;
+      const days = [1, 7, 30].indexOf(Number(this.metrics.days)) >= 0 ? Number(this.metrics.days) : 7;
+      this.metrics.loading = true;
+      this.metrics.error = '';
+      try {
+        const data = await api('GET', '/admin/ai/metrics?days=' + days);
+        this.metrics.data = data || {};
+      } catch (e) {
+        this.metrics.error = (e && e.message) ? e.message : '指标加载失败';
+      } finally {
+        this.metrics.loading = false;
+      }
+    },
+    /** 切换指标窗口天数（1/7/30）并重新拉取。 */
+    changeMetricsDays(v) {
+      this.metrics.days = Number(v) || 7;
+      this.loadMetrics();
+    },
+    async replayRun(id) {
+      this.agent.replay = await api('GET', '/admin/ai/agent/runs/' + id);
+      this.agent.replayDialog = true;
+    },
+    async startAgent() {
+      const question = (this.agent.question || '').trim();
+      if (!question) { ElementPlus.ElMessage.warning('请输入问题'); return; }
+      if (this.agent.running) return;
+      this.agent.running = true;
+      this.agent.steps = [];
+      const token = localStorage.getItem('token') || '';
+      try {
+        const resp = await fetch(API + '/ai/agent/stream', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'},
+            token ? {Authorization: 'Bearer ' + token} : {}),
+          body: JSON.stringify({question})
+        });
+        if (!resp.ok) {
+          let msg = 'AI 会话启动失败';
+          try { const j = await resp.json(); msg = j.message || msg; } catch (e) { /* ignore */ }
+          throw new Error(msg);
+        }
+        if (!resp.body) throw new Error('当前浏览器不支持流式读取');
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let eventName = null;
+        let dataLines = [];
+        const dispatch = () => {
+          if (eventName === null && !dataLines.length) return;
+          this.dispatchAgentEvent(eventName || 'message', dataLines.join('\n'));
+          eventName = null;
+          dataLines = [];
+        };
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          // ★ stream:true 防止多字节 UTF-8 字符跨 chunk 乱码
+          buffer += decoder.decode(value, {stream: true});
+          let idx;
+          while ((idx = buffer.search(/\r\n|\r|\n/)) >= 0) {
+            const line = buffer.slice(0, idx);
+            const crlf = buffer.slice(idx, idx + 2) === '\r\n';
+            buffer = buffer.slice(idx + (crlf ? 2 : 1));
+            if (line === '') {
+              dispatch();                    // ★ 空行才是事件边界
+            } else if (line.startsWith(':')) {
+              // SSE 注释（心跳），忽略
+            } else if (line.startsWith('event:')) {
+              eventName = line.slice(6).trim();
+            } else if (line.startsWith('data:')) {
+              dataLines.push(line.slice(5).replace(/^ /, ''));
+            }
+          }
+        }
+        buffer += decoder.decode();
+        if (buffer.trim()) {
+          if (buffer.startsWith('data:')) dataLines.push(buffer.slice(5).replace(/^ /, ''));
+          else if (buffer.startsWith('event:')) eventName = buffer.slice(6).trim();
+        }
+        dispatch();
+      } catch (e) {
+        ElementPlus.ElMessage.error((e && e.message) ? e.message : 'AI 会话失败');
+      } finally {
+        this.agent.running = false;
+        this.loadAgentRuns();
+        this.loadMetrics();   // 一次会话后 RUNNING→终态，指标区随之刷新
+      }
+    },
+    dispatchAgentEvent(name, raw) {
+      let data = {};
+      try { data = JSON.parse(raw); } catch (e) { data = {raw: raw}; }
+      this.agent.steps.push({event: name, data: data, time: new Date().toLocaleTimeString()});
+      this.$nextTick(() => {
+        const el = this.$refs.agentLog;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+    async loadEvalRuns() {
+      const data = await api('GET', '/admin/ai/eval/runs?page=' + this.eval.page + '&size=20');
+      this.eval.runs = data.list || [];
+      this.eval.total = data.total;
+    },
+    // ---------- 评估对比（同 layer 两次运行） ----------
+    /** 下拉项文案：`#id layer createdAt passed/total`。 */
+    compareOptionLabel(r) {
+      if (!r) return '';
+      const id = (r.id === null || r.id === undefined) ? '—' : '#' + r.id;
+      const rate = (r.total || r.total === 0) ? ((r.passed || 0) + '/' + r.total) : '—';
+      return id + ' · ' + (r.layer || '—') + ' · ' + (r.createdAt || '—') + ' · ' + rate;
+    },
+    /** 空值统一显示「—」，避免出现 "null" / "undefined" 字样。 */
+    cellText(v) {
+      return (v === null || v === undefined || v === '') ? '—' : String(v);
+    },
+    idText(v) {
+      return (v === null || v === undefined || v === '') ? '—' : ('#' + v);
+    },
+    /** 比率（0..1）→ 百分比 1 位；null/非数字 → 「—」。 */
+    pctText(v) {
+      if (v === null || v === undefined || v === '') return '—';
+      const n = Number(v);
+      if (!isFinite(n)) return '—';
+      return (n * 100).toFixed(1) + '%';
+    },
+    /**
+     * 拉取两次运行的对比结果。
+     * 缺参（任一侧未选）直接返回并清空，不发请求；缺参/404 由 catch 落到 el-alert，不白屏、不写假数据。
+     */
+    async loadEvalCompare() {
+      const base = this.eval.compareBase;
+      const target = this.eval.compareTarget;
+      if (base === null || base === undefined || base === '' ||
+          target === null || target === undefined || target === '') {
+        this.eval.compareError = '';
+        return;
+      }
+      if (this.eval.compareLoading) return;
+      this.eval.compareLoading = true;
+      this.eval.compareError = '';
+      try {
+        this.eval.compare = await api('GET', '/admin/ai/eval/compare?baseId=' +
+          encodeURIComponent(base) + '&targetId=' + encodeURIComponent(target));
+      } catch (e) {
+        // api() 已统一弹错；这里保留上一次结果，只在顶部给出错误条
+        this.eval.compareError = (e && e.message) ? e.message : '对比失败';
+      } finally {
+        this.eval.compareLoading = false;
+      }
+    },
+    // ---------- 保留期清理（ADMIN，不可恢复） ----------
+    /**
+     * 清理 ai_agent_run 中 created_at 早于 N 天的运行轨迹。
+     * 二次确认 → POST /admin/ai/retention/purge?days=N。
+     * 403 → 「仅超级管理员可执行」；400/500 → 用后端 message；任何失败都不写假数据。
+     */
+    async purgeRetention() {
+      const p = this.eval.purge;
+      if (p.running) return;
+      const days = Number(p.days);
+      if (!isFinite(days) || days < 1 || days > 3650) {
+        ElementPlus.ElMessage.warning('保留天数需在 1..3650 之间');
+        return;
+      }
+      try {
+        await ElementPlus.ElMessageBox.confirm(
+          '将删除 ai_agent_run 中 created_at 早于「近 ' + days + ' 天」的运行轨迹，删除后不可恢复。确认执行？',
+          '确认清理运行轨迹',
+          {type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消',
+            distinguishCancelAndClose: true}
+        );
+      } catch (e) {
+        return;   // 用户取消：什么都不做
+      }
+      p.running = true;
+      p.notice = '';
+      p.noticeType = 'info';
+      try {
+        const r = await api('POST', '/admin/ai/retention/purge?days=' + days) || {};
+        const cutoff = r.cutoff ? String(r.cutoff).slice(0, 10) : '—';
+        const deleted = (r.deleted === null || r.deleted === undefined) ? 0 : r.deleted;
+        p.noticeType = 'success';
+        p.notice = '已清理 ' + deleted + ' 条（早于 ' + cutoff + '）';
+        ElementPlus.ElMessage.success(p.notice);
+      } catch (e) {
+        p.noticeType = 'error';
+        if (e && Number(e.code) === 403) {
+          p.notice = '仅超级管理员可执行';
+        } else {
+          p.notice = (e && e.message) ? e.message : '清理失败，请稍后重试';
+        }
+      } finally {
+        p.running = false;
+      }
+    },
+    async startEval(layer) {
+      if (this.eval.running) return;
+      this.eval.running = true;
+      try {
+        const task = await api('POST', '/admin/ai/eval/' + layer);
+        this.eval.task = task;
+        await this.pollJob(task.id);
+        if (this.eval.task && this.eval.task.status === 'SUCCESS') {
+          ElementPlus.ElMessage.success('评估完成');
+        } else {
+          ElementPlus.ElMessage.warning('评估未成功：' + (this.eval.task ? this.eval.task.status : 'UNKNOWN'));
+        }
+        await this.loadEvalRuns();
+      } finally {
+        this.eval.running = false;
+      }
+    },
+    async pollJob(id) {
+      for (let i = 0; i < 900; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          this.eval.task = await api('GET', '/admin/ai/jobs/' + id);
+        } catch (e) {
+          return;
+        }
+        if (['SUCCESS', 'FAILED', 'CANCELLED'].includes(this.eval.task.status)) return;
+      }
+    },
+    async openEvalRun(id) {
+      const run = await api('GET', '/admin/ai/eval/runs/' + id);
+      let metrics = {};
+      let rows = [];
+      try { metrics = JSON.parse(run.metricsJson || '{}'); } catch (e) { metrics = {}; }
+      try { rows = JSON.parse(run.detailJson || '[]'); } catch (e) { rows = []; }
+      const columns = run.layer === 'RETRIEVAL'
+        ? [{key: 'id', label: '用例'}, {key: 'question', label: '问题'},
+           {key: 'rank', label: '首个命中'}, {key: 'recall', label: '结果'},
+           {key: 'mode', label: '模式'}]
+        : [{key: 'id', label: '任务'}, {key: 'goal', label: '目标'},
+           {key: 'tools', label: '工具链'}, {key: 'result', label: '结果'},
+           {key: 'reason', label: '失败原因'}, {key: 'steps', label: '步数'},
+           {key: 'ms', label: '耗时ms'}];
+      this.eval.detail = {
+        metrics: metrics,
+        reportPath: run.reportPath,
+        rows: rows,
+        columns: columns
+      };
+      this.eval.detailDialog = true;
+    },
+    async loadWiki() {
+      this.wiki.stats = await api('GET', '/admin/wiki/stats');
+      await Promise.all([
+        this.loadWikiRevisions(), this.loadWikiPages(), this.loadWikiGraph()
+      ]);
+    },
+    async loadWikiRevisions() {
+      const data = await api('GET', '/admin/wiki/revisions?status=PENDING&page=' +
+        this.wiki.revPage + '&size=20');
+      this.wiki.revisions = data.list || [];
+      this.wiki.revTotal = data.total;
+    },
+    async loadWikiPages() {
+      const data = await api('GET', '/admin/wiki/pages?page=' +
+        this.wiki.pagePage + '&size=20');
+      this.wiki.pages = data.list || [];
+      this.wiki.pageTotal = data.total;
+    },
+    async loadWikiGraph() {
+      try {
+        this.wiki.graph = await api('GET', '/wiki/graph');
+      } catch (e) {
+        this.wiki.graph = {nodes: [], edges: []};
+      }
+    },
+    openWikiRevision(row) {
+      this.wiki.revision = row;
+      this.wiki.revisionDialog = true;
+    },
+    async approveWikiRevision(id) {
+      await api('POST', '/admin/wiki/revisions/' + id + '/approve', {note: ''});
+      ElementPlus.ElMessage.success('已发布（版本 +1，向量已同步）');
+      this.wiki.revisionDialog = false;
+      await this.loadWiki();
+    },
+    async rejectWikiRevision(id) {
+      const r = await ElementPlus.ElMessageBox.prompt('驳回原因（可空）', '驳回草稿');
+      await api('POST', '/admin/wiki/revisions/' + id + '/reject', {note: r.value || ''});
+      ElementPlus.ElMessage.success('已驳回');
+      this.wiki.revisionDialog = false;
+      await this.loadWiki();
+    },
+    async openWikiPage(id) {
+      this.wiki.page = await api('GET', '/wiki/pages/' + id);
+      this.wiki.pageDialog = true;
+    },
+    async offlineWikiPage(id) {
+      await ElementPlus.ElMessageBox.confirm('下架后问答热层不再命中该页，确定继续？', '下架页面');
+      await api('POST', '/admin/wiki/pages/' + id + '/offline');
+      ElementPlus.ElMessage.success('已下架');
+      await this.loadWiki();
+    },
+    async startWikiDistill() {
+      if (this.wiki.running) return;
+      const subjectId = this.wiki.scope === 'SUBJECT' ? this.wiki.subjectId : null;
+      if (this.wiki.scope === 'SUBJECT' && !subjectId) {
+        ElementPlus.ElMessage.warning('请输入科目 ID');
+        return;
+      }
+      this.wiki.running = true;
+      try {
+        const task = await api('POST', '/admin/wiki/distill?scope=' + this.wiki.scope +
+          (subjectId ? '&subjectId=' + subjectId : ''));
+        this.wiki.task = task;
+        await this.pollWikiJob(task.taskId);
+        if (this.wiki.task && this.wiki.task.status === 'SUCCESS') {
+          ElementPlus.ElMessage.success('蒸馏完成，请到「待审草稿」审核');
+        } else {
+          ElementPlus.ElMessage.warning('蒸馏未成功：' +
+            (this.wiki.task ? this.wiki.task.status : 'UNKNOWN'));
+        }
+        await this.loadWiki();
+      } finally {
+        this.wiki.running = false;
+      }
+    },
+    async pollWikiJob(id) {
+      for (let i = 0; i < 1800; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          this.wiki.task = await api('GET', '/admin/ai/jobs/' + id);
+        } catch (e) {
+          return;
+        }
+        if (['SUCCESS', 'FAILED', 'CANCELLED'].includes(this.wiki.task.status)) return;
+      }
+    },
+    async rebuildWikiVector() {
+      this.wiki.running = true;
+      try {
+        const result = await api('POST', '/admin/wiki/vector/rebuild');
+        ElementPlus.ElMessage.success('重建完成：synced=' + result.synced + ' failed=' + result.failed);
+      } finally {
+        this.wiki.running = false;
+      }
+    },
+    async loadLogs() {
+      const data = await api('GET', '/admin/logs?page=' + this.logPage + '&size=20');
+      this.logs = data.list || [];
+      this.logTotal = data.total;
+    }
+  },
+  mounted() {
+    if (this.token) this.loadView();
+  }
+}).component('metrics-panel', MetricsPanel).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

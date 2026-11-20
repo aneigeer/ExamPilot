@@ -1,0 +1,115 @@
+[
+  {
+    "label": "无 subjectId",
+    "request": {
+      "question": "矩阵的秩怎么求",
+      "subjectId": null
+    },
+    "data": {
+      "question": "矩阵的秩怎么求",
+      "answer": "未找到相关资料",
+      "generator": "ollama",
+      "engine": "RAG",
+      "fallbackFromWiki": true,
+      "degraded": false,
+      "refused": true,
+      "costMillis": 9639,
+      "retrievalMillis": 232,
+      "retrievalMode": "VECTOR_HYBRID",
+      "recallCount": 11,
+      "sources": [
+        {
+          "chunkId": 10328,
+          "title": "大模型LoRA微调面试题",
+          "snippet": "《大模型LoRA微调面试题》 参数量，所以效果比全量微调差很多。可能在扩散模型上感知没那么强，但在LLM上，个人感觉表现还是差距挺大的。 十、LoRA这种微调方法和全参数比起来有什么劣势吗？ 如果有足够计算资源以及有10k以上数据，我还是建议全参数微调，lora的一个初衷就是为了解决不够计算资源的情况下微调，只引入了少…",
+          "refType": "COURSEWARE",
+          "refId": 95,
+          "refPath": "/courseware/95",
+          "offset": -1
+        },
+        {
+          "chunkId": 9668,
+          "title": "编码器和解码器面试题",
+          "snippet": "《编码器和解码器面试题》 我们会用这个概率分布乘以对应的单词的Value向量。 最终单词 Thinking的输出 等于所有单词 的值 、根据 attention 系数的比例加在一起得到： 2.2.5 利用矩阵快速并行计算整个输入的注意力分布 12.2.2.1～12.2.2.4中，我们用向量级别的运算来举例子，现在我们讲…",
+          "refType": "COURSEWARE",
+          "refId": 41,
+          "refPath": "/courseware/41",
+          "offset": -1
+        },
+        {
+          "chunkId": 10326,
+          "title": "大模型LoRA微调面试题",
+          "snippet": "《大模型LoRA微调面试题》 精度技术将预训练模型量化为 4 bit； 然后添加一小组可学习的低秩适配器权重，这些权重通过量化权重的反向传播梯度进行微调。 2.2 QLoRA 的特点是什么？ 使用 QLoRA 微调模型，可以显著降低对于显存的要求。同时，模型训练的速度会慢于LoRA。 三、AdaLoRA篇 3.1 Ad…",
+          "refType": "COURSEWARE",
+          "refId": 95,
+          "refPath": "/courseware/95",
+          "offset": -1
+        }
+      ],
+      "contexts": [
+        "大模型LoRA微调面试题",
+        "编码器和解码器面试题",
+        "大模型LoRA微调面试题",
+        "大模型推理相关面试题",
+        "自然语言处理与LLM面试题"
+      ]
+    }
+  },
+  {
+    "label": "subjectId=214 操作系统",
+    "request": {
+      "question": "矩阵的秩怎么求",
+      "subjectId": 214
+    },
+    "data": {
+      "question": "矩阵的秩怎么求",
+      "answer": "未找到相关资料",
+      "generator": "none",
+      "engine": "RAG",
+      "fallbackFromWiki": true,
+      "degraded": false,
+      "refused": true,
+      "costMillis": 173,
+      "retrievalMillis": 173,
+      "retrievalMode": "NONE",
+      "recallCount": 2,
+      "sources": [],
+      "contexts": []
+    }
+  },
+  {
+    "label": "subjectId=2 线性代数",
+    "request": {
+      "question": "矩阵的秩怎么求",
+      "subjectId": 2
+    },
+    "data": {
+      "question": "矩阵的秩怎么求",
+      "answer": "根据《矩阵》：知识点：矩阵\n相关题目：简述 n 阶方阵 A 可逆的充分必要条件。",
+      "generator": "extractive",
+      "engine": "RAG",
+      "fallbackFromWiki": true,
+      "degraded": true,
+      "refused": false,
+      "costMillis": 556,
+      "retrievalMillis": 194,
+      "retrievalMode": "VECTOR_ONLY",
+      "recallCount": 4,
+      "sources": [
+        {
+          "chunkId": 38,
+          "title": "矩阵",
+          "snippet": "知识点：矩阵 相关题目：简述 n 阶方阵 A 可逆的充分必要条件。",
+          "refType": "KNOWLEDGE",
+          "refId": 20,
+          "refPath": "/knowledge/20",
+          "offset": 0
+        }
+      ],
+      "contexts": [
+        "矩阵",
+        "简述 n 阶方阵 A 可逆的充分必要条件。"
+      ]
+    }
+  }
+]

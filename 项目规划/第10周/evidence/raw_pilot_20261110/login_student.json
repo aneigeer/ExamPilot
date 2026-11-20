@@ -1,0 +1,1 @@
+{"code":200,"message":"登录成功","data":{"token":"<REDACTED_JWT>","expiresIn":604800,"user":{"id":3,"nickname":"李同学","maskedStudentNo":"2021****01","role":"STUDENT","collegeId":1,"grade":"2021"}},"traceId":"9252fb0062d62dac"}

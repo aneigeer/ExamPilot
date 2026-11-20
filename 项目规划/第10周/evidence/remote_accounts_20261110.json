@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "week": 10,
+    "date": "2026-11-10",
+    "owner": "software-engineer-db",
+    "task": "第10周 P0-1/P0-2 追加项：同实例上 3 个 % 主机业务账户的暴露面评估",
+    "mysql_version": "8.0.46",
+    "note": "本文件只记录账户名/主机/权限类型与验证结论，不含任何口令或口令哈希"
+  },
+  "remote_accounts": [
+    {
+      "account": "dg_ctl@'%'",
+      "account_locked": false,
+      "plugin": "caching_sha2_password",
+      "schemas": ["dg_system"],
+      "privileges": ["ALTER", "CREATE", "INDEX", "INSERT", "REFERENCES", "SELECT"],
+      "referenced_in_this_repo": false,
+      "referenced_outside_repo": true,
+      "reference_locations": [
+        "D:/DBGuaredian/.env",
+        "D:/DBGuaredian/.env.example (DG_CONTROL_PASSWORD，值为 CHANGE_ME_* 占位符)",
+        "D:/DBGuaredian/.github/workflows/ci.yml",
+        "D:/DBGuaredian/adapters/mysql/adapter.py",
+        "D:/DBGuaredian/apps/api/deps.py"
+      ],
+      "disposition": "KEPT_UNLOCKED",
+      "reason": "属于同机另一个在用项目 DBGuardian（dg_system 18 表 / 约 7945 行，最新建表 2026-11-09；dg_lab 2 表 / 约 240 行）。锁定或改 host 会打断该项目（含其 CI），超出本周 P0 授权范围。",
+      "verification": {
+        "lan_wrong_password": "ERROR 1045 (Access denied for user 'dg_ctl'@'a')",
+        "lan_empty_password": "exit code 1（拒绝，无空口令账户）",
+        "active_sessions": 0
+      }
+    },
+    {
+      "account": "dg_ro@'%'",
+      "account_locked": false,
+      "plugin": "caching_sha2_password",
+      "schemas": ["dg_lab", "performance_schema"],
+      "privileges": ["SELECT"],
+      "referenced_in_this_repo": false,
+      "referenced_outside_repo": true,
+      "reference_locations": [
+        "D:/DBGuaredian/.env",
+        "D:/DBGuaredian/.env.example (DG_RO_DSN / DG_RO_PASSWORD，CHANGE_ME_* 占位符)",
+        "D:/DBGuaredian/benchmarks/faults/injector.py",
+        "D:/DBGuaredian/benchmarks/baseline_v0/tool_schema.json"
+      ],
+      "disposition": "KEPT_UNLOCKED",
+      "reason": "同上，DBGuardian 的只读账号（DSN 指向 127.0.0.1:3306/dg_lab）。",
+      "verification": {
+        "lan_wrong_password": "ERROR 1045 (Access denied for user 'dg_ro'@'a')",
+        "lan_empty_password": "exit code 1（拒绝）",
+        "active_sessions": 0
+      }
+    },
+    {
+      "account": "dg_rw@'%'",
+      "account_locked": false,
+      "plugin": "caching_sha2_password",
+      "schemas": ["dg_lab"],
+      "privileges": [
+        "ALTER", "CREATE", "CREATE TEMPORARY TABLES", "DELETE", "DROP",
+        "INDEX", "INSERT", "LOCK TABLES", "REFERENCES", "SELECT", "UPDATE"
+      ],
+      "referenced_in_this_repo": false,
+      "referenced_outside_repo": true,
+      "reference_locations": [
+        "D:/DBGuaredian/.env",
+        "D:/DBGuaredian/.env.example (DG_RW_DSN / DG_RW_PASSWORD，CHANGE_ME_* 占位符)",
+        "D:/DBGuaredian/benchmarks/faults/injector.py"
+      ],
+      "disposition": "KEPT_UNLOCKED",
+      "reason": "同上，DBGuardian 的沙箱写账号（仅 dg_lab 受控写权限，用于故障注入演练）。",
+      "verification": {
+        "lan_wrong_password": "ERROR 1045 (Access denied for user 'dg_rw'@'a')",
+        "lan_empty_password": "exit code 1（拒绝）",
+        "active_sessions": 0
+      }
+    }
+  ],
+  "grep_evidence": {
+    "command": "grep -rl \"dg_ctl|dg_ro|dg_rw\" --exclude-dir=.git --exclude-dir=target --exclude-dir=node_modules .",
+    "matches_in_this_repo": [
+      "项目规划/第10周/01_P0收口_数据库与超管凭据_2026-11-10.md（本报告的风险描述）",
+      "项目规划/第10周/evidence/credential_rollback_20261110.txt（回滚点现状记录，已 gitignore）"
+    ],
+    "conclusion": "本仓无任何代码/脚本/配置在用这三个账户；引用全部位于同机另一个项目 D:/DBGuaredian。"
+  },
+  "exposure_state": {
+    "bind_address_runtime": "0.0.0.0",
+    "bind_address_configured": "127.0.0.1",
+    "pending_action": "Restart-Service mysql（需管理员权限，本轮无权限）",
+    "after_restart_expectation": "3306/33060 仅监听 127.0.0.1，这三个 % 账户从局域网不可达（主机不匹配），无需锁定即被网络层挡住"
+  },
+  "recommended_followups": [
+    {
+      "priority": "高",
+      "action": "与 DBGuardian 的负责人确认其连接来源：若只用 127.0.0.1，则 RENAME USER 到 'localhost'（保留口令与权限，只收窄主机）",
+      "sql": "RENAME USER 'dg_ctl'@'%' TO 'dg_ctl'@'localhost', 'dg_ro'@'%' TO 'dg_ro'@'localhost', 'dg_rw'@'%' TO 'dg_rw'@'localhost';",
+      "status": "NOT_APPLIED（改动会跨项目生效，未经确认不动）"
+    },
+    {
+      "priority": "高",
+      "action": "若 DBGuardian 已下线/迁移，再执行可逆锁定",
+      "sql": "ALTER USER 'dg_ctl'@'%' ACCOUNT LOCK, 'dg_ro'@'%' ACCOUNT LOCK, 'dg_rw'@'%' ACCOUNT LOCK;",
+      "rollback_sql": "ALTER USER 'dg_ctl'@'%' ACCOUNT UNLOCK, 'dg_ro'@'%' ACCOUNT UNLOCK, 'dg_rw'@'%' ACCOUNT UNLOCK;",
+      "status": "NOT_APPLIED（待确认）"
+    },
+    {
+      "priority": "中",
+      "action": "dg_rw 具备 dg_lab 的 DROP/ALTER 权限且主机为 %，建议在 DBGuardian 侧轮换口令并考虑只给到具体表",
+      "status": "NOT_APPLIED（跨项目）"
+    }
+  ]
+}

@@ -110,7 +110,7 @@
 | GET | /exams/mock/{id} | 取卷（含剩余秒数） |
 | POST | /exams/mock/{id}/answer | 覆盖式作答 |
 | POST | /exams/mock/{id}/submit · GET /exams/mock/{id}/report | 交卷判分 / 成绩报告 |
-| POST | /run | 编程题在线运行（C/JAVA，超时 10s；**仅限本机使用**，公网部署须换独立判题沙箱） |
+| POST | /run | 编程题在线运行（C/JAVA，超时 10s；**仅限本机使用**，公网部署须换独立判题沙箱）<br>⚠️ **默认关闭**：`app.code-run.enabled=false` 时该 Controller 不注册，请求返回 404；需 `--app.code-run.enabled=true` 且完成隔离验收后开启 |
 
 ## 11 管理端 Web 页面
 `GET /api/admin/index.html`（静态页 PUBLIC，页面内管理 API 均有角色校验）

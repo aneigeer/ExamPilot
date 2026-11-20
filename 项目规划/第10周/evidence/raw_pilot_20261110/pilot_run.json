@@ -1,0 +1,3411 @@
+{
+  "started_at": "2026-11-10T18:00:34.671+08:00",
+  "phases": {
+    "student": {
+      "started_at": "2026-11-10T18:00:34.672+08:00",
+      "steps": [
+        {
+          "step": "A1-1 学生端页面",
+          "http": 200,
+          "ms": 24.7,
+          "bytes": 53282,
+          "title": "备考助手 · 学生端",
+          "title_match": true,
+          "expect": "备考助手 · 学生端"
+        },
+        {
+          "step": "A1-2 管理端页面",
+          "http": 200,
+          "ms": 20.1,
+          "bytes": 103203,
+          "title": "备考知识库 · 后台管理端",
+          "title_match": true,
+          "expect": "备考知识库 · 后台管理端"
+        },
+        {
+          "step": "A2-1 登录",
+          "note": "复用本次会话已取得的 token（避免触发登录限流）",
+          "result": {
+            "http": 200,
+            "ms": 10.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "id": 3,
+              "nickname": "李同学",
+              "maskedStudentNo": "2021****01",
+              "role": "STUDENT",
+              "collegeId": 1,
+              "grade": "2021"
+            },
+            "raw_len": 176,
+            "path": "/auth/me",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A2-0 科目列表",
+          "result": {
+            "http": 200,
+            "ms": 20.0,
+            "code": 200,
+            "message": "成功",
+            "data": [
+              {
+                "id": 214,
+                "name": "操作系统",
+                "description": "操作系统 课程课件（PPT 导入）",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 0,
+                "status": 1
+              },
+              {
+                "id": 1,
+                "name": "高等数学A",
+                "description": "微积分、级数、常微分方程",
+                "questionCount": 3,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 6,
+                "name": "CET4 词汇",
+                "description": "四级核心词汇",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 10,
+                "name": "CET6 词汇",
+                "description": "六级核心词汇",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 12,
+                "name": "MS Office 高级应用",
+                "description": "Word / Excel / PPT 综合应用",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 100,
+                "name": "计算机基础",
+                "description": "课程编号 130090064｜2024-2025-1｜1学分/16学时｜考核：考试",
+                "questionCount": 1,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 190,
+                "name": "行政职业能力测验",
+                "description": "行政职业能力测验（国考行测）",
+                "questionCount": 2470,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 200,
+                "name": "考研数学（一）",
+                "description": "高等数学、线性代数、概率论与数理统计",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 1,
+                "status": 1
+              },
+              {
+                "id": 2,
+                "name": "线性代数",
+                "description": "矩阵、行列式、向量空间",
+                "questionCount": 2,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 7,
+                "name": "CET4 阅读",
+                "description": "仔细阅读与长篇阅读",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 11,
+                "name": "CET6 阅读",
+                "description": "六级阅读强化",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 13,
+                "name": "C语言二级",
+                "description": "二级 C 语言程序设计",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 101,
+                "name": "心理健康教育（一）",
+                "description": "课程编号 130090489｜2024-2025-1｜0.5学分/8学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 201,
+                "name": "考研数学（二）",
+                "description": "高等数学、线性代数",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 2,
+                "status": 1
+              },
+              {
+                "id": 3,
+                "name": "大学英语",
+                "description": "综合英语与读写译",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 3,
+                "status": 1
+              },
+              {
+                "id": 8,
+                "name": "CET4 听力",
+                "description": "短篇新闻、长对话、听力篇章",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 3,
+                "status": 1
+              },
+              {
+                "id": 102,
+                "name": "信息与计算科学导论",
+                "description": "课程编号 130140111｜2024-2025-1｜1学分/16学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 3,
+                "status": 1
+              },
+              {
+                "id": 202,
+                "name": "考研数学（三）",
+                "description": "微积分、线性代数、概率论与数理统计",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 3,
+                "status": 1
+              },
+              {
+                "id": 4,
+                "name": "数据结构",
+                "description": "线性表、树、图、查找与排序",
+                "questionCount": 4,
+                "resourceCount": 0,
+                "sort": 4,
+                "status": 1
+              },
+              {
+                "id": 9,
+                "name": "CET4 写作翻译",
+                "description": "作文与段落翻译",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 4,
+                "status": 1
+              },
+              {
+                "id": 103,
+                "name": "解析几何",
+                "description": "课程编号 130141012｜2024-2025-1｜2学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 4,
+                "status": 1
+              },
+              {
+                "id": 203,
+                "name": "考研英语（一）",
+                "description": "完形填空、阅读理解、新题型、翻译、写作",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 4,
+                "status": 1
+              },
+              {
+                "id": 5,
+                "name": "C语言程序设计",
+                "description": "语法基础、函数、指针、结构体",
+                "questionCount": 17,
+                "resourceCount": 6,
+                "sort": 5,
+                "status": 1
+              },
+              {
+                "id": 104,
+                "name": "数学分析（一）",
+                "description": "课程编号 130140214｜2024-2025-1｜5学分/80学时｜考核：考试",
+                "questionCount": 1,
+                "resourceCount": 0,
+                "sort": 5,
+                "status": 1
+              },
+              {
+                "id": 204,
+                "name": "考研英语（二）",
+                "description": "完形填空、阅读理解、新题型、翻译、写作",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 5,
+                "status": 1
+              },
+              {
+                "id": 105,
+                "name": "高等代数I",
+                "description": "课程编号 130140217｜2024-2025-1｜3.5学分/56学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 6,
+                "status": 1
+              },
+              {
+                "id": 210,
+                "name": "考研政治",
+                "description": "马克思主义基本原理、毛中特、史纲、思修法基、形势与政策",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 6,
+                "status": 1
+              },
+              {
+                "id": 106,
+                "name": "大学生职业生涯规划",
+                "description": "课程编号 230100035｜2024-2025-1｜1学分/20学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 7,
+                "status": 1
+              },
+              {
+                "id": 107,
+                "name": "大学英语（一）",
+                "description": "课程编号 230110446｜2024-2025-1｜2学分/64学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 8,
+                "status": 1
+              },
+              {
+                "id": 108,
+                "name": "形势与政策I",
+                "description": "课程编号 230260005｜2024-2025-1｜0.5学分/6学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 9,
+                "status": 1
+              },
+              {
+                "id": 109,
+                "name": "思想道德与法治",
+                "description": "课程编号 230260013｜2024-2025-1｜3学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 10,
+                "status": 1
+              },
+              {
+                "id": 110,
+                "name": "计算机基础实验",
+                "description": "课程编号 330090065｜2024-2025-1｜1学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 11,
+                "status": 1
+              },
+              {
+                "id": 111,
+                "name": "基础体育课",
+                "description": "课程编号 430180004｜2024-2025-1｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 12,
+                "status": 1
+              },
+              {
+                "id": 112,
+                "name": "军事训练",
+                "description": "课程编号 832119327｜2024-2025-1｜2学分/2学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 13,
+                "status": 1
+              },
+              {
+                "id": 113,
+                "name": "心理健康教育（二）",
+                "description": "课程编号 130090490｜2024-2025-2｜0.5学分/8学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 14,
+                "status": 1
+              },
+              {
+                "id": 114,
+                "name": "C++程序设计",
+                "description": "课程编号 130090522｜2024-2025-2｜2学分/32学时｜考核：考试",
+                "questionCount": 1,
+                "resourceCount": 0,
+                "sort": 15,
+                "status": 1
+              },
+              {
+                "id": 115,
+                "name": "大学物理2",
+                "description": "课程编号 130140025｜2024-2025-2｜4学分/64学时｜考核：考试",
+                "questionCount": 1,
+                "resourceCount": 0,
+                "sort": 16,
+                "status": 1
+              },
+              {
+                "id": 116,
+                "name": "数学分析（二）",
+                "description": "课程编号 130140215｜2024-2025-2｜5学分/80学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 17,
+                "status": 1
+              },
+              {
+                "id": 117,
+                "name": "高等代数Ⅱ",
+                "description": "课程编号 130140218｜2024-2025-2｜3学分/48学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 18,
+                "status": 1
+              },
+              {
+                "id": 118,
+                "name": "形势与政策II",
+                "description": "课程编号 130260007｜2024-2025-2｜0.5学分/6学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 19,
+                "status": 1
+              },
+              {
+                "id": 119,
+                "name": "劳动教育概论",
+                "description": "课程编号 133000001｜2024-2025-2｜0.5学分/8学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 20,
+                "status": 1
+              },
+              {
+                "id": 120,
+                "name": "应用文写作",
+                "description": "课程编号 230150006｜2024-2025-2｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 21,
+                "status": 1
+              },
+              {
+                "id": 121,
+                "name": "马克思主义基本原理",
+                "description": "课程编号 230260002｜2024-2025-2｜3学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 22,
+                "status": 1
+              },
+              {
+                "id": 122,
+                "name": "军事理论",
+                "description": "课程编号 230260011｜2024-2025-2｜2学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 23,
+                "status": 1
+              },
+              {
+                "id": 123,
+                "name": "创新创业基础",
+                "description": "课程编号 240100004｜2024-2025-2｜2学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 24,
+                "status": 1
+              },
+              {
+                "id": 124,
+                "name": "大学英语（二）",
+                "description": "课程编号 266690001｜2024-2025-2｜2学分/64学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 25,
+                "status": 1
+              },
+              {
+                "id": 125,
+                "name": "C++程序设计实验",
+                "description": "课程编号 330090523｜2024-2025-2｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 26,
+                "status": 1
+              },
+              {
+                "id": 126,
+                "name": "大学物理2实验",
+                "description": "课程编号 366790001｜2024-2025-2｜0.5学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 27,
+                "status": 1
+              },
+              {
+                "id": 127,
+                "name": "认知实习",
+                "description": "课程编号 430140157｜2024-2025-2｜1学分/1学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 28,
+                "status": 1
+              },
+              {
+                "id": 128,
+                "name": "体育选项课I",
+                "description": "课程编号 430180005｜2024-2025-2｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 29,
+                "status": 1
+              },
+              {
+                "id": 129,
+                "name": "心理健康教育（三）",
+                "description": "课程编号 467170001｜2024-2025-2｜1学分/16学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 30,
+                "status": 1
+              },
+              {
+                "id": 130,
+                "name": "数据库原理",
+                "description": "课程编号 107050003｜2025-2026-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 31,
+                "status": 1
+              },
+              {
+                "id": 131,
+                "name": "面向对象分析与设计",
+                "description": "课程编号 107050009｜2025-2026-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 32,
+                "status": 1
+              },
+              {
+                "id": 132,
+                "name": "林学概论",
+                "description": "课程编号 130010050｜2025-2026-1｜1学分/16学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 33,
+                "status": 1
+              },
+              {
+                "id": 133,
+                "name": "大学英语（三）",
+                "description": "课程编号 130110022｜2025-2026-1｜1.5学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 34,
+                "status": 1
+              },
+              {
+                "id": 134,
+                "name": "常微分方程",
+                "description": "课程编号 130140127｜2025-2026-1｜2.5学分/40学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 35,
+                "status": 1
+              },
+              {
+                "id": 135,
+                "name": "程序设计基础",
+                "description": "课程编号 130140128｜2025-2026-1｜2学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 36,
+                "status": 1
+              },
+              {
+                "id": 136,
+                "name": "专业英语（信息与计算科学）",
+                "description": "课程编号 130140151｜2025-2026-1｜1.5学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 37,
+                "status": 1
+              },
+              {
+                "id": 137,
+                "name": "数学分析（三）",
+                "description": "课程编号 130140216｜2025-2026-1｜3.5学分/56学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 38,
+                "status": 1
+              },
+              {
+                "id": 138,
+                "name": "国家安全教育",
+                "description": "课程编号 167070002｜2025-2026-1｜1学分/10学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 39,
+                "status": 1
+              },
+              {
+                "id": 139,
+                "name": "中国近现代史纲要",
+                "description": "课程编号 230260004｜2025-2026-1｜3学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 40,
+                "status": 1
+              },
+              {
+                "id": 140,
+                "name": "形势与政策Ⅲ",
+                "description": "课程编号 230260006｜2025-2026-1｜0.5学分/6学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 41,
+                "status": 1
+              },
+              {
+                "id": 141,
+                "name": "数据库原理（实践）",
+                "description": "课程编号 307050004｜2025-2026-1｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 42,
+                "status": 1
+              },
+              {
+                "id": 142,
+                "name": "面向对象分析与设计（实践）",
+                "description": "课程编号 307050014｜2025-2026-1｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 43,
+                "status": 1
+              },
+              {
+                "id": 143,
+                "name": "程序设计基础（实践）",
+                "description": "课程编号 330140129｜2025-2026-1｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 44,
+                "status": 1
+              },
+              {
+                "id": 144,
+                "name": "体育选项课II",
+                "description": "课程编号 430180006｜2025-2026-1｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 45,
+                "status": 1
+              },
+              {
+                "id": 145,
+                "name": "数学建模",
+                "description": "课程编号 107050005｜2025-2026-2｜3学分/48学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 46,
+                "status": 1
+              },
+              {
+                "id": 146,
+                "name": "数值分析与最优化",
+                "description": "课程编号 107050007｜2025-2026-2｜1.5学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 47,
+                "status": 1
+              },
+              {
+                "id": 147,
+                "name": "Java程序设计",
+                "description": "课程编号 107050011｜2025-2026-2｜2.5学分/40学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 48,
+                "status": 1
+              },
+              {
+                "id": 148,
+                "name": "大学英语（四）",
+                "description": "课程编号 130110023｜2025-2026-2｜1.5学分/24学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 49,
+                "status": 1
+              },
+              {
+                "id": 149,
+                "name": "数据结构6",
+                "description": "课程编号 130140130｜2025-2026-2｜3学分/48学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 50,
+                "status": 1
+              },
+              {
+                "id": 150,
+                "name": "形势与政策IV",
+                "description": "课程编号 130260008｜2025-2026-2｜0.5学分/6学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 51,
+                "status": 1
+              },
+              {
+                "id": 151,
+                "name": "毛泽东思想和中国特色社会主义理论体系概论",
+                "description": "课程编号 267050001｜2025-2026-2｜3学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 52,
+                "status": 1
+              },
+              {
+                "id": 152,
+                "name": "习近平新时代中国特色社会主义思想概论",
+                "description": "课程编号 267050002｜2025-2026-2｜3学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 53,
+                "status": 1
+              },
+              {
+                "id": 153,
+                "name": "Java程序设计（实践）",
+                "description": "课程编号 307050015｜2025-2026-2｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 54,
+                "status": 1
+              },
+              {
+                "id": 154,
+                "name": "数学建模实验",
+                "description": "课程编号 330140143｜2025-2026-2｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 55,
+                "status": 1
+              },
+              {
+                "id": 155,
+                "name": "数据结构6实验",
+                "description": "课程编号 330140181｜2025-2026-2｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 56,
+                "status": 1
+              },
+              {
+                "id": 156,
+                "name": "Web前端开发",
+                "description": "课程编号 330140182｜2025-2026-2｜1.5学分/56学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 57,
+                "status": 1
+              },
+              {
+                "id": 157,
+                "name": "体育选项课Ⅲ",
+                "description": "课程编号 430180007｜2025-2026-2｜1学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 58,
+                "status": 1
+              },
+              {
+                "id": 158,
+                "name": "数据挖掘",
+                "description": "课程编号 107050008｜2026-2027-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 59,
+                "status": 1
+              },
+              {
+                "id": 159,
+                "name": "VC++高级编程",
+                "description": "课程编号 107050010｜2026-2027-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 60,
+                "status": 1
+              },
+              {
+                "id": 160,
+                "name": "数据可视化技术",
+                "description": "课程编号 107050013｜2026-2027-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 61,
+                "status": 1
+              },
+              {
+                "id": 161,
+                "name": "概率论与数理统计",
+                "description": "课程编号 130140121｜2026-2027-1｜4学分/54学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 62,
+                "status": 1
+              },
+              {
+                "id": 162,
+                "name": "数值代数2",
+                "description": "课程编号 130140123｜2026-2027-1｜3学分/48学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 63,
+                "status": 1
+              },
+              {
+                "id": 163,
+                "name": "操作系统2",
+                "description": "课程编号 130140140｜2026-2027-1｜2.5学分/40学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 64,
+                "status": 1
+              },
+              {
+                "id": 164,
+                "name": "软件工程（双语）",
+                "description": "课程编号 130140150｜2026-2027-1｜2学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 65,
+                "status": 1
+              },
+              {
+                "id": 165,
+                "name": "Python编程",
+                "description": "课程编号 130140168｜2026-2027-1｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 66,
+                "status": 1
+              },
+              {
+                "id": 166,
+                "name": "数值分析2实验",
+                "description": "课程编号 330140126｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 67,
+                "status": 1
+              },
+              {
+                "id": 167,
+                "name": "数据挖掘实验",
+                "description": "课程编号 330140135｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 68,
+                "status": 1
+              },
+              {
+                "id": 168,
+                "name": "数据可视化实验",
+                "description": "课程编号 330140147｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 69,
+                "status": 1
+              },
+              {
+                "id": 169,
+                "name": "Python编程实验",
+                "description": "课程编号 330140169｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 70,
+                "status": 1
+              },
+              {
+                "id": 170,
+                "name": "软件工程（双语）实验",
+                "description": "课程编号 330140179｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 71,
+                "status": 1
+              },
+              {
+                "id": 171,
+                "name": "VC++高级编程实验",
+                "description": "课程编号 330140220｜2026-2027-1｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 72,
+                "status": 1
+              },
+              {
+                "id": 172,
+                "name": "计算机组成原理",
+                "description": "课程编号 107050006｜2026-2027-2｜2.5学分/40学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 73,
+                "status": 1
+              },
+              {
+                "id": 173,
+                "name": "微分方程数值解",
+                "description": "课程编号 107050012｜2026-2027-2｜2学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 74,
+                "status": 1
+              },
+              {
+                "id": 174,
+                "name": "Linux操作系统",
+                "description": "课程编号 107050017｜2026-2027-2｜1.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 75,
+                "status": 1
+              },
+              {
+                "id": 175,
+                "name": "信息安全双语",
+                "description": "课程编号 130140132｜2026-2027-2｜2学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 76,
+                "status": 1
+              },
+              {
+                "id": 176,
+                "name": "计算机网络2",
+                "description": "课程编号 130140136｜2026-2027-2｜2学分/32学时｜考核：考试",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 77,
+                "status": 1
+              },
+              {
+                "id": 177,
+                "name": "信息安全（双语）实验",
+                "description": "课程编号 330140133｜2026-2027-2｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 78,
+                "status": 1
+              },
+              {
+                "id": 178,
+                "name": "计算机网络实验",
+                "description": "课程编号 330140137｜2026-2027-2｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 79,
+                "status": 1
+              },
+              {
+                "id": 179,
+                "name": "计算机组成实验",
+                "description": "课程编号 330140139｜2026-2027-2｜0.5学分/16学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 80,
+                "status": 1
+              },
+              {
+                "id": 180,
+                "name": "Linux操作系统实验",
+                "description": "课程编号 330140149｜2026-2027-2｜0.5学分/24学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 81,
+                "status": 1
+              },
+              {
+                "id": 181,
+                "name": "数据分析实践",
+                "description": "课程编号 407050001｜2026-2027-2｜4学分/4学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 82,
+                "status": 1
+              },
+              {
+                "id": 182,
+                "name": "科学计算课程设计",
+                "description": "课程编号 407050018｜2026-2027-2｜1学分/1学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 83,
+                "status": 1
+              },
+              {
+                "id": 183,
+                "name": "综合实习（研发）",
+                "description": "课程编号 430140158｜2026-2027-2｜2学分/2学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 84,
+                "status": 1
+              },
+              {
+                "id": 184,
+                "name": "专业综合实践",
+                "description": "课程编号 407050002｜2027-2028-1｜6学分/6学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 85,
+                "status": 1
+              },
+              {
+                "id": 185,
+                "name": "人文类实践",
+                "description": "课程编号 400009993｜2027-2028-2｜2学分/32学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 86,
+                "status": 1
+              },
+              {
+                "id": 186,
+                "name": "毕业设计（论文）",
+                "description": "课程编号 407050016｜2027-2028-2｜10学分/14学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 87,
+                "status": 1
+              },
+              {
+                "id": 187,
+                "name": "就业指导与创业教育",
+                "description": "课程编号 427000006｜2027-2028-2｜0.5学分/18学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 88,
+                "status": 1
+              },
+              {
+                "id": 188,
+                "name": "毕业实习",
+                "description": "课程编号 430140221｜2027-2028-2｜2学分/4学时｜考核：考查",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 89,
+                "status": 1
+              },
+              {
+                "id": 189,
+                "name": "生态文明实践",
+                "description": "课程编号 440100006｜2027-2028-2｜2学分/32学时｜考核：其它",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 90,
+                "status": 1
+              },
+              {
+                "id": 211,
+                "name": "AI 大模型面试",
+                "description": "大模型面试专题课件（Transformer/微调/RAG/推理优化/落地实践）",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 200,
+                "status": 1
+              },
+              {
+                "id": 212,
+                "name": "AI 大模型",
+                "description": "大模型原理、工程化与行业实践课件",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 201,
+                "status": 1
+              },
+              {
+                "id": 213,
+                "name": "大厂项目架构",
+                "description": "大厂高并发/分布式/中间件架构案例课件",
+                "questionCount": 0,
+                "resourceCount": 0,
+                "sort": 202,
+                "status": 1
+              }
+            ],
+            "raw_len": 20681,
+            "path": "/subjects",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A2-1 科目题型分布筛选",
+          "chosen": {
+            "id": 5,
+            "name": "C语言程序设计",
+            "questionCount": 17,
+            "type_dist": {
+              "SINGLE_CHOICE": 3,
+              "MULTI_CHOICE": 1,
+              "TRUE_FALSE": 1,
+              "FILL_BLANK": 1,
+              "SHORT_ANSWER": 5,
+              "READING": 1,
+              "ORDERING": 2,
+              "MATCHING": 2,
+              "LISTENING": 1
+            }
+          }
+        },
+        {
+          "step": "A2-2 开始练习(subjectId=5,count=5)",
+          "result": {
+            "http": 200,
+            "ms": 46.4,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 0,
+              "totalCount": 5,
+              "finished": false,
+              "question": {
+                "id": 47,
+                "subjectId": 5,
+                "type": "SHORT_ANSWER",
+                "typeName": "简答题",
+                "stem": "简述指针和数组的关系。",
+                "difficulty": 3,
+                "source": "AI语料扩充-2026",
+                "tags": "C语言,指针,数组",
+                "score": 5,
+                "objective": false,
+                "auditStatus": "APPROVED",
+                "options": []
+              }
+            },
+            "raw_len": 401,
+            "path": "/practice/start",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "A3 逐题作答",
+          "answered": [
+            {
+              "questionId": 47,
+              "type": "SHORT_ANSWER",
+              "typeName": "简答题",
+              "stem": "简述指针和数组的关系。",
+              "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+              "answerNote": "简答题，给一段标准作答",
+              "submit": {
+                "http": 200,
+                "ms": 37.8,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 47,
+                  "type": "SHORT_ANSWER",
+                  "judged": false,
+                  "reference": {
+                    "keywords": [
+                      "指针",
+                      "数组",
+                      "首地址",
+                      "指针算术",
+                      "sizeof"
+                    ],
+                    "reference": "数组名在表达式中退化为首元素指针，a[i] 等价于 *(a+i)；但数组名不可赋值，sizeof(数组名) 是整个数组长度。"
+                  },
+                  "needSelfEval": true,
+                  "answeredCount": 1,
+                  "totalCount": 5,
+                  "correctCount": 0
+                },
+                "raw_len": 432,
+                "path": "/practice/39/answer",
+                "method": "POST"
+              },
+              "selfEval": {
+                "http": 200,
+                "ms": 16.9,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 47,
+                  "type": "SHORT_ANSWER",
+                  "judged": false,
+                  "needSelfEval": false,
+                  "answeredCount": 1,
+                  "totalCount": 5,
+                  "correctCount": 1
+                },
+                "raw_len": 193,
+                "path": "/practice/39/self-eval",
+                "method": "POST"
+              },
+              "next": {
+                "http": 200,
+                "ms": 17.7,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "practiceId": 39,
+                  "answeredCount": 1,
+                  "totalCount": 5,
+                  "finished": false,
+                  "question": {
+                    "id": 37,
+                    "subjectId": 5,
+                    "type": "LISTENING",
+                    "typeName": "听力选择题",
+                    "stem": "听录音回答问题",
+                    "difficulty": 3,
+                    "score": 2,
+                    "objective": false,
+                    "auditStatus": "APPROVED",
+                    "options": [],
+                    "audioUrl": "/files/audio/6",
+                    "subQuestions": [
+                      {
+                        "id": 38,
+                        "type": "SINGLE_CHOICE",
+                        "typeName": "单选题",
+                        "stem": "录音里说的是哪个函数？",
+                        "score": 2,
+                        "options": [
+                          {
+                            "key": "A",
+                            "content": "printf"
+                          },
+                          {
+                            "key": "B",
+                            "content": "scanf"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "raw_len": 557,
+                "path": "/practice/39/next",
+                "method": "GET"
+              }
+            },
+            {
+              "questionId": 37,
+              "type": "LISTENING",
+              "typeName": "听力选择题",
+              "stem": "听录音回答问题",
+              "userAnswer": "A",
+              "answerNote": "单选题，选第一个选项",
+              "submit": {
+                "http": 200,
+                "ms": 20.5,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 37,
+                  "type": "LISTENING",
+                  "judged": true,
+                  "correct": false,
+                  "correctAnswer": "子题 0/1 正确",
+                  "needSelfEval": false,
+                  "answeredCount": 2,
+                  "totalCount": 5,
+                  "correctCount": 1
+                },
+                "raw_len": 241,
+                "path": "/practice/39/answer",
+                "method": "POST"
+              },
+              "next": {
+                "http": 200,
+                "ms": 37.3,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "practiceId": 39,
+                  "answeredCount": 2,
+                  "totalCount": 5,
+                  "finished": false,
+                  "question": {
+                    "id": 10,
+                    "subjectId": 5,
+                    "type": "SINGLE_CHOICE",
+                    "typeName": "单选题",
+                    "stem": "C语言中，用于动态分配内存的函数是？",
+                    "difficulty": 2,
+                    "source": "自编题",
+                    "tags": "内存管理",
+                    "score": 2,
+                    "objective": true,
+                    "auditStatus": "APPROVED",
+                    "options": [
+                      {
+                        "key": "A",
+                        "content": "malloc"
+                      },
+                      {
+                        "key": "B",
+                        "content": "free"
+                      },
+                      {
+                        "key": "C",
+                        "content": "printf"
+                      },
+                      {
+                        "key": "D",
+                        "content": "scanf"
+                      }
+                    ]
+                  }
+                },
+                "raw_len": 521,
+                "path": "/practice/39/next",
+                "method": "GET"
+              }
+            },
+            {
+              "questionId": 10,
+              "type": "SINGLE_CHOICE",
+              "typeName": "单选题",
+              "stem": "C语言中，用于动态分配内存的函数是？",
+              "userAnswer": "A",
+              "answerNote": "单选题，选第一个选项",
+              "submit": {
+                "http": 200,
+                "ms": 14.3,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 10,
+                  "type": "SINGLE_CHOICE",
+                  "judged": true,
+                  "correct": true,
+                  "correctAnswer": "A",
+                  "analysis": "malloc 用于动态分配，free 用于释放。",
+                  "needSelfEval": false,
+                  "answeredCount": 3,
+                  "totalCount": 5,
+                  "correctCount": 2
+                },
+                "raw_len": 290,
+                "path": "/practice/39/answer",
+                "method": "POST"
+              },
+              "next": {
+                "http": 200,
+                "ms": 26.3,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "practiceId": 39,
+                  "answeredCount": 3,
+                  "totalCount": 5,
+                  "finished": false,
+                  "question": {
+                    "id": 5,
+                    "subjectId": 5,
+                    "type": "SHORT_ANSWER",
+                    "typeName": "简答题",
+                    "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                    "difficulty": 3,
+                    "source": "模拟题",
+                    "tags": "重点必考,函数",
+                    "score": 5,
+                    "objective": false,
+                    "auditStatus": "APPROVED",
+                    "options": []
+                  }
+                },
+                "raw_len": 421,
+                "path": "/practice/39/next",
+                "method": "GET"
+              }
+            },
+            {
+              "questionId": 5,
+              "type": "SHORT_ANSWER",
+              "typeName": "简答题",
+              "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+              "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+              "answerNote": "简答题，给一段标准作答",
+              "submit": {
+                "http": 200,
+                "ms": 15.1,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 5,
+                  "type": "SHORT_ANSWER",
+                  "judged": false,
+                  "reference": {
+                    "keywords": [
+                      "值传递",
+                      "地址传递",
+                      "副本",
+                      "指针"
+                    ],
+                    "reference": "值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。"
+                  },
+                  "gradingPoints": [
+                    "能说明值传递是复制副本",
+                    "能说明地址传递可修改外部变量",
+                    "能举出交换变量的例子"
+                  ],
+                  "needSelfEval": true,
+                  "answeredCount": 4,
+                  "totalCount": 5,
+                  "correctCount": 2
+                },
+                "raw_len": 599,
+                "path": "/practice/39/answer",
+                "method": "POST"
+              },
+              "selfEval": {
+                "http": 200,
+                "ms": 14.9,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 5,
+                  "type": "SHORT_ANSWER",
+                  "judged": false,
+                  "needSelfEval": false,
+                  "answeredCount": 4,
+                  "totalCount": 5,
+                  "correctCount": 3
+                },
+                "raw_len": 192,
+                "path": "/practice/39/self-eval",
+                "method": "POST"
+              },
+              "next": {
+                "http": 200,
+                "ms": 8.9,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "practiceId": 39,
+                  "answeredCount": 4,
+                  "totalCount": 5,
+                  "finished": false,
+                  "question": {
+                    "id": 32,
+                    "subjectId": 5,
+                    "type": "MATCHING",
+                    "typeName": "匹配题",
+                    "stem": "把左列概念与右列解释配对",
+                    "difficulty": 3,
+                    "score": 4,
+                    "objective": true,
+                    "auditStatus": "APPROVED",
+                    "options": []
+                  }
+                },
+                "raw_len": 337,
+                "path": "/practice/39/next",
+                "method": "GET"
+              }
+            },
+            {
+              "questionId": 32,
+              "type": "MATCHING",
+              "typeName": "匹配题",
+              "stem": "把左列概念与右列解释配对",
+              "userAnswer": "A,B",
+              "answerNote": "多选题，选前两个选项",
+              "submit": {
+                "http": 200,
+                "ms": 27.5,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "questionId": 32,
+                  "type": "MATCHING",
+                  "judged": true,
+                  "correct": false,
+                  "correctAnswer": "A:1,B:3,C:2",
+                  "analysis": "A-1 B-3 C-2",
+                  "needSelfEval": false,
+                  "answeredCount": 5,
+                  "totalCount": 5,
+                  "correctCount": 3
+                },
+                "raw_len": 259,
+                "path": "/practice/39/answer",
+                "method": "POST"
+              },
+              "next": {
+                "http": 200,
+                "ms": 20.9,
+                "code": 200,
+                "message": "成功",
+                "data": {
+                  "practiceId": 39,
+                  "answeredCount": 5,
+                  "totalCount": 5,
+                  "finished": true
+                },
+                "raw_len": 134,
+                "path": "/practice/39/next",
+                "method": "GET"
+              }
+            }
+          ],
+          "type_coverage": [
+            "LISTENING",
+            "MATCHING",
+            "SHORT_ANSWER",
+            "SINGLE_CHOICE"
+          ]
+        },
+        {
+          "step": "A4-1 结束练习",
+          "result": {
+            "http": 200,
+            "ms": 45.2,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "subjectName": "C语言程序设计",
+              "mode": "RANDOM",
+              "totalCount": 5,
+              "answeredCount": 5,
+              "correctCount": 3,
+              "accuracy": 60.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:00:36",
+              "finishedAt": "2026-11-10T18:00:37",
+              "details": [
+                {
+                  "questionId": 47,
+                  "type": "SHORT_ANSWER",
+                  "typeName": "简答题",
+                  "stem": "简述指针和数组的关系。",
+                  "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "scoreGot": 5.0,
+                  "analysis": "数组名在多数表达式中退化为指向首元素的指针；可用指针算术访问数组元素，a[i] 等价于 *(a+i)。但数组名不是指针变量，不能被赋值，sizeof(数组名) 得到的是整个数组大小。"
+                },
+                {
+                  "questionId": 37,
+                  "type": "LISTENING",
+                  "typeName": "听力选择题",
+                  "stem": "听录音回答问题",
+                  "userAnswer": "A",
+                  "correct": false,
+                  "scoreGot": 0.0
+                },
+                {
+                  "questionId": 10,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "C语言中，用于动态分配内存的函数是？",
+                  "userAnswer": "A",
+                  "correct": true,
+                  "scoreGot": 2.0,
+                  "correctAnswer": "A",
+                  "analysis": "malloc 用于动态分配，free 用于释放。"
+                },
+                {
+                  "questionId": 5,
+                  "type": "SHORT_ANSWER",
+                  "typeName": "简答题",
+                  "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                  "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "scoreGot": 5.0,
+                  "analysis": "值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。"
+                },
+                {
+                  "questionId": 32,
+                  "type": "MATCHING",
+                  "typeName": "匹配题",
+                  "stem": "把左列概念与右列解释配对",
+                  "userAnswer": "A,B",
+                  "correct": false,
+                  "scoreGot": 0.0,
+                  "correctAnswer": "",
+                  "analysis": "A-1 B-3 C-2"
+                }
+              ]
+            },
+            "raw_len": 1873,
+            "path": "/practice/39/finish",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "A4-2 练习报告",
+          "result": {
+            "http": 200,
+            "ms": 10.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "subjectName": "C语言程序设计",
+              "mode": "RANDOM",
+              "totalCount": 5,
+              "answeredCount": 5,
+              "correctCount": 3,
+              "accuracy": 60.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:00:36",
+              "finishedAt": "2026-11-10T18:00:37",
+              "details": [
+                {
+                  "questionId": 47,
+                  "type": "SHORT_ANSWER",
+                  "typeName": "简答题",
+                  "stem": "简述指针和数组的关系。",
+                  "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "scoreGot": 5.0,
+                  "analysis": "数组名在多数表达式中退化为指向首元素的指针；可用指针算术访问数组元素，a[i] 等价于 *(a+i)。但数组名不是指针变量，不能被赋值，sizeof(数组名) 得到的是整个数组大小。"
+                },
+                {
+                  "questionId": 37,
+                  "type": "LISTENING",
+                  "typeName": "听力选择题",
+                  "stem": "听录音回答问题",
+                  "userAnswer": "A",
+                  "correct": false,
+                  "scoreGot": 0.0
+                },
+                {
+                  "questionId": 10,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "C语言中，用于动态分配内存的函数是？",
+                  "userAnswer": "A",
+                  "correct": true,
+                  "scoreGot": 2.0,
+                  "correctAnswer": "A",
+                  "analysis": "malloc 用于动态分配，free 用于释放。"
+                },
+                {
+                  "questionId": 5,
+                  "type": "SHORT_ANSWER",
+                  "typeName": "简答题",
+                  "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                  "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "scoreGot": 5.0,
+                  "analysis": "值传递传的是实参副本，函数内修改不影响外部；地址传递传的是地址，函数内可通过指针修改外部变量。"
+                },
+                {
+                  "questionId": 32,
+                  "type": "MATCHING",
+                  "typeName": "匹配题",
+                  "stem": "把左列概念与右列解释配对",
+                  "userAnswer": "A,B",
+                  "correct": false,
+                  "scoreGot": 0.0,
+                  "correctAnswer": "",
+                  "analysis": "A-1 B-3 C-2"
+                }
+              ]
+            },
+            "raw_len": 1873,
+            "path": "/practice/39/report",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A4-3 答题卡",
+          "result": {
+            "http": 200,
+            "ms": 26.1,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "totalCount": 5,
+              "answeredCount": 5,
+              "correctCount": 3,
+              "status": "FINISHED",
+              "items": [
+                {
+                  "index": 1,
+                  "questionId": 47,
+                  "typeName": "简答题",
+                  "stem": "简述指针和数组的关系。",
+                  "answered": true,
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "current": false
+                },
+                {
+                  "index": 2,
+                  "questionId": 37,
+                  "typeName": "听力选择题",
+                  "stem": "听录音回答问题",
+                  "answered": true,
+                  "correct": false,
+                  "current": false
+                },
+                {
+                  "index": 3,
+                  "questionId": 10,
+                  "typeName": "单选题",
+                  "stem": "C语言中，用于动态分配内存的函数是？",
+                  "answered": true,
+                  "correct": true,
+                  "current": false
+                },
+                {
+                  "index": 4,
+                  "questionId": 5,
+                  "typeName": "简答题",
+                  "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                  "answered": true,
+                  "correct": true,
+                  "selfEval": "KNOW",
+                  "current": false
+                },
+                {
+                  "index": 5,
+                  "questionId": 32,
+                  "typeName": "匹配题",
+                  "stem": "把左列概念与右列解释配对",
+                  "answered": true,
+                  "correct": false,
+                  "current": false
+                }
+              ]
+            },
+            "raw_len": 956,
+            "path": "/practice/39/card",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A5 错题本列表(只读)",
+          "result": {
+            "http": 200,
+            "ms": 30.0,
+            "code": 200,
+            "message": "成功",
+            "data": [
+              {
+                "questionId": 32,
+                "type": "MATCHING",
+                "typeName": "匹配题",
+                "stem": "把左列概念与右列解释配对",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "",
+                "analysis": "A-1 B-3 C-2"
+              },
+              {
+                "questionId": 37,
+                "type": "LISTENING",
+                "typeName": "听力选择题",
+                "stem": "听录音回答问题",
+                "correct": false,
+                "selfEval": "PRACTICE"
+              },
+              {
+                "questionId": 4,
+                "type": "FILL_BLANK",
+                "typeName": "填空题",
+                "stem": "C 语言中，用于向标准输出打印格式化内容的库函数是 ______。",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "printf",
+                "analysis": "标准输出函数为 printf，需包含 stdio.h。"
+              },
+              {
+                "questionId": 2584,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "《中华人民共和国数据安全法》自 2021 年 9 月 1 日起施行。依据该法，下列说法错误的是:",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "B",
+                "analysis": "第一步，本题考查法律并选错误项。第二步，根据《中华人民共和国数据安全法》第 5 条规定，中央国家安全领导机构负责国家数据安全工作的决策和议事协调，研究制定、指导实施国家数据安全战略和有关重大方针政策，统筹协调国家数据安全的重大事项和重要工作，建立国家数据安全工作协调机制。选项 B 中表述为“国家工业和信息化主管部门”，与“中央国家安全领导机构”不符。B 项错误。拓展A 项：根据《中华人民共和国数据安全法》第 14 条规定，省级以上人民政府应当将数字经济发展纳入本级国民经济和社会发展规划，并根据需要制定数字经济发展规划。与 A 项表述一致。C 项：根据《中华人民共和国数据安全法》第 21 条规定，国家建立数据分类分级保护制度，根据数据在经济社会发展中的重要程度，以及一旦遭到篡改、破坏、泄露或者非法获取、非法利用，对国家安全、公共利益或者个人、组织合法权益造成的危害程度，对数据实行分类分级保护。与 C 项表述一致。D 项：根据《中华人民共和国数据安全法》第 33 条规定，从事数据交易中介服务的机构提供服务，应当要求数据提供方说明数据来源，审核交易双方的身份，并留存审核、交易记录。与 D 项表述一致。"
+              },
+              {
+                "questionId": 3218,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "我国经济已由高速增长阶段转向高质量发展阶段，这是一个重要转变。一个时期以来，传统投资驱动的经济增长模式已经难以为继，同时经济全球化遭遇逆流，大进大出的环境条件已经变化，不可能单纯依靠出口实现经济发展质的提升。因此，必须根据我国经济发展实际情况，建立起扩大内需的有效制度，特别是要更好更充分释放消费潜力。消费作用的不断强化，能有效降低我们对出口和投资的依赖，有利于经济长远发展，促进经济内外平衡发展，实现提质增效。这段文字意在说明：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "C",
+                "analysis": "文段开篇交代背景，指出我国经济已转向高质量发展阶段，接着提出问题，即目前已不可能单纯依靠出口提升经济发展， 之后通过“因此”总结前文， 并通过“必须”给出对策， 且由程度词“特别是”可知，此处强调更好更充分释放消费潜力对促进经济发展很重要。接下来正面论证释放消费潜力带来的好处，故文段为分总分结构，强调释放消费潜力的重要性，对应C 项。A. B 两项，均未提及文段核心话题“消费潜力”，排除；D 项，“扩大内需制度”对应程度词“特别是”之前的内容，非重点，排除。故正确答案为C。【文段出处】 《消费在经济增长中应发挥什么作用》"
+              },
+              {
+                "questionId": 3827,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "与“军事演习：作战能力”在逻辑关系上最相近的是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "第一步：判断题干词语间逻辑关系。军事演习的目的是提升作战能力，二者为方式目的对应关系。第二步：判断选项词语间逻辑关系。A 项：正当防卫的目的是防御人身危险，并非提升人身危险，与题干逻辑关系不一致，排除；B 项：定速巡航的目的是控制并维持车辆速度，并非提升车辆速度，与题干逻辑关系不一致，排除；C 项：财政赤字可能会导致通货膨胀，二者为因果对应关系，与题干逻辑关系不一致，排除；D 项：土壤改良的目的是提升作物产量，二者为方式目的对应关系，与题干逻辑关系一致，当选。"
+              },
+              {
+                "questionId": 1771,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "根据所给材料，十六、十七世纪的欧洲生活中最不可能出现的场景是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "A 项，根据第⑧自然段“香料失宠的另一个原因，则在于新航路开辟后，可以调和味道的蔬菜出现，取代了香料的功能”可知，“用美洲的红辣椒代替胡椒调味”可能出现，排除；B 项，根据第⑧自然段“十六、十七世纪时，人们产生了新的嗜好，先是烟草风靡全球，随后则是咖啡和茶，这些商品比香料更加有利可图”可知，“通过茶叶贸易获得了大量利润”可能出现，排除；C 项，根据第⑨自然段“随着香料在基督教中象征意义的消失和欧洲消费主义的发展，贵族们彰基地位的消费品转向了首饰，音乐、服装、住房、艺术和交通工具”可知，“新的音乐形式成为贵族热衷的话题”可能出现，排除；D 项，根据第⑨自然段“随着民族意识的崛起，食物被贴上了民族的标签，香科被欧洲看作异城的标志，只有耽于感官享受的民族才会热衷于此。与之相反，欧洲理性主义时代最为贬斥的就是一味追求感官享受，而不诉诸理性”可知，异域风情餐厅在欧洲并不会受人追捧，故不可能出现，当选。【文段出处】《香料传奇：欲望创造的历史》"
+              },
+              {
+                "questionId": 3890,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "城镇化发展不宜率较高且人口持续集聚的地区，不妨促进大中小城市和小城。城镇化率低且人口规模大的地区，应着重提升水平、挖掘潜力；城镇化镇持系统观念，统筹城乡、双向发力。如此，才能在城乡一体、良性互动中，让城镇化成为一个发展。在此过程中，要坚顺势而为、的发展过程。依次填入画横线部分最恰当的一项是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "D第一空，根据“城镇化率低且人口规模大的地区，应着重提升水平、挖掘潜力；城镇化率较高且人口持续集聚的地区……发展”可知，文段强调针对不同地区应采取不同的城镇化发展策略，故城镇化发展不宜相同，横线处所填成语需体现相同之意。C 项“千篇一律”指事物只有一种形式，毫无变化，也比喻按一种格式机械地办事，D 项“整齐划一”强调规格一致、步调统一，均符合文意，保留。A 项“一步到位”指一次就达到预定的目标，与文意不符，排除；B 项“一哄而上”形容盲目跟风行动，多用于新生事物、稀缺事物的语境，而城镇化并非新生或稀缺事物，排除。第二空，根据“统筹城乡、双向发力”可知，大中小城市和小城镇应当互相配合，协同发展。D 项“协调”指和谐一致，配合得当，与文意相符，且“协调发展”搭配恰当，为政府公文常用表述，保留。C 项“融合”指几种不同的事物合成一体，文段并未提及大中小城市和小城镇要交融到一起，排除。第三空，代入验证，根据“坚持系统观念，统筹城乡、双向发力”以及“城乡一体、良性互动”可知，城镇化这一目标在正确观念的指引下、正确做法的推进下将会实现，D 项“水到渠成”比喻条件成熟则事情自然成功，符合文意，且与“顺势而为”形成逻辑衔接，当选。【文段出处】人民日报《新型城镇化因“人”更精彩》"
+              },
+              {
+                "questionId": 1866,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "近年来，商业赞助越来越多地体育运动。在体育市场化、职业化的当下，如何在追求个人商业价值与体育管理机构利益间取得平衡，是运动员和体育管理机构不能回避的问题。依次填入画横线部分最恰当的一项是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "第一空，横线处要表达商业赞助越来越看重体育运动之意， C 项“热衷”意为热心；D 项“垂青”意为重视或见爱，均符合文意。但 A 项“觊觎”意为渴望得到不应该得到的东西，与文段感情色彩不符，排除。B 项“追逐”意为跟随，追随，语义不符，排除。第二空，横线处修饰“体育市场化、职业化”，且根据前文 “近年来”、“越来越多”可知，横线处要表达体育市场化、职业化发展不久，正在兴起，又根据后文“不能回避的问题”说明还存在问题也就是还没发展到最好，横线处表达“正在兴起发展，尚未达到最好”，所以对应选项 D 项“方兴未艾”，即新生事物正在蓬勃发展。C项“欣欣向荣”比喻事业蓬勃发展，无法对应前后文的正在兴起未达到最好之意，故与文意不符，排除。【文段出处】《宁泽涛风波让运动员与国家队两败俱伤》"
+              },
+              {
+                "questionId": 3171,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "习总书记强调，要大兴调查研究之风，深入了解群众需求，切实解决广大老百姓关心关切的利益问题，不断提高人民群众的获得感、幸福感、安全感，关于调查研究正确的有几项？①调查研究是我们党的传家宝，是做好各项工作的基本功②要大兴务实之风，抓好调查研究，在察实情、出实招、求实效上下功夫③检验调查研究成效，要看是否摸清社情民意、是否解决实际问题④调查研究是了解情况的主要渠道，不能通过二手材料了解情况",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "B",
+                "analysis": "本题考查政治常识。①正确， 《习近平关于调查研究论述摘编》 中指出：“调查研究是我们党的传家宝， 是做好各项工作的基本功。调查研究是马克思主义者认识世界的根本方法，是中国共产党的历史经验。”②正确，2023 年6 月， 习近平总书记在内蒙古考察时对如何开展好主题教育这样要求：“要大兴务实之风，抓好调查研究，在察实情、出实招、求实效上下功夫，把工作抓实、基础打实、步子迈实，在力戒形式主义、官僚主义上取得明显实质性进展，以这次主题教育为契机，将调查研究发扬光大。”③正确，2023 年7 月，习近平总书记在四川考察时对如何检验主题教育成效提出“五个检验”：（1）检验理论学习成效，要看党的创新理论是否入心见行、党员干部是否做到善思善用。 （2）检验调查研究成效，要看是否摸清社情民意、是否解决实际问题。 （3）检验推动发展成效，要看高质量发展是否有新突破， 人民生活品质是否有新提升。 （4） 检验检视整改成效， 要看问题症结是否找准、 整改整治是否到位。（5）检验干部队伍教育整顿成效，要看思想不纯和组织不纯现象是否纠正、政治隐患是否消除。④错误， 《习近平关于调查研究论述摘编》 中指出：“了解情况的渠道千条万条， 但是调查研究要放在第一条， 这是不可替代、 不会失真的一条。 通过二手材料了解情况是必要的， 但不能代替亲身调研。”“不能通过二手材料了解情况”的说法错误。故①②③表述正确，共3 项。故正确答案为B。"
+              },
+              {
+                "questionId": 1000,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "“四个全面”是新一届党的领导集体治国理政的战略布局。下列与“四个全面”有关的说法正确的是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "《中共中央关于全面深化改革若干重大问题的决定》是十八届三中全会通过的，故 A 项错误。《中共中央关于全面推进依法治国若干重大问题的决定》是十八届四中全会通过的，故 B 项错误。“全面建成小康社会”的战略目标是十八大提出的，故 C 项错误。2014 年 12 月，习近平总书记在江苏调研时将“三个全面”上升到了“四个全面”，要“协调推进全面建成小康社会、全面深化改革、全面推进依法治国、全面从严治党，推动改革开放和社会主义现代化建设迈上新台阶”，新增了“全面从严治党”。首次将“从严治党” 提升到“全面从严治党”的高度。"
+              },
+              {
+                "questionId": 3663,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "《营造法式》刊行之后，两浙一带的建筑技术借助官方的推广完全融入了中国古典木构建筑技术的主流。以抬梁式为梁柱结构，屋面重量通过椽、檩、梁、斗栱、柱传递至基础的方案，形成此后中国官式建筑 的发展路径。这种结构开间大，立柱少，气势恢宏，可细分为殿堂式与厅堂式，满足不同礼制等级的需要。填入画横线部分最恰当的一项是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "D",
+                "analysis": "搭配“发展路径”，且根据“完全融入了中国古典木构建筑技术的主流······形成此后中国官式建筑······的发展路径”可知， 横线处所填成语应体现此后按照这一路径继续发展之意。D 项“一以贯之”指做人做事按照一个道理，从始至终都不会改变，置于此处可体现发展路径一直延续之意，符合文意，当选。A 项“源远流长”比喻历史悠久，根底深厚，常搭配“历史”，与“发展路径”搭配不当，排除；B 项“标新立异”多形容敢于改革创新或提出新奇的主张，显示与众不同，也指为了显示自己而故意另搞一套，文段既未体现“创新”，也未体现“故意另搞一套”，排除；C 项“一枝独秀”比喻在同类人或同类事物中出类拔萃，文段并未体现“出类拔萃”之意，排除。故正确答案为D。【文段出处】吴文化博物馆《百工有业｜从紫禁之巅到纽约苏园——从古代走入现代的香山帮》"
+              },
+              {
+                "questionId": 1449,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "故人西辞黄鹤楼对于 （ ） 相当于 （ ） 对于怀古",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "C",
+                "analysis": "将选项逐一代入，判断各选项前后部分的逻辑关系。A 项：“故人西辞黄鹤楼”出自李白的《黄鹤楼送孟浩然之广陵》，表达的是送别之情，与出游无关，“越王勾践破吴归”出自李白的《越中览古》，是一篇怀古之作，前后逻辑关系不一致，排除；B 项：“故人西辞黄鹤楼”表达的是送别之情，不是黄鹤楼这个场所，“千古兴亡多少事”出自辛弃疾的怀古之作《南乡子·登京口北固亭有怀》，前后逻辑关系不一致，排除；C 项：“故人西辞黄鹤楼”表达的是送别之情，“折戟沉沙铁未销”出自唐代诗人杜牧的《赤壁》，表达的是怀古之情，前后逻辑关系一致，当选；D 项：“西出阳关无故人”出自王维的《送元二使安西》，表达的是离别之情，与怀古无关，前后逻辑关系不一致，排除。"
+              },
+              {
+                "questionId": 1428,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "把下面的六个图形分为两类，使每一类图形都有各自的共同特征或规律，分类正确的一项是：",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "C",
+                "analysis": "本题为分组分类题目。元素组成不同，属性无明显规律，考虑数数。第一个图和第二个图出现了线条之间相交叉，考虑点数量，但并无规律。后发现③④图形为“田”字变形，考虑笔画数考点。观察发现，图①③⑤的奇点数均为 4，图②④中奇点数为 2，⑥无奇点数。即①③⑤为两笔画图形，②④⑥为一笔画图形。"
+              },
+              {
+                "questionId": 3,
+                "type": "TRUE_FALSE",
+                "typeName": "判断题",
+                "stem": "C 语言中数组的下标从 1 开始。",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "B",
+                "analysis": "C 语言数组下标从 0 开始。"
+              },
+              {
+                "questionId": 31,
+                "type": "ORDERING",
+                "typeName": "排序题",
+                "stem": "把冒泡排序步骤按顺序排列",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": ""
+              },
+              {
+                "questionId": 30,
+                "type": "MATCHING",
+                "typeName": "匹配题",
+                "stem": "把左列概念与右列解释配对",
+                "correct": false,
+                "selfEval": "PRACTICE",
+                "correctAnswer": "",
+                "analysis": "A-1 B-3 C-2"
+              }
+            ],
+            "raw_len": 17457,
+            "path": "/wrong-book",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A6-1 我的统计",
+          "result": {
+            "http": 200,
+            "ms": 26.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceCount": 36,
+              "totalAnswered": 37,
+              "totalCorrect": 14,
+              "accuracy": 37.8,
+              "wrongBookCount": 17,
+              "favoriteResourceCount": 0,
+              "favoriteQuestionCount": 0,
+              "downloadCount": 3,
+              "uploadCount": 5,
+              "unreadNoticeCount": 8
+            },
+            "raw_len": 269,
+            "path": "/me/stats",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A6-2 7天趋势",
+          "result": {
+            "http": 200,
+            "ms": 31.6,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "days": 7,
+              "items": [
+                {
+                  "date": "2026-11-04",
+                  "answered": 0,
+                  "correct": 0
+                },
+                {
+                  "date": "2026-11-05",
+                  "answered": 0,
+                  "correct": 0
+                },
+                {
+                  "date": "2026-11-06",
+                  "answered": 0,
+                  "correct": 0
+                },
+                {
+                  "date": "2026-11-07",
+                  "answered": 1,
+                  "correct": 0
+                },
+                {
+                  "date": "2026-11-08",
+                  "answered": 13,
+                  "correct": 2
+                },
+                {
+                  "date": "2026-11-09",
+                  "answered": 5,
+                  "correct": 2
+                },
+                {
+                  "date": "2026-11-10",
+                  "answered": 5,
+                  "correct": 3
+                }
+              ]
+            },
+            "raw_len": 418,
+            "path": "/me/practice-trend?days=7",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A6-3 掌握度(全科目)",
+          "result": {
+            "http": 200,
+            "ms": 33.0,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "subjectName": "全部科目",
+              "items": [
+                {
+                  "knowledgeId": 2,
+                  "knowledgeName": "数据类型与变量",
+                  "answered": 7,
+                  "correct": 5,
+                  "masteryRate": 71.4
+                },
+                {
+                  "knowledgeId": 26,
+                  "knowledgeName": "常识判断",
+                  "answered": 6,
+                  "correct": 2,
+                  "masteryRate": 33.3
+                },
+                {
+                  "knowledgeId": 27,
+                  "knowledgeName": "言语理解与表达",
+                  "answered": 5,
+                  "correct": 0,
+                  "masteryRate": 0.0
+                },
+                {
+                  "knowledgeId": 29,
+                  "knowledgeName": "判断推理",
+                  "answered": 4,
+                  "correct": 1,
+                  "masteryRate": 25.0
+                },
+                {
+                  "knowledgeId": 6,
+                  "knowledgeName": "函数定义与调用",
+                  "answered": 2,
+                  "correct": 1,
+                  "masteryRate": 50.0
+                },
+                {
+                  "knowledgeId": 17,
+                  "knowledgeName": "导数与微分",
+                  "answered": 1,
+                  "correct": 0,
+                  "masteryRate": 0.0
+                },
+                {
+                  "knowledgeId": 16,
+                  "knowledgeName": "极限与连续",
+                  "answered": 1,
+                  "correct": 0,
+                  "masteryRate": 0.0
+                },
+                {
+                  "knowledgeId": 14,
+                  "knowledgeName": "树与二叉树",
+                  "answered": 1,
+                  "correct": 0,
+                  "masteryRate": 0.0
+                },
+                {
+                  "knowledgeId": 9,
+                  "knowledgeName": "指针与数组",
+                  "answered": 1,
+                  "correct": 1,
+                  "masteryRate": 100.0
+                }
+              ]
+            },
+            "raw_len": 987,
+            "path": "/me/mastery",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "A6-4 掌握度(本科目)",
+          "result": {
+            "http": 200,
+            "ms": 5.3,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "subjectName": "C语言程序设计",
+              "items": [
+                {
+                  "knowledgeId": 2,
+                  "knowledgeName": "数据类型与变量",
+                  "answered": 7,
+                  "correct": 5,
+                  "masteryRate": 71.4
+                },
+                {
+                  "knowledgeId": 6,
+                  "knowledgeName": "函数定义与调用",
+                  "answered": 2,
+                  "correct": 1,
+                  "masteryRate": 50.0
+                },
+                {
+                  "knowledgeId": 9,
+                  "knowledgeName": "指针与数组",
+                  "answered": 1,
+                  "correct": 1,
+                  "masteryRate": 100.0
+                }
+              ]
+            },
+            "raw_len": 416,
+            "path": "/me/mastery?subjectId=5",
+            "method": "GET"
+          }
+        }
+      ],
+      "subject": {
+        "id": 5,
+        "name": "C语言程序设计",
+        "questionCount": 17,
+        "type_dist": {
+          "SINGLE_CHOICE": 3,
+          "MULTI_CHOICE": 1,
+          "TRUE_FALSE": 1,
+          "FILL_BLANK": 1,
+          "SHORT_ANSWER": 5,
+          "READING": 1,
+          "ORDERING": 2,
+          "MATCHING": 2,
+          "LISTENING": 1
+        }
+      },
+      "practice_id": 39,
+      "answered": [
+        {
+          "questionId": 47,
+          "type": "SHORT_ANSWER",
+          "typeName": "简答题",
+          "stem": "简述指针和数组的关系。",
+          "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+          "answerNote": "简答题，给一段标准作答",
+          "submit": {
+            "http": 200,
+            "ms": 37.8,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 47,
+              "type": "SHORT_ANSWER",
+              "judged": false,
+              "reference": {
+                "keywords": [
+                  "指针",
+                  "数组",
+                  "首地址",
+                  "指针算术",
+                  "sizeof"
+                ],
+                "reference": "数组名在表达式中退化为首元素指针，a[i] 等价于 *(a+i)；但数组名不可赋值，sizeof(数组名) 是整个数组长度。"
+              },
+              "needSelfEval": true,
+              "answeredCount": 1,
+              "totalCount": 5,
+              "correctCount": 0
+            },
+            "raw_len": 432,
+            "path": "/practice/39/answer",
+            "method": "POST"
+          },
+          "selfEval": {
+            "http": 200,
+            "ms": 16.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 47,
+              "type": "SHORT_ANSWER",
+              "judged": false,
+              "needSelfEval": false,
+              "answeredCount": 1,
+              "totalCount": 5,
+              "correctCount": 1
+            },
+            "raw_len": 193,
+            "path": "/practice/39/self-eval",
+            "method": "POST"
+          },
+          "next": {
+            "http": 200,
+            "ms": 17.7,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 1,
+              "totalCount": 5,
+              "finished": false,
+              "question": {
+                "id": 37,
+                "subjectId": 5,
+                "type": "LISTENING",
+                "typeName": "听力选择题",
+                "stem": "听录音回答问题",
+                "difficulty": 3,
+                "score": 2,
+                "objective": false,
+                "auditStatus": "APPROVED",
+                "options": [],
+                "audioUrl": "/files/audio/6",
+                "subQuestions": [
+                  {
+                    "id": 38,
+                    "type": "SINGLE_CHOICE",
+                    "typeName": "单选题",
+                    "stem": "录音里说的是哪个函数？",
+                    "score": 2,
+                    "options": [
+                      {
+                        "key": "A",
+                        "content": "printf"
+                      },
+                      {
+                        "key": "B",
+                        "content": "scanf"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "raw_len": 557,
+            "path": "/practice/39/next",
+            "method": "GET"
+          }
+        },
+        {
+          "questionId": 37,
+          "type": "LISTENING",
+          "typeName": "听力选择题",
+          "stem": "听录音回答问题",
+          "userAnswer": "A",
+          "answerNote": "单选题，选第一个选项",
+          "submit": {
+            "http": 200,
+            "ms": 20.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 37,
+              "type": "LISTENING",
+              "judged": true,
+              "correct": false,
+              "correctAnswer": "子题 0/1 正确",
+              "needSelfEval": false,
+              "answeredCount": 2,
+              "totalCount": 5,
+              "correctCount": 1
+            },
+            "raw_len": 241,
+            "path": "/practice/39/answer",
+            "method": "POST"
+          },
+          "next": {
+            "http": 200,
+            "ms": 37.3,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 2,
+              "totalCount": 5,
+              "finished": false,
+              "question": {
+                "id": 10,
+                "subjectId": 5,
+                "type": "SINGLE_CHOICE",
+                "typeName": "单选题",
+                "stem": "C语言中，用于动态分配内存的函数是？",
+                "difficulty": 2,
+                "source": "自编题",
+                "tags": "内存管理",
+                "score": 2,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": [
+                  {
+                    "key": "A",
+                    "content": "malloc"
+                  },
+                  {
+                    "key": "B",
+                    "content": "free"
+                  },
+                  {
+                    "key": "C",
+                    "content": "printf"
+                  },
+                  {
+                    "key": "D",
+                    "content": "scanf"
+                  }
+                ]
+              }
+            },
+            "raw_len": 521,
+            "path": "/practice/39/next",
+            "method": "GET"
+          }
+        },
+        {
+          "questionId": 10,
+          "type": "SINGLE_CHOICE",
+          "typeName": "单选题",
+          "stem": "C语言中，用于动态分配内存的函数是？",
+          "userAnswer": "A",
+          "answerNote": "单选题，选第一个选项",
+          "submit": {
+            "http": 200,
+            "ms": 14.3,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 10,
+              "type": "SINGLE_CHOICE",
+              "judged": true,
+              "correct": true,
+              "correctAnswer": "A",
+              "analysis": "malloc 用于动态分配，free 用于释放。",
+              "needSelfEval": false,
+              "answeredCount": 3,
+              "totalCount": 5,
+              "correctCount": 2
+            },
+            "raw_len": 290,
+            "path": "/practice/39/answer",
+            "method": "POST"
+          },
+          "next": {
+            "http": 200,
+            "ms": 26.3,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 3,
+              "totalCount": 5,
+              "finished": false,
+              "question": {
+                "id": 5,
+                "subjectId": 5,
+                "type": "SHORT_ANSWER",
+                "typeName": "简答题",
+                "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+                "difficulty": 3,
+                "source": "模拟题",
+                "tags": "重点必考,函数",
+                "score": 5,
+                "objective": false,
+                "auditStatus": "APPROVED",
+                "options": []
+              }
+            },
+            "raw_len": 421,
+            "path": "/practice/39/next",
+            "method": "GET"
+          }
+        },
+        {
+          "questionId": 5,
+          "type": "SHORT_ANSWER",
+          "typeName": "简答题",
+          "stem": "简述 C 语言中「值传递」与「地址传递」的区别。",
+          "userAnswer": "进程是资源分配单位，线程是CPU调度单位，同一进程内线程共享地址空间。",
+          "answerNote": "简答题，给一段标准作答",
+          "submit": {
+            "http": 200,
+            "ms": 15.1,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 5,
+              "type": "SHORT_ANSWER",
+              "judged": false,
+              "reference": {
+                "keywords": [
+                  "值传递",
+                  "地址传递",
+                  "副本",
+                  "指针"
+                ],
+                "reference": "值传递：实参把值复制给形参，函数内修改形参不影响实参。地址传递：实参把变量的地址传给形参，函数内通过指针可以直接修改外部变量。"
+              },
+              "gradingPoints": [
+                "能说明值传递是复制副本",
+                "能说明地址传递可修改外部变量",
+                "能举出交换变量的例子"
+              ],
+              "needSelfEval": true,
+              "answeredCount": 4,
+              "totalCount": 5,
+              "correctCount": 2
+            },
+            "raw_len": 599,
+            "path": "/practice/39/answer",
+            "method": "POST"
+          },
+          "selfEval": {
+            "http": 200,
+            "ms": 14.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 5,
+              "type": "SHORT_ANSWER",
+              "judged": false,
+              "needSelfEval": false,
+              "answeredCount": 4,
+              "totalCount": 5,
+              "correctCount": 3
+            },
+            "raw_len": 192,
+            "path": "/practice/39/self-eval",
+            "method": "POST"
+          },
+          "next": {
+            "http": 200,
+            "ms": 8.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 4,
+              "totalCount": 5,
+              "finished": false,
+              "question": {
+                "id": 32,
+                "subjectId": 5,
+                "type": "MATCHING",
+                "typeName": "匹配题",
+                "stem": "把左列概念与右列解释配对",
+                "difficulty": 3,
+                "score": 4,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": []
+              }
+            },
+            "raw_len": 337,
+            "path": "/practice/39/next",
+            "method": "GET"
+          }
+        },
+        {
+          "questionId": 32,
+          "type": "MATCHING",
+          "typeName": "匹配题",
+          "stem": "把左列概念与右列解释配对",
+          "userAnswer": "A,B",
+          "answerNote": "多选题，选前两个选项",
+          "submit": {
+            "http": 200,
+            "ms": 27.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 32,
+              "type": "MATCHING",
+              "judged": true,
+              "correct": false,
+              "correctAnswer": "A:1,B:3,C:2",
+              "analysis": "A-1 B-3 C-2",
+              "needSelfEval": false,
+              "answeredCount": 5,
+              "totalCount": 5,
+              "correctCount": 3
+            },
+            "raw_len": 259,
+            "path": "/practice/39/answer",
+            "method": "POST"
+          },
+          "next": {
+            "http": 200,
+            "ms": 20.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 39,
+              "answeredCount": 5,
+              "totalCount": 5,
+              "finished": true
+            },
+            "raw_len": 134,
+            "path": "/practice/39/next",
+            "method": "GET"
+          }
+        }
+      ],
+      "finished_at": "2026-11-10T18:00:36.812+08:00"
+    },
+    "extra": {
+      "started_at": "2026-11-10T18:02:32.636+08:00",
+      "steps": [
+        {
+          "step": "X TRUE_FALSE 按题型练习",
+          "note": "判断题：选项 A=正确 B=错误，正确答案为 B（题干「数组下标从 1 开始」是错的）",
+          "start": {
+            "http": 200,
+            "ms": 27.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 40,
+              "answeredCount": 0,
+              "totalCount": 1,
+              "finished": false,
+              "question": {
+                "id": 3,
+                "subjectId": 5,
+                "type": "TRUE_FALSE",
+                "typeName": "判断题",
+                "stem": "C 语言中数组的下标从 1 开始。",
+                "difficulty": 1,
+                "source": "模拟题",
+                "tags": "基础,数组",
+                "score": 1,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": [
+                  {
+                    "key": "A",
+                    "content": "正确"
+                  },
+                  {
+                    "key": "B",
+                    "content": "错误"
+                  }
+                ]
+              }
+            },
+            "raw_len": 448,
+            "path": "/practice/start",
+            "method": "POST"
+          },
+          "practiceId": 40,
+          "question_options": [
+            {
+              "key": "A",
+              "content": "正确"
+            },
+            {
+              "key": "B",
+              "content": "错误"
+            }
+          ],
+          "question_type": "TRUE_FALSE",
+          "answer": {
+            "http": 200,
+            "ms": 27.7,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 3,
+              "type": "TRUE_FALSE",
+              "judged": true,
+              "correct": true,
+              "correctAnswer": "B",
+              "analysis": "C 语言数组下标从 0 开始。",
+              "needSelfEval": false,
+              "answeredCount": 1,
+              "totalCount": 1,
+              "correctCount": 1
+            },
+            "raw_len": 273,
+            "path": "/practice/40/answer",
+            "method": "POST"
+          },
+          "answer_submitted": "B",
+          "finish": {
+            "http": 200,
+            "ms": 10.4,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 40,
+              "subjectName": "C语言程序设计",
+              "mode": "BY_TYPE",
+              "totalCount": 1,
+              "answeredCount": 1,
+              "correctCount": 1,
+              "accuracy": 100.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:02:33",
+              "finishedAt": "2026-11-10T18:02:33",
+              "details": [
+                {
+                  "questionId": 3,
+                  "type": "TRUE_FALSE",
+                  "typeName": "判断题",
+                  "stem": "C 语言中数组的下标从 1 开始。",
+                  "userAnswer": "B",
+                  "correct": true,
+                  "scoreGot": 1.0,
+                  "correctAnswer": "B",
+                  "analysis": "C 语言数组下标从 0 开始。"
+                }
+              ]
+            },
+            "raw_len": 533,
+            "path": "/practice/40/finish",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "X ORDERING 按题型练习",
+          "note": "排序题：answerContent.order = [C,A,B]，按此顺序提交",
+          "start": {
+            "http": 200,
+            "ms": 45.2,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 41,
+              "answeredCount": 0,
+              "totalCount": 1,
+              "finished": false,
+              "question": {
+                "id": 33,
+                "subjectId": 5,
+                "type": "ORDERING",
+                "typeName": "排序题",
+                "stem": "把冒泡排序步骤按顺序排列",
+                "difficulty": 3,
+                "score": 4,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": []
+              }
+            },
+            "raw_len": 337,
+            "path": "/practice/start",
+            "method": "POST"
+          },
+          "practiceId": 41,
+          "question_options": [],
+          "question_type": "ORDERING",
+          "answer": {
+            "http": 200,
+            "ms": 21.6,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 33,
+              "type": "ORDERING",
+              "judged": true,
+              "correct": true,
+              "correctAnswer": "C,A,B",
+              "needSelfEval": false,
+              "answeredCount": 1,
+              "totalCount": 1,
+              "correctCount": 1
+            },
+            "raw_len": 227,
+            "path": "/practice/41/answer",
+            "method": "POST"
+          },
+          "answer_submitted": "C,A,B",
+          "finish": {
+            "http": 200,
+            "ms": 10.6,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 41,
+              "subjectName": "C语言程序设计",
+              "mode": "BY_TYPE",
+              "totalCount": 1,
+              "answeredCount": 1,
+              "correctCount": 1,
+              "accuracy": 100.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:02:33",
+              "finishedAt": "2026-11-10T18:02:33",
+              "details": [
+                {
+                  "questionId": 33,
+                  "type": "ORDERING",
+                  "typeName": "排序题",
+                  "stem": "把冒泡排序步骤按顺序排列",
+                  "userAnswer": "C,A,B",
+                  "correct": true,
+                  "scoreGot": 4.0,
+                  "correctAnswer": ""
+                }
+              ]
+            },
+            "raw_len": 481,
+            "path": "/practice/41/finish",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "X FILL_BLANK 按题型练习",
+          "note": "填空题：answerContent.blanks = [printf]",
+          "start": {
+            "http": 200,
+            "ms": 8.4,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 42,
+              "answeredCount": 0,
+              "totalCount": 1,
+              "finished": false,
+              "question": {
+                "id": 4,
+                "subjectId": 5,
+                "type": "FILL_BLANK",
+                "typeName": "填空题",
+                "stem": "C 语言中，用于向标准输出打印格式化内容的库函数是 ______。",
+                "difficulty": 1,
+                "source": "模拟题",
+                "tags": "基础,输入输出",
+                "score": 1,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": []
+              }
+            },
+            "raw_len": 433,
+            "path": "/practice/start",
+            "method": "POST"
+          },
+          "practiceId": 42,
+          "question_options": [],
+          "question_type": "FILL_BLANK",
+          "answer": {
+            "http": 200,
+            "ms": 18.7,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 4,
+              "type": "FILL_BLANK",
+              "judged": true,
+              "correct": true,
+              "correctAnswer": "printf",
+              "analysis": "标准输出函数为 printf，需包含 stdio.h。",
+              "needSelfEval": false,
+              "answeredCount": 1,
+              "totalCount": 1,
+              "correctCount": 1
+            },
+            "raw_len": 294,
+            "path": "/practice/42/answer",
+            "method": "POST"
+          },
+          "answer_submitted": "printf",
+          "finish": {
+            "http": 200,
+            "ms": 15.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 42,
+              "subjectName": "C语言程序设计",
+              "mode": "BY_TYPE",
+              "totalCount": 1,
+              "answeredCount": 1,
+              "correctCount": 1,
+              "accuracy": 100.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:02:33",
+              "finishedAt": "2026-11-10T18:02:33",
+              "details": [
+                {
+                  "questionId": 4,
+                  "type": "FILL_BLANK",
+                  "typeName": "填空题",
+                  "stem": "C 语言中，用于向标准输出打印格式化内容的库函数是 ______。",
+                  "userAnswer": "printf",
+                  "correct": true,
+                  "scoreGot": 1.0,
+                  "correctAnswer": "printf",
+                  "analysis": "标准输出函数为 printf，需包含 stdio.h。"
+                }
+              ]
+            },
+            "raw_len": 599,
+            "path": "/practice/42/finish",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "X MULTI_CHOICE 按题型练习",
+          "note": "多选题：answerContent 正确项为 A(int)/C(static)",
+          "start": {
+            "http": 200,
+            "ms": 17.0,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 43,
+              "answeredCount": 0,
+              "totalCount": 1,
+              "finished": false,
+              "question": {
+                "id": 2,
+                "subjectId": 5,
+                "type": "MULTI_CHOICE",
+                "typeName": "多选题",
+                "stem": "以下哪些是 C 语言的合法关键字？（多选）",
+                "difficulty": 2,
+                "source": "模拟题",
+                "tags": "基础,关键字",
+                "score": 2,
+                "objective": true,
+                "auditStatus": "APPROVED",
+                "options": [
+                  {
+                    "key": "A",
+                    "content": "int"
+                  },
+                  {
+                    "key": "B",
+                    "content": "function"
+                  },
+                  {
+                    "key": "C",
+                    "content": "static"
+                  },
+                  {
+                    "key": "D",
+                    "content": "define"
+                  }
+                ]
+              }
+            },
+            "raw_len": 530,
+            "path": "/practice/start",
+            "method": "POST"
+          },
+          "practiceId": 43,
+          "question_options": [
+            {
+              "key": "A",
+              "content": "int"
+            },
+            {
+              "key": "B",
+              "content": "function"
+            },
+            {
+              "key": "C",
+              "content": "static"
+            },
+            {
+              "key": "D",
+              "content": "define"
+            }
+          ],
+          "question_type": "MULTI_CHOICE",
+          "answer": {
+            "http": 200,
+            "ms": 33.0,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "questionId": 2,
+              "type": "MULTI_CHOICE",
+              "judged": true,
+              "correct": true,
+              "correctAnswer": "A,C",
+              "analysis": "function 与 define 都不是 C 关键字：define 是预处理指令，function 不是保留字。",
+              "needSelfEval": false,
+              "answeredCount": 1,
+              "totalCount": 1,
+              "correctCount": 1
+            },
+            "raw_len": 341,
+            "path": "/practice/43/answer",
+            "method": "POST"
+          },
+          "answer_submitted": "A,C",
+          "finish": {
+            "http": 200,
+            "ms": 18.3,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "practiceId": 43,
+              "subjectName": "C语言程序设计",
+              "mode": "BY_TYPE",
+              "totalCount": 1,
+              "answeredCount": 1,
+              "correctCount": 1,
+              "accuracy": 100.0,
+              "status": "FINISHED",
+              "startedAt": "2026-11-10T18:02:33",
+              "finishedAt": "2026-11-10T18:02:33",
+              "details": [
+                {
+                  "questionId": 2,
+                  "type": "MULTI_CHOICE",
+                  "typeName": "多选题",
+                  "stem": "以下哪些是 C 语言的合法关键字？（多选）",
+                  "userAnswer": "A,C",
+                  "correct": true,
+                  "scoreGot": 2.0,
+                  "correctAnswer": "A,C",
+                  "analysis": "function 与 define 都不是 C 关键字：define 是预处理指令，function 不是保留字。"
+                }
+              ]
+            },
+            "raw_len": 619,
+            "path": "/practice/43/finish",
+            "method": "POST"
+          }
+        }
+      ],
+      "finished_at": "2026-11-10T18:02:32.891+08:00"
+    },
+    "ai": {
+      "started_at": "2026-11-10T18:02:49.077+08:00",
+      "steps": [
+        {
+          "step": "B0 能力探测",
+          "result": {
+            "http": 200,
+            "ms": 159.9,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "available": true,
+              "generator": "ollama",
+              "provider": "ollama",
+              "llmConfigured": true,
+              "degraded": false,
+              "circuitOpen": false,
+              "circuitRemainingMillis": 0,
+              "extractiveMode": false,
+              "chunkCount": 12648,
+              "rejectThreshold": 0.15,
+              "indexStats": {
+                "chunk": 12648
+              },
+              "vectorEnabled": true,
+              "vectorIndexReady": true,
+              "vectorChannelAvailable": true,
+              "aiServiceStatus": "ok",
+              "embeddingModel": "bge-small-zh-v1.5",
+              "embeddingDim": 512,
+              "ocrEnabled": true,
+              "storageProvider": "local"
+            },
+            "raw_len": 504,
+            "path": "/ai/capability",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "B1 域内问题：进程和线程有什么区别",
+          "result": {
+            "http": 200,
+            "ms": 54.0,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "进程和线程有什么区别",
+              "answer": "## 进程的基本特征\n进程具有动态性、并发性、独立性和异步性等基本特征。在一段时间内，多个进程可以同时运行，每个进程都是一个能独立获得资源和调度的基本单位。\n\n## PCB链接组织方式\nPCB（进程控制块）是操作系统管理进程的重要数据结构。它包含了执行指针、就绪队列指针、阻塞队列指针、空闲队列指针等信息，用于实现进程的管理和调度。\n\n## 进程通信类型\n本章介绍了几种常见的进程通信方式，包括共享存储器系统、管道通信等。其中，管道通信是一种高效的方式，用于连接读进程和写进程以实现它们之间的通信。\n\n## 线程状态和控制块\n线程是进程中的一个执行单元，具有不同的状态，如执行态、就绪态、阻塞态等。线程控制块（TCB）包含了线程标识符、一组寄存器、优先级等信息，用于管理线程的运行状态。",
+              "generator": "wiki",
+              "engine": "WIKI",
+              "fallbackFromWiki": false,
+              "wikiPageId": 20,
+              "wikiPageSlug": "doc-506",
+              "wikiTitle": "进程的描述与控制",
+              "degraded": false,
+              "refused": false,
+              "costMillis": 34,
+              "retrievalMillis": 34,
+              "retrievalMode": "WIKI_NGRAM",
+              "recallCount": 1,
+              "sources": [
+                {
+                  "title": "进程的描述与控制",
+                  "snippet": "本章主要介绍了进程的基本特征、PCB链接组织方式、进程通信类型以及线程状态和控制块等内容，是操作系统中的重要组成部分。",
+                  "refType": "WIKI",
+                  "refId": 20,
+                  "refPath": "/wiki/20",
+                  "offset": -1
+                }
+              ],
+              "contexts": [
+                "进程的描述与控制"
+              ]
+            },
+            "raw_len": 1691,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "B2 域外问题：红烧肉怎么做",
+          "result": {
+            "http": 200,
+            "ms": 282.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "红烧肉怎么做",
+              "answer": "未找到相关资料",
+              "generator": "none",
+              "engine": "RAG",
+              "fallbackFromWiki": true,
+              "degraded": false,
+              "refused": true,
+              "costMillis": 274,
+              "retrievalMillis": 274,
+              "retrievalMode": "NONE",
+              "recallCount": 50,
+              "sources": [],
+              "contexts": []
+            },
+            "raw_len": 330,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "B3-1 同学科连问：什么是进程调度算法",
+          "result": {
+            "http": 200,
+            "ms": 53.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "什么是进程调度算法",
+              "answer": "## 调度目标\n处理机调度算法有多个共同目标：资源利用率、公平性、平衡性以及策略强制执行。批处理系统的调度目标是缩短平均周转时间、提高系统吞吐量和处理机利用率；分时系统的目标是快速响应时间和均衡性；实时系统则注重截止时间的保证和可预测性。\n\n## 常用调度算法\n### 优先级调度算法PR（1）\n每个进程都有一个优先数，优先数为整数。默认情况下，小的优先数具有高优先级。目前主流的操作系统调度算法采用优先级调度。高响应比优先调度算法是一种优先级调度算法，既适用于作业调度也适用于进程调度。\n\n### RR调度算法实例\nRR（轮转）调度算法通过时间片进行循环调度。例如，在给定的t时刻，系统开始作业调度，根据RR算法选择作业。此例展示了不同时间点的选择情况，帮助理解RR调度的具体应用。\n\n### EDF调度算法\n最早截止时间优先(EDF)调度算法是非抢占式调度用于非周期实时任务，抢占式调度用于周期实时任务。EDF根据任务的截止时间确定优先级，截止时间越早，优先级越高。该算法既适用于抢占式调度也适用于非抢占式调度。",
+              "generator": "wiki",
+              "engine": "WIKI",
+              "fallbackFromWiki": false,
+              "wikiPageId": 15,
+              "wikiPageSlug": "doc-507",
+              "wikiTitle": "处理机调度",
+              "degraded": false,
+              "refused": false,
+              "costMillis": 30,
+              "retrievalMillis": 30,
+              "retrievalMode": "WIKI_NGRAM",
+              "recallCount": 1,
+              "sources": [
+                {
+                  "title": "处理机调度",
+                  "snippet": "本章主要介绍了处理机调度的目标、常用算法及其应用。重点在于理解不同调度算法的目标和特点，掌握优先级调度和RR调度的具体实例。",
+                  "refType": "WIKI",
+                  "refId": 15,
+                  "refPath": "/wiki/15",
+                  "offset": -1
+                }
+              ],
+              "contexts": [
+                "处理机调度"
+              ]
+            },
+            "raw_len": 1976,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "B3-2 同学科连问：死锁产生的四个必要条件是什么",
+          "result": {
+            "http": 200,
+            "ms": 43.6,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "死锁产生的四个必要条件是什么",
+              "answer": "## 设计模式的实际应用\n面试官会问及设计模式的应用，重点在于了解常见的设计模式如单例模式、工厂模式、观察者模式等，并能够区分状态模式和策略模式。面试者需要具备实际项目中的应用能力。\n\n## 数据库事务机制\nRedis的AOF和RDB两种持久化方式各有优缺点：AOF更加安全但需要较多磁盘IO，而RDB则在主进程不进行IO操作的情况下保证高性能，但存在数据丢失的风险。面试者需了解这两种方式的具体配置和应用场景。\n\n## 缓存技术与问题\n缓存技术中，AOF和RDB的区别在于AOF更加安全但恢复速度慢，而RDB则在恢复速度上更快但存在数据丢失的风险。此外，还需了解缓存穿透、缓存雪崩和缓存击穿等现象及其解决方案。\n\n## 死锁问题\n死锁是多个进程因争夺资源而陷入无法继续执行的状态。面试者需理解死锁的产生原因，并能够识别和解决死锁问题。\n\n## Jvm类加载过程\nJVM类加载分为加载、验证、准备、解析和初始化五个阶段，面试者需了解这些阶段的具体内容及其作用。",
+              "generator": "wiki",
+              "engine": "WIKI",
+              "fallbackFromWiki": false,
+              "wikiPageId": 22,
+              "wikiPageSlug": "doc-396",
+              "wikiTitle": "顺丰Java一面",
+              "degraded": false,
+              "refused": false,
+              "costMillis": 37,
+              "retrievalMillis": 37,
+              "retrievalMode": "WIKI_NGRAM",
+              "recallCount": 1,
+              "sources": [
+                {
+                  "title": "顺丰Java一面",
+                  "snippet": "顺丰Java一面主要考察设计模式的实际应用、数据库事务机制、缓存技术、死锁问题、JVM类加载过程以及消息确认机制等知识点。",
+                  "refType": "WIKI",
+                  "refId": 22,
+                  "refPath": "/wiki/22",
+                  "offset": -1
+                }
+              ],
+              "contexts": [
+                "顺丰Java一面"
+              ]
+            },
+            "raw_len": 1869,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "B3-3 同学科连问：虚拟内存的作用是什么",
+          "result": {
+            "http": 200,
+            "ms": 29.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "虚拟内存的作用是什么",
+              "answer": "## 虚拟存储器概述\n虚拟存储器是操作系统中用于管理主存和辅存之间关系的技术。它通过将主存中的页面映射到辅存中的页面来实现内存的扩展。本章主要讨论了请求分页、置换算法以及抖动的预防方法。\n\n## 内存分配策略\n在请求分页系统中，内存分配策略分为固定分配和可变分配两种。固定分配适用于局部置换策略，而可变分配则支持全局和局部置换。物理块的分配采用平均分配、按比例分配及考虑优先权的算法来确保进程正常运行所需的最小物理块数。\n\n## LRU算法的硬件支持\nLRU（最近最少使用）算法通过寄存器和栈来实现页面的淘汰策略。每个页面在内存中对应一个移位寄存器，被访问的页面更新寄存器位置，定时右移。具有最小数值的寄存器所对应的页面为被淘汰页。栈则保存当前使用的页面，被访问的页面移到栈顶，栈底是最近最久未使用页面。\n\n## 抖动的预防方法\n抖动是指频繁的页面置换导致系统性能下降的现象。本章介绍了采取局部置换策略、将工作集算法融入调度以及利用‘L=S’准则调节缺页率来预防抖动的方法。具体来说，选择暂停进程可以减少缺页率，从而提高系统效率。",
+              "generator": "wiki",
+              "engine": "WIKI",
+              "fallbackFromWiki": false,
+              "wikiPageId": 14,
+              "wikiPageSlug": "doc-510",
+              "wikiTitle": "第6章 虚拟存储器",
+              "degraded": false,
+              "refused": false,
+              "costMillis": 22,
+              "retrievalMillis": 22,
+              "retrievalMode": "WIKI_NGRAM",
+              "recallCount": 1,
+              "sources": [
+                {
+                  "title": "第6章 虚拟存储器",
+                  "snippet": "本章介绍了虚拟存储器的概念、请求分页中的内存分配策略、LRU算法的硬件支持以及抖动的预防方法等内容，重点在于理解虚拟存储器的工作原理及其优化技术。",
+                  "refType": "WIKI",
+                  "refId": 14,
+                  "refPath": "/wiki/14",
+                  "offset": -1
+                }
+              ],
+              "contexts": [
+                "第6章 虚拟存储器"
+              ]
+            },
+            "raw_len": 2096,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "B4 限定科目检索(subjectId=214 操作系统)",
+          "result": {
+            "http": 200,
+            "ms": 26.7,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "question": "进程和线程有什么区别",
+              "answer": "## 进程的基本特征\n进程具有动态性、并发性、独立性和异步性等基本特征。在一段时间内，多个进程可以同时运行，每个进程都是一个能独立获得资源和调度的基本单位。\n\n## PCB链接组织方式\nPCB（进程控制块）是操作系统管理进程的重要数据结构。它包含了执行指针、就绪队列指针、阻塞队列指针、空闲队列指针等信息，用于实现进程的管理和调度。\n\n## 进程通信类型\n本章介绍了几种常见的进程通信方式，包括共享存储器系统、管道通信等。其中，管道通信是一种高效的方式，用于连接读进程和写进程以实现它们之间的通信。\n\n## 线程状态和控制块\n线程是进程中的一个执行单元，具有不同的状态，如执行态、就绪态、阻塞态等。线程控制块（TCB）包含了线程标识符、一组寄存器、优先级等信息，用于管理线程的运行状态。",
+              "generator": "wiki",
+              "engine": "WIKI",
+              "fallbackFromWiki": false,
+              "wikiPageId": 20,
+              "wikiPageSlug": "doc-506",
+              "wikiTitle": "进程的描述与控制",
+              "degraded": false,
+              "refused": false,
+              "costMillis": 20,
+              "retrievalMillis": 20,
+              "retrievalMode": "WIKI_NGRAM",
+              "recallCount": 1,
+              "sources": [
+                {
+                  "title": "进程的描述与控制",
+                  "snippet": "本章主要介绍了进程的基本特征、PCB链接组织方式、进程通信类型以及线程状态和控制块等内容，是操作系统中的重要组成部分。",
+                  "refType": "WIKI",
+                  "refId": 20,
+                  "refPath": "/wiki/20",
+                  "offset": -1
+                }
+              ],
+              "contexts": [
+                "进程的描述与控制"
+              ]
+            },
+            "raw_len": 1691,
+            "path": "/ai/ask",
+            "method": "POST"
+          }
+        }
+      ],
+      "finished_at": "2026-11-10T18:02:49.728+08:00"
+    },
+    "admin": {
+      "started_at": "2026-11-10T18:04:22.516+08:00",
+      "steps": [
+        {
+          "step": "C1-1 管理端页面",
+          "http": 200,
+          "ms": 21.8,
+          "bytes": 103203,
+          "title": "备考知识库 · 后台管理端",
+          "title_match": true
+        },
+        {
+          "step": "C1-2 管理员登录",
+          "result": {
+            "http": 200,
+            "ms": 77.1,
+            "code": 200,
+            "message": "登录成功",
+            "data": {
+              "token": "<REDACTED_JWT>",
+              "expiresIn": 604800,
+              "user": {
+                "id": 1,
+                "nickname": "系统管理员",
+                "maskedStudentNo": "******",
+                "role": "ADMIN",
+                "collegeId": 1,
+                "grade": "2021"
+              }
+            },
+            "raw_len": 417,
+            "path": "/auth/login",
+            "method": "POST"
+          }
+        },
+        {
+          "step": "C2-1 题目列表(只读,size=5)",
+          "result": {
+            "http": 200,
+            "ms": 29.5,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "page": 1,
+              "size": 5,
+              "total": 3080,
+              "list": [
+                {
+                  "id": 4026,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "以下柱状图反映了哪一时间段内，我国科幻产业营收额同比增量的变化情况（横轴位置表示增量为 0）？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4025,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "在①2023 年未来产业领域企业发明专利产业化平均收益、②2024 年小微企业发明专利产业化总体平均收益、③2023 年金属制品业大型企业发明专利产业化率 3 项指标中，能够从上述资料中推出的有几项？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4024,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "资料所列 13 个行业中，2024 年企业发明专利产业化率同比增量超过 3 个百分点的有几个？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4023,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "将我国企业的发明专利、 实用新型专利、 外观设计专利按产业化率从高到低排序， 则2020~2023 年中次序与 2024 年次序一致的年份有几个？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4022,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "若宋和韩组队乒乓球双打，则以下哪项是可能的？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,判断推理",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "APPROVED"
+                }
+              ]
+            },
+            "raw_len": 2140,
+            "path": "/admin/questions?page=1&size=5",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "C2-2 待审列表(只读,auditStatus=PENDING)",
+          "result": {
+            "http": 200,
+            "ms": 7.1,
+            "code": 200,
+            "message": "成功",
+            "data": {
+              "page": 1,
+              "size": 5,
+              "total": 580,
+              "list": [
+                {
+                  "id": 4026,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "以下柱状图反映了哪一时间段内，我国科幻产业营收额同比增量的变化情况（横轴位置表示增量为 0）？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4025,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "在①2023 年未来产业领域企业发明专利产业化平均收益、②2024 年小微企业发明专利产业化总体平均收益、③2023 年金属制品业大型企业发明专利产业化率 3 项指标中，能够从上述资料中推出的有几项？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4024,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "资料所列 13 个行业中，2024 年企业发明专利产业化率同比增量超过 3 个百分点的有几个？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4023,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "将我国企业的发明专利、 实用新型专利、 外观设计专利按产业化率从高到低排序， 则2020~2023 年中次序与 2024 年次序一致的年份有几个？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,资料分析",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                },
+                {
+                  "id": 4012,
+                  "subjectId": 190,
+                  "type": "SINGLE_CHOICE",
+                  "typeName": "单选题",
+                  "stem": "如果用一个圆来表示词语所指称的对象的集合，那么以下哪项中画横线词语之间的关系符合下图？",
+                  "difficulty": 3,
+                  "source": "2026年国考行测（行政执法）",
+                  "tags": "国考,行测,2026,行政执法,判断推理",
+                  "score": 1,
+                  "objective": true,
+                  "auditStatus": "PENDING"
+                }
+              ]
+            },
+            "raw_len": 2201,
+            "path": "/admin/questions?page=1&size=5&auditStatus=PENDING",
+            "method": "GET"
+          }
+        },
+        {
+          "step": "C2-3 科目列表(管理端,只读)",
+          "result": {
+            "http": 404,
+            "ms": 28.7,
+            "code": 404,
+            "message": "接口不存在：GET /api/admin/subjects",
+            "data": null,
+            "raw_len": 95,
+            "path": "/admin/subjects",
+            "method": "GET"
+          }
+        }
+      ],
+      "finished_at": "2026-11-10T18:04:22.682+08:00"
+    }
+  },
+  "updated_at": "2026-11-10T18:04:22.682+08:00"
+}

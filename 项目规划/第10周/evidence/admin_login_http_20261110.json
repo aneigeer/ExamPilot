@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "week": 10,
+    "date": "2026-11-10",
+    "owner": "software-engineer-db",
+    "task": "P0-1 超管口令收口 —— HTTP 登录实测证据",
+    "backend": "http://127.0.0.1:8080（新构建，17:58 启动）",
+    "password_source": "config/secrets.local.yml -> admin.password（本文件不含任何口令明文或哈希）",
+    "note": "限流 5 次/分钟；本轮共 5 次登录请求（主理人 3 次 + 执行人复核 2 次），未触发限流"
+  },
+  "admin_login_http": {
+    "endpoint": "POST /api/auth/login",
+    "new_password": {
+      "http_status": 200,
+      "business_code": 200,
+      "token_length": 196,
+      "verdict": "PASS",
+      "verified_by": ["team-lead", "software-engineer-db"]
+    },
+    "old_password": {
+      "http_status": 200,
+      "business_code": 1001,
+      "message": "学号或密码错误",
+      "verdict": "PASS（旧口令已失效）",
+      "verified_by": ["team-lead", "software-engineer-db"]
+    },
+    "tested_at": "2026-11-10T18:0x+08:00（主理人 17:58 后端启动后；执行人复核紧随其后）",
+    "rate_limit": "5 次/分钟，实际 5 次，未触发 429"
+  },
+  "extra_checks": {
+    "student_demo_login": {
+      "endpoint": "POST /api/auth/login",
+      "account": "2021001",
+      "http_status": 200,
+      "business_code": 200,
+      "verdict": "PASS（演示链路未受口令收口影响）",
+      "verified_by": ["team-lead"]
+    },
+    "p0_3_api_run_disabled": {
+      "with_admin_token": {
+        "http_status": 404,
+        "message": "接口不存在：POST /api/run",
+        "verdict": "PASS（code-run 开关生效，属 P0-3 范围）",
+        "verified_by": ["team-lead"]
+      },
+      "without_token": {
+        "http_status": 401,
+        "verdict": "PASS（未带令牌时先被安全链拦下，与上一条不矛盾）",
+        "verified_by": ["software-engineer-db"]
+      }
+    },
+    "service_liveness": {
+      "endpoint": "GET /api/home",
+      "http_status": 200,
+      "verified_by": ["software-engineer-db"]
+    }
+  },
+  "conclusion": "超管新旧口令在真实 HTTP 层已双向验证（新可登录取 token、旧返回业务码 1001），P0-1 由「离线 BCrypt 校验 + DB 层证据」升级为「HTTP 端到端证据」，该项不再有待办。"
+}

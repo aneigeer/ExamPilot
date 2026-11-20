@@ -32,9 +32,11 @@ curl -s http://localhost:8000/v1/health
 curl -s http://localhost:6333/healthz
 
 # ② 拿到 token（演练全程复用）
+#    口令不落文档：先从本机 config/secrets.local.yml 的 admin.password 取值
+export ADMIN_PASSWORD='<从 config/secrets.local.yml 读取，勿写进文档/脚本>'
 curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"studentNo":"admin","password":"admin123"}' -o login.json
+  -d "{\"studentNo\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" -o login.json
 python -c "import json;open('tok.txt','w').write(json.load(open('login.json',encoding='utf-8'))['data']['token'])"
 export TOK=$(cat tok.txt)
 
