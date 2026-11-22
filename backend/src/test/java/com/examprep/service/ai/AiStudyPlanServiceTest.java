@@ -132,7 +132,7 @@ class AiStudyPlanServiceTest {
                   "tips": ["做题前先画内存示意图"]
                 }
                 ```""";
-        when(ollama.complete(anyString(), anyString())).thenReturn(llmJson);
+        when(ollama.completeJson(anyString(), anyString())).thenReturn(llmJson);
 
         AiStudyPlanRequest req = new AiStudyPlanRequest();
         req.setDays(5);
@@ -163,7 +163,7 @@ class AiStudyPlanServiceTest {
 
         when(ollama.name()).thenReturn("ollama");
         when(ollama.available()).thenReturn(true);
-        when(ollama.complete(anyString(), anyString())).thenThrow(new AiUnavailableException("连接超时"));
+        when(ollama.completeJson(anyString(), anyString())).thenThrow(new AiUnavailableException("连接超时"));
 
         User u = new User();
         u.setId(7L);

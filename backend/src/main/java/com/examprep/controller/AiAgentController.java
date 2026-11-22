@@ -3,9 +3,11 @@ package com.examprep.controller;
 import com.examprep.common.PageResult;
 import com.examprep.common.Result;
 import com.examprep.common.TraceContext;
+import com.examprep.dto.ai.AgentApprovalRequest;
 import com.examprep.dto.ai.AgentRunVO;
 import com.examprep.dto.ai.AgentStreamRequest;
 import com.examprep.security.SecurityUtils;
+import com.examprep.service.ai.agent.AgentCheckpointService;
 import com.examprep.service.ai.agent.AgentRunService;
 import com.examprep.service.ai.agent.AgentSessionService;
 import com.examprep.service.ai.agent.AgentStreamService;
@@ -40,6 +42,14 @@ public class AiAgentController {
     private final AgentStreamService streamService;
     private final AgentRunService runService;
     private final AgentSessionService sessionService;
+    private final AgentCheckpointService checkpointService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.examprep.service.OperationLogService operationLogService;
+
+    public void setOperationLogService(com.examprep.service.OperationLogService operationLogService) {
+        this.operationLogService = operationLogService;
+    }
 
     @Operation(summary = "Agent 流式会话（SSE）",
             description = """
@@ -59,6 +69,8 @@ public class AiAgentController {
             @Parameter(description = "上游链路追踪 ID，16 位小写 hex；缺失或非法时由后端生成")
             @RequestHeader(value = TraceContext.HEADER, required = false) String traceId) {
         Long userId = SecurityUtils.requireUserId();
+        // 禁止客户端在常规 /stream 请求中伪造已审批工具列表
+        request.setApprovedTools(null);
         // 会话解析在这里完成：校验归属（跨用户复用 403），并把最终 sessionId 写回请求
         request.setSessionId(sessionService.resolve(
                 request.getSessionId(), userId, request.getQuestion()));
@@ -91,5 +103,32 @@ public class AiAgentController {
                     com.examprep.common.ResultCode.FORBIDDEN, "无权查看该会话");
         }
         return Result.success(vo);
+    }
+
+    @Operation(summary = "高风险写操作人工审批（HITL）",
+            description = "**访问级别：AUTH**。校验归属与一次性 approvalToken（幂等防重）；"
+                    + "批准后带已审批工具白名单从检查点恢复新会话并返回 newRunId，拒绝则将原会话置为 CANCELLED。")
+    @PostMapping("/ai/agent/runs/{id}/approve")
+    public Result<AgentCheckpointService.ApprovalOutcome> approve(
+            @PathVariable Long id,
+            @Valid @RequestBody AgentApprovalRequest request,
+            @RequestHeader(value = TraceContext.HEADER, required = false) String traceId) {
+        Long current = SecurityUtils.requireUserId();
+        boolean isAdmin = "ADMIN".equals(SecurityUtils.currentRole());
+        String resolved = TraceContext.of(traceId);
+        boolean approved = Boolean.TRUE.equals(request.getApproved());
+        AgentCheckpointService.ApprovalOutcome outcome = checkpointService.approve(
+                id, current, isAdmin,
+                request.getApprovalToken(),
+                approved,
+                resolved);
+        if (operationLogService != null) {
+            operationLogService.record("AI_GOVERNANCE",
+                    approved ? "HITL_APPROVE" : "HITL_REJECT",
+                    "AI_AGENT_RUN", id,
+                    "tool=" + outcome.tool() + ",status=" + outcome.status()
+                            + ",newRunId=" + outcome.newRunId() + ",traceId=" + resolved);
+        }
+        return Result.success(outcome);
     }
 }

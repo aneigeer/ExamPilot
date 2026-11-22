@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -223,6 +224,66 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
      */
     @Override
     public String complete(String systemPrompt, String userPrompt) {
+        return completeWithUsage(systemPrompt, userPrompt).content();
+    }
+
+    /**
+     * 普通生成 + 用量。
+     *
+     * <p>上游返回 {@code usage} 就用真实值；缺字段时按字符数保守估算并标记
+     * {@code estimated=true}，绝不把估算伪装成真实计量。
+     */
+    @Override
+    public LlmCompletion completeWithUsage(String systemPrompt, String userPrompt) {
+        requireAvailable();
+        try {
+            LlmCompletion completion = postChat(systemPrompt, userPrompt, false);
+            circuitBreaker.onSuccess();
+            return completion;
+        } catch (AiUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            circuitBreaker.onFailure(e.getMessage());
+            throw new AiUnavailableException(generatorName + " 结构化生成失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public String completeJson(String systemPrompt, String userPrompt) {
+        return completeJsonWithUsage(systemPrompt, userPrompt).content();
+    }
+
+    /**
+     * 带 {@code response_format=json_object} 的结构化生成 + 用量。
+     *
+     * <p>部分兼容端点（尤其是本地推理服务）不认识 {@code response_format}，会返回 400/422。
+     * 这类「能力不支持」不计入熔断失败：自动回退一次普通请求。
+     */
+    @Override
+    public LlmCompletion completeJsonWithUsage(String systemPrompt, String userPrompt) {
+        requireAvailable();
+        try {
+            LlmCompletion completion = postChat(systemPrompt, userPrompt, true);
+            circuitBreaker.onSuccess();
+            return completion;
+        } catch (RestClientResponseException e) {
+            int status = e.getStatusCode().value();
+            if (status == 400 || status == 422) {
+                log.info("[AI] {} 不支持 response_format（HTTP {}），回退普通请求",
+                        generatorName, status);
+                return completeWithUsage(systemPrompt, userPrompt);
+            }
+            circuitBreaker.onFailure(e.getMessage());
+            throw new AiUnavailableException(generatorName + " JSON 生成失败：HTTP " + status);
+        } catch (AiUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            circuitBreaker.onFailure(e.getMessage());
+            throw new AiUnavailableException(generatorName + " JSON 生成失败：" + e.getMessage());
+        }
+    }
+
+    private void requireAvailable() {
         if (!hasCredentials()) {
             throw new AiUnavailableException(generatorName + " 未配置 API Key");
         }
@@ -230,30 +291,55 @@ public abstract class AbstractOpenAiCompatLlmClient implements LlmClient {
             throw new AiUnavailableException(generatorName + " 处于熔断状态（剩余 "
                     + circuitBreaker.remainingOpenMillis() + " ms）");
         }
-        try {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("model", model);
-            body.put("temperature", 0);
-            body.put("max_tokens", properties.getPrompt().getMaxTokens());
-            body.put("messages", List.of(
-                    Map.of("role", "system", "content", systemPrompt),
-                    Map.of("role", "user", "content", userPrompt)));
-            String raw = restClient.post()
-                    .uri("/chat/completions")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header("Authorization", authorizationHeader())
-                    .body(objectMapper.writeValueAsString(body))
-                    .retrieve()
-                    .body(String.class);
-            String content = extractContent(raw);
-            circuitBreaker.onSuccess();
-            return content;
-        } catch (AiUnavailableException e) {
-            throw e;
-        } catch (Exception e) {
-            circuitBreaker.onFailure(e.getMessage());
-            throw new AiUnavailableException(generatorName + " 结构化生成失败：" + e.getMessage());
+    }
+
+    private LlmCompletion postChat(String systemPrompt, String userPrompt, boolean jsonMode)
+            throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("temperature", 0);
+        body.put("max_tokens", properties.getPrompt().getMaxTokens());
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)));
+        if (jsonMode) {
+            body.put("response_format", Map.of("type", "json_object"));
         }
+        String raw = restClient.post()
+                .uri("/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", authorizationHeader())
+                .body(objectMapper.writeValueAsString(body))
+                .retrieve()
+                .body(String.class);
+        return parseCompletion(raw, systemPrompt + userPrompt);
+    }
+
+    private LlmCompletion parseCompletion(String raw, String prompt) throws Exception {
+        if (raw == null || raw.isBlank()) {
+            throw new AiUnavailableException("大模型返回空响应");
+        }
+        JsonNode root = objectMapper.readTree(raw);
+        JsonNode choices = root.path("choices");
+        if (!choices.isArray() || choices.isEmpty()) {
+            throw new AiUnavailableException("大模型响应缺少 choices（可能是限流或鉴权失败）："
+                    + truncate(raw));
+        }
+        String content = choices.get(0).path("message").path("content").asText("");
+        if (content == null || content.isBlank()) {
+            throw new AiUnavailableException("大模型返回内容为空");
+        }
+        String responseModel = root.path("model").asText(model);
+        JsonNode usage = root.path("usage");
+        if (usage.isObject() && usage.has("prompt_tokens")) {
+            int p = usage.path("prompt_tokens").asInt(0);
+            int c = usage.path("completion_tokens").asInt(0);
+            int t = usage.path("total_tokens").asInt(p + c);
+            return new LlmCompletion(content.trim(),
+                    new LlmUsage(responseModel, p, c, t, false));
+        }
+        return new LlmCompletion(content.trim(),
+                LlmUsage.estimate(responseModel, prompt, content));
     }
 
     /** 从 OpenAI 兼容响应中取 {@code choices[0].message.content} */

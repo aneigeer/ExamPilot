@@ -68,6 +68,7 @@ import java.util.Set;
 public class WikiService {
 
     private final WikiPageMapper pageMapper;
+    private final WikiGovernanceService governance;
     private final WikiPageRevisionMapper revisionMapper;
     private final WikiPageLinkMapper linkMapper;
     private final WikiDistillMapper distillMapper;
@@ -150,10 +151,15 @@ public class WikiService {
     // ==================================================================
 
     public PageResult<WikiPageVO> adminPages(long page, long size, String status, String keyword) {
+        return adminPages(page, size, status, null, keyword);
+    }
+
+    public PageResult<WikiPageVO> adminPages(long page, long size, String status,
+                                             String trustTier, String keyword) {
         long safePage = Math.max(1, page);
         long safeSize = Math.max(1, Math.min(50, size));
         IPage<WikiPage> result = pageMapper.selectAdmin(
-                new Page<>(safePage, safeSize), trim(status), trim(keyword));
+                new Page<>(safePage, safeSize), trim(status), trim(trustTier), trim(keyword));
         return PageResult.of(result, this::toPageVO);
     }
 
@@ -196,6 +202,7 @@ public class WikiService {
         page.setKeyPoints(revision.getKeyPoints());
         page.setSourceChunkIds(revision.getSourceChunkIds());
         page.setStatus(WikiPage.STATUS_PUBLISHED);
+        governance.markVerified(page, governance.parseIds(revision.getSourceChunkIds()));
         page.setModel(revision.getModel());
         page.setQualityScore(revision.getQualityScore());
         page.setPublishedAt(LocalDateTime.now());
@@ -216,6 +223,12 @@ public class WikiService {
             pageMapper.updateById(page);
         }
 
+        // updateById 默认忽略 null，标旧原因/过期时间必须显式清空
+        pageMapper.update(null, Wrappers.<WikiPage>lambdaUpdate()
+                .eq(WikiPage::getId, page.getId())
+                .set(WikiPage::getStaleReason, null)
+                .set(WikiPage::getExpiresAt, null));
+
         int updated = revisionMapper.markApproved(revisionId, page.getId(), reviewerId, trim(note));
         if (updated == 0) {
             throw new BizException(ResultCode.PARAM_ERROR, "草稿状态已变更，请刷新后重试");
@@ -231,6 +244,44 @@ public class WikiService {
         data.put("version", page.getVersion());
         data.put("created", created);
         data.put("vectorIndexed", indexed);
+        return data;
+    }
+
+    /** 源块变更 → 引用页面标旧（供 ChunkSyncService 低开销调用） */
+    public int markStaleByChunkIds(java.util.Collection<Long> chunkIds, String reason) {
+        return governance.markStaleByChunkIds(chunkIds, reason);
+    }
+
+    /** 人工退役：退出热层，直到重新发布 */
+    public Map<String, Object> retire(Long pageId, String reason) {
+        WikiPage page = pageMapper.selectById(pageId);
+        if (page == null) {
+            throw new BizException(ResultCode.NOT_FOUND, "Wiki 页面不存在");
+        }
+        governance.retire(pageId, reason);
+        invalidateCount();
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("pageId", pageId);
+        data.put("trustTier", WikiGovernanceService.TIER_RETIRED);
+        data.put("reason", reason);
+        return data;
+    }
+
+    /** 人工要求重新蒸馏：置 STALE_REVIEW（热层立即停用），后续由 worker 重新生成草稿。 */
+    public Map<String, Object> retireStale(Long pageId, String reason) {
+        WikiPage page = pageMapper.selectById(pageId);
+        if (page == null) {
+            throw new BizException(ResultCode.NOT_FOUND, "Wiki 页面不存在");
+        }
+        page.setTrustTier(WikiGovernanceService.TIER_STALE);
+        page.setStaleReason(reason);
+        page.setUpdatedAt(java.time.LocalDateTime.now());
+        pageMapper.updateById(page);
+        invalidateCount();
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("pageId", pageId);
+        data.put("trustTier", WikiGovernanceService.TIER_STALE);
+        data.put("reason", reason);
         return data;
     }
 
@@ -540,6 +591,9 @@ public class WikiService {
         vo.setKeyPoints(WikiJsonSupport.stringList(objectMapper, page.getKeyPoints()));
         vo.setSourceChunkIds(WikiJsonSupport.longList(objectMapper, page.getSourceChunkIds()));
         vo.setVersion(page.getVersion());
+        vo.setTrustTier(page.getTrustTier());
+        vo.setStaleReason(page.getStaleReason());
+        vo.setExpiresAt(page.getExpiresAt());
         vo.setQualityScore(page.getQualityScore() == null ? null : page.getQualityScore().doubleValue());
         vo.setUpdatedAt(page.getUpdatedAt());
         return vo;
@@ -557,6 +611,9 @@ public class WikiService {
         vo.setKeyPoints(WikiJsonSupport.stringList(objectMapper, page.getKeyPoints()));
         vo.setSourceChunkIds(WikiJsonSupport.longList(objectMapper, page.getSourceChunkIds()));
         vo.setVersion(page.getVersion());
+        vo.setTrustTier(page.getTrustTier());
+        vo.setStaleReason(page.getStaleReason());
+        vo.setExpiresAt(page.getExpiresAt());
         vo.setQualityScore(page.getQualityScore() == null ? null : page.getQualityScore().doubleValue());
         vo.setUpdatedAt(page.getUpdatedAt());
 

@@ -18,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.when;
 
 /**
@@ -32,6 +34,7 @@ class WikiQueryServiceTest {
     private FastApiClient fastApiClient;
     private WikiProperties properties;
     private WikiService wikiService;
+    private WikiGovernanceService governance;
     private WikiQueryService service;
 
     @BeforeEach
@@ -40,10 +43,12 @@ class WikiQueryServiceTest {
         linkMapper = mock(WikiPageLinkMapper.class);
         fastApiClient = mock(FastApiClient.class);
         wikiService = mock(WikiService.class);
+        governance = mock(WikiGovernanceService.class);
+        when(governance.servingAllowed(any())).thenReturn(true);
         properties = new WikiProperties();
         properties.setLinkExpand(false);
         service = new WikiQueryService(pageMapper, linkMapper, fastApiClient,
-                properties, wikiService, new ObjectMapper());
+                properties, wikiService, governance, new ObjectMapper());
     }
 
     private WikiPage page(long id, String slug, String title) {

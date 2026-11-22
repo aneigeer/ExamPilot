@@ -58,6 +58,26 @@ public class AsyncJobService {
      * @param createdBy 提交人
      */
     public AsyncTask submit(String type, Map<String, Object> payload, Long createdBy) {
+        return submit(type, payload, createdBy, null);
+    }
+
+    /**
+     * 带幂等键的提交：同键的 PENDING/RUNNING/SUCCESS 任务直接返回原任务，
+     * 防止网络重试导致重复入队与重复计算。
+     */
+    public AsyncTask submit(String type, Map<String, Object> payload, Long createdBy,
+                            String idempotencyKey) {
+        String key = StringUtils.hasText(idempotencyKey) ? idempotencyKey.trim() : null;
+        if (key != null) {
+            AsyncTask existing = mapper.selectByIdempotencyKey(key);
+            if (existing != null && ("PENDING".equals(existing.getStatus())
+                    || "RUNNING".equals(existing.getStatus())
+                    || "SUCCESS".equals(existing.getStatus()))) {
+                log.info("[AsyncJob] 幂等命中 key={} task={} status={}",
+                        key, existing.getId(), existing.getStatus());
+                return existing;
+            }
+        }
         AiProperties.Jobs cfg = properties.getJobs();
         if (!cfg.isEnabled()) {
             throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE,
@@ -78,12 +98,19 @@ public class AsyncJobService {
         task.setStatus(AsyncTask.STATUS_PENDING);
         task.setProgress(0);
         task.setPayload(payloadJson);
+        task.setIdempotencyKey(key);
         task.setCreatedBy(createdBy);
         task.setCreatedAt(LocalDateTime.now());
         try {
             mapper.insert(task);
         } catch (DuplicateKeyException e) {
-            // 并发提交撞上 active_type 唯一约束
+            // 并发提交撞上 active_type / idempotency_key 唯一约束
+            if (key != null) {
+                AsyncTask existing = mapper.selectByIdempotencyKey(key);
+                if (existing != null) {
+                    return existing;
+                }
+            }
             throw new BizException(ResultCode.TOO_MANY_REQUESTS, "同类型任务正在执行，请稍后再试");
         }
 

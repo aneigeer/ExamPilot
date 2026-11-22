@@ -7,10 +7,14 @@ import com.examprep.entity.AiAgentCheckpoint;
 import com.examprep.entity.AiAgentRun;
 import com.examprep.mapper.AiAgentCheckpointMapper;
 import com.examprep.mapper.AiAgentRunMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 
 /**
@@ -45,6 +49,18 @@ public class AgentCheckpointService {
     private final AiAgentCheckpointMapper checkpointMapper;
     private final AiAgentRunMapper runMapper;
     private final AgentStreamService streamService;
+    private final ObjectMapper objectMapper;
+
+    /** 高风险写操作人工审批结果（HITL） */
+    public record ApprovalOutcome(
+            Long sourceRunId,
+            boolean approved,
+            String status,
+            Long newRunId,
+            String tool,
+            String traceId
+    ) {
+    }
 
     /**
      * 某次运行的步骤检查点（管理端只读）。
@@ -103,6 +119,83 @@ public class AgentCheckpointService {
                 log.warn("[Agent] 恢复标记回滚失败 run={}：{}", runId, revertError.getMessage());
             }
             log.warn("[Agent] 恢复运行失败 run={}：{}", runId, e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * 审批并恢复（或拒绝终止）一次挂起的高风险写操作（HITL）。
+     *
+     * <p>校验顺序：run 存在（404）→ 归属权限（403）→ 状态 WAITING_APPROVAL（409）
+     * → 一次性 approvalToken 常量时间比对（409）→ 条件更新原子抢占（409 防重放）。
+     */
+    public ApprovalOutcome approve(Long runId, Long currentUserId, boolean isAdmin,
+                                   String approvalToken, boolean approved, String traceId) {
+        if (runId == null || approvalToken == null || approvalToken.isBlank()) {
+            throw new BizException(ResultCode.PARAM_ERROR, "缺少 runId 或 approvalToken");
+        }
+        AiAgentRun run = requireRun(runId);
+        if (!isAdmin && (currentUserId == null || !currentUserId.equals(run.getUserId()))) {
+            throw new BizException(ResultCode.FORBIDDEN, "无权审批该会话");
+        }
+        if (!AiAgentRun.STATUS_WAITING_APPROVAL.equals(run.getStatus())) {
+            throw new BizException(ResultCode.CONFLICT,
+                    "当前会话未处于待审批状态：" + run.getStatus());
+        }
+        AiAgentCheckpoint cp = checkpointMapper.findLatestWaitingApproval(runId);
+        if (cp == null) {
+            throw new BizException(ResultCode.CONFLICT, "未找到待审批检查点或已被处理");
+        }
+        String expectedToken = "";
+        String tool = "";
+        try {
+            JsonNode node = objectMapper.readTree(cp.getPayloadJson() == null ? "{}" : cp.getPayloadJson());
+            expectedToken = node.path("approvalToken").asText("");
+            tool = node.path("tool").asText("");
+        } catch (Exception e) {
+            throw new BizException(ResultCode.CONFLICT, "审批检查点数据异常");
+        }
+        if (expectedToken.isBlank() || !MessageDigest.isEqual(
+                expectedToken.getBytes(StandardCharsets.UTF_8),
+                approvalToken.trim().getBytes(StandardCharsets.UTF_8))) {
+            throw new BizException(ResultCode.CONFLICT, "审批令牌不匹配或已失效");
+        }
+        String targetCpStatus = approved ? "APPROVED" : "REJECTED";
+        if (checkpointMapper.markApprovalResolved(cp.getId(), targetCpStatus) <= 0) {
+            throw new BizException(ResultCode.CONFLICT, "该审批请求已被处理，请勿重复提交");
+        }
+
+        if (!approved) {
+            AiAgentRun upd = new AiAgentRun();
+            upd.setId(runId);
+            upd.setStatus(AiAgentRun.STATUS_CANCELLED);
+            upd.setError("approval_rejected");
+            runMapper.updateById(upd);
+            log.info("[Agent][HITL] 用户拒绝高风险工具 run={} tool={}", runId, tool);
+            return new ApprovalOutcome(runId, false, AiAgentRun.STATUS_CANCELLED, null, tool, traceId);
+        }
+
+        AgentStreamRequest request = new AgentStreamRequest();
+        request.setQuestion(run.getQuestion());
+        request.setSessionId(run.getSessionId());
+        request.setApprovedTools(tool.isBlank() ? List.of() : List.of(tool));
+        try {
+            AgentStreamService.StreamStart started =
+                    streamService.start(request, run.getUserId(), traceId);
+            AiAgentRun upd = new AiAgentRun();
+            upd.setId(runId);
+            upd.setStatus("RESUMED");
+            upd.setError("resumed_as_run:" + started.runId());
+            runMapper.updateById(upd);
+            log.info("[Agent][HITL] 审批通过并恢复执行 srcRun={} newRun={} tool={} traceId={}",
+                    runId, started.runId(), tool, traceId);
+            return new ApprovalOutcome(runId, true, "RESUMED", started.runId(), tool, traceId);
+        } catch (RuntimeException e) {
+            try {
+                checkpointMapper.revertApprovalStatus(cp.getId(), targetCpStatus);
+            } catch (Exception revertErr) {
+                log.warn("[Agent][HITL] 审批状态回滚失败 cp={}：{}", cp.getId(), revertErr.getMessage());
+            }
             throw e;
         }
     }

@@ -98,6 +98,14 @@ public class AiQaService {
      */
     private final ObservabilityProperties observability;
 
+    /** 可选配额闸门（非 final，保持既有构造器签名零变更） */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.examprep.service.ai.agent.AiQuotaService quotaService;
+
+    public void setQuotaService(com.examprep.service.ai.agent.AiQuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
+
     /**
      * AI 问答主入口
      *
@@ -105,6 +113,9 @@ public class AiQaService {
      * @param userId 当前用户 ID；<b>可为 null（游客）</b>，此时不建画像加权
      */
     public AskVO ask(AskRequest req, Long userId) {
+        if (quotaService != null && userId != null) {
+            quotaService.checkAndRecord(userId, com.examprep.security.SecurityUtils.currentRole(), true);
+        }
         long start = System.currentTimeMillis();
         String question = req.getQuestion() == null ? "" : req.getQuestion().trim();
 

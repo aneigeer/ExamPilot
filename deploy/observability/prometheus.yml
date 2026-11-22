@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+scrape_configs:
+  - job_name: "examprep-ai-service"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+        labels:
+          service: "ai-service"
+
+  - job_name: "examprep-backend"
+    metrics_path: /api/admin/ai/metrics/prometheus
+    # 生产抓取需通过 bearer_token_file 注入只读 ADMIN/OPS 令牌（切勿将明文 Token 写入本文件）
+    static_configs:
+      - targets: ["host.docker.internal:8080"]
+        labels:
+          service: "backend"

@@ -34,6 +34,12 @@ public class WikiPageDetailVO {
 
     private Integer version;
 
+    private String trustTier;
+
+    private String staleReason;
+
+    private LocalDateTime expiresAt;
+
     private Double qualityScore;
 
     private LocalDateTime updatedAt;

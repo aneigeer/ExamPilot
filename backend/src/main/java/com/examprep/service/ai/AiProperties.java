@@ -66,6 +66,27 @@ public class AiProperties {
     /** 异步任务队列配置（Redis Stream） */
     private Jobs jobs = new Jobs();
 
+    /** 用户/角色级每日 Token 与请求配额配置 */
+    private Quota quota = new Quota();
+
+    @Data
+    public static class Quota {
+        /** 是否启用每日配额闸门（默认 true） */
+        private boolean enabled = true;
+
+        /** 学生角色每日 Token 上限 */
+        private int studentDailyTokens = 200_000;
+
+        /** 学生角色每日请求上限 */
+        private int studentDailyRequests = 200;
+
+        /** 管理员/审核员角色每日 Token 上限 */
+        private int adminDailyTokens = 2_000_000;
+
+        /** 管理员/审核员角色每日请求上限 */
+        private int adminDailyRequests = 2_000;
+    }
+
     @Data
     public static class Route {
 
@@ -253,6 +274,14 @@ public class AiProperties {
          * （旧代码默认值 {@code qwen2.5-7b} 已废弃）。
          */
         private String ollamaModel = "qwen2.5-3b-instruct-q8_0-baseline";
+
+        /**
+         * 云端单价（元 / 千 Token）。本地 Ollama 默认 0；
+         * 配置后 AgentRunService 会按 prompt/completion 分别估算成本。
+         */
+        private double inputPricePerK = 0.0;
+
+        private double outputPricePerK = 0.0;
 
         /**
          * ★ Ollama 专用读超时（毫秒）

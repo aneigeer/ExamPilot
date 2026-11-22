@@ -32,15 +32,21 @@ if (-not $SkipTests) {
     Write-Host '[2/4] 运行 Java 后端全量单测 (mvn -B test)...' -ForegroundColor Cyan
     Push-Location (Join-Path $root 'backend')
     try {
+        $ErrorActionPreference = 'Continue'
         & $mvn -B test
-        if ($LASTEXITCODE -ne 0) { throw "Java 单测失败 (exit=$LASTEXITCODE)" }
+        $javaExit = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($javaExit -ne 0) { throw "Java 单测失败 (exit=$javaExit)" }
     } finally { Pop-Location }
 
     Write-Host '[3/4] 运行 AI 微服务全量单测 (pytest -q)...' -ForegroundColor Cyan
     Push-Location (Join-Path $root 'ai-service')
     try {
+        $ErrorActionPreference = 'Continue'
         & $python -m pytest -q
-        if ($LASTEXITCODE -ne 0) { throw "Python 单测失败 (exit=$LASTEXITCODE)" }
+        $pyExit = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($pyExit -ne 0) { throw "Python 单测失败 (exit=$pyExit)" }
     } finally { Pop-Location }
 } else {
     Write-Host '[2-3/4] 已按参数跳过单测 (-SkipTests)' -ForegroundColor Yellow
@@ -49,8 +55,11 @@ if (-not $SkipTests) {
 Write-Host '[4/4] 打包后端构建产物 (mvn -B package -DskipTests)...' -ForegroundColor Cyan
 Push-Location (Join-Path $root 'backend')
 try {
+    $ErrorActionPreference = 'Continue'
     & $mvn -B package -DskipTests
-    if ($LASTEXITCODE -ne 0) { throw "打包失败 (exit=$LASTEXITCODE)" }
+    $pkgExit = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    if ($pkgExit -ne 0) { throw "打包失败 (exit=$pkgExit)" }
 } finally { Pop-Location }
 
 $jar = Join-Path $root 'backend\target\exam-prep-backend-1.0.0-SNAPSHOT.jar'

@@ -51,8 +51,25 @@ public class AiGradingService {
             铁律：
             1. 只依据参考答案判断，不引入参考答案之外的额外要求；
             2. 不因学生写得多就给分，也不因表述口语化就扣分；
+            2.1 逐点核对参考答案的每个独立要点：学生用同义表述、换说法或简洁概括
+                表达同一含义，均算命中；只有确实未提及才计入遗漏；
             3. 得分率必须保守，宁可偏低不要虚高；
-            4. 只输出 JSON，不输出任何其他文字。""";
+            4. 得分率与等级必须严格对应：
+               EXCELLENT >= 0.85（核心要点齐全且表述准确）；
+               GOOD 0.60~0.84（主要要点齐全，仅少量遗漏或表述不够展开）；
+               PARTIAL 0.20~0.59（只覆盖部分要点，或明显不完整）；
+               POOR < 0.20（几乎未命中要点、答非所问或仅重复题干）；
+            5. 若完整覆盖参考答案的全部核心要点，得分率必须 >= 0.85；
+               若只有一句空泛表述或与参考答案无关，必须 < 0.20；
+            6. 只输出 JSON，不输出任何其他文字。
+
+            评分锚点示例（只用于校准尺度，不要照抄内容）：
+            示例A：学生作答完整覆盖参考答案的全部核心要点，表述准确但简洁
+                    → {"level":"EXCELLENT","scoreRate":0.90,...}
+            示例B：学生作答只提到一个边缘概念，核心要点基本未命中
+                    → {"level":"POOR","scoreRate":0.10,...}
+            示例C：学生作答覆盖一半左右核心要点，其余遗漏
+                    → {"level":"PARTIAL","scoreRate":0.40,...}""";
 
     /**
      * 判分结果
@@ -148,8 +165,26 @@ public class AiGradingService {
                 continue;
             }
             try {
-                String raw = client.complete(SYSTEM_PROMPT, userPrompt);
+                String raw = client.completeJson(SYSTEM_PROMPT, userPrompt);
                 GradeResult parsed = parse(raw, client.name());
+                if (parsed == null) {
+                    // 1) 先做语法层修复：围栏 / 注释 / 尾逗号 / 括号失衡
+                    parsed = parse(JsonOutputRepair.repair(raw), client.name());
+                    if (parsed != null) {
+                        log.info("[AI判分] {} 首次输出经修复后解析成功", client.name());
+                    }
+                }
+                if (parsed == null) {
+                    // 2) 仍失败：带解析错误提示最多纠正一次，不改评分 Prompt 主干
+                    String correction = userPrompt
+                            + "\n\n【纠正要求】上一次输出不是合法 JSON（解析失败）。"
+                            + "请只输出严格合法的 JSON 对象，不要 Markdown 代码块、不要注释、不要多余文字。";
+                    String retryRaw = client.completeJson(SYSTEM_PROMPT, correction);
+                    parsed = parse(JsonOutputRepair.repair(retryRaw), client.name());
+                    if (parsed != null) {
+                        log.info("[AI判分] {} 纠正重试后解析成功", client.name());
+                    }
+                }
                 if (parsed != null) {
                     log.info("[AI判分] 判分完成（{}，等级 {}，得分率 {}）",
                             client.name(), parsed.level(), parsed.scoreRate());
@@ -183,24 +218,49 @@ public class AiGradingService {
      */
     String buildUserPrompt(String stem, String referenceText, String userAnswer) {
         return """
-                请对照【参考答案】批改【学生作答】。
+                请对照【参考答案要点】批改【学生作答】。
 
                 【题目】
                 %s
 
-                【参考答案】
+                【参考答案要点】（请逐条核对，学生用同义表述表达同一含义即算命中）
                 %s
 
                 【学生作答】
                 %s
 
-                请先把参考答案拆成 2~6 个得分点（若参考答案是一条完整表述，就拆成语义要点），
-                再指出学生命中了哪些、遗漏了哪些，并给出一个保守的得分率（0~1，两位小数）。
+                请逐条核对下列已编号的得分点，指出学生命中了哪些、遗漏了哪些，
+                并按命中比例给出保守得分率（0~1，两位小数）。
 
                 只输出下面这个 JSON，不要输出任何其他文字，不要用代码块包裹：
                 {"level":"EXCELLENT|GOOD|PARTIAL|POOR","scoreRate":0.00,
                  "hitPoints":["..."],"missedPoints":["..."],"comment":"一句话理由"}
-                """.formatted(nvl(stem), nvl(referenceText), nvl(userAnswer));
+                """.formatted(nvl(stem), numberedPoints(referenceText), nvl(userAnswer));
+    }
+
+    /**
+     * 把参考答案拆成编号要点：按句号/分号/问号切分，最多 8 条。
+     * 目的：把「整段比对」变成「逐条核对」，显著降低小模型漏判同义表述的概率。
+     */
+    static String numberedPoints(String referenceText) {
+        String text = referenceText == null ? "" : referenceText.trim();
+        if (text.isEmpty()) {
+            return "";
+        }
+        String[] parts = text.split("[。；;！!？?\n]+");
+        StringBuilder sb = new StringBuilder();
+        int index = 1;
+        for (String part : parts) {
+            String point = part.trim();
+            if (point.isEmpty()) {
+                continue;
+            }
+            sb.append(index++).append(". ").append(point).append('\n');
+            if (index > 8) {
+                break;
+            }
+        }
+        return sb.length() == 0 ? text : sb.toString().trim();
     }
 
     /**

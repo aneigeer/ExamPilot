@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -289,5 +290,52 @@ class AiOpsEndpointsTest {
 
     private void insertCheckpoint(Long runId, int stepNo, String payload) {
         checkpointMapper.insertCheckpoint(runId, "s-qa", stepNo, payload);
+    }
+
+    @Test
+    @DisplayName("轨迹导出（ADMIN）：返回 JSONL 与预览，手机号/邮箱已脱敏且不含 userId")
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void exportEvalCaseMasksPii() throws Exception {
+        Long runId = insertRunWithQuestion("我手机 13812345678，邮箱 alice@example.com，帮我查一下这道题");
+
+        String body = mockMvc.perform(post("/admin/ai/runs/" + runId + "/export-eval-case")
+                        .param("domain", "IN")
+                        .param("expectRefusal", "false")
+                        .param("targetDataset", "refusal"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.jsonl").isString())
+                .andExpect(jsonPath("$.data.preview.expect_refusal").value(false))
+                .andReturn().getResponse().getContentAsString();
+
+        assertFalse(body.contains("13812345678"), "手机号不得出现在导出内容中");
+        assertFalse(body.contains("alice@example.com"), "邮箱不得出现在导出内容中");
+        assertFalse(body.contains("900201"), "userId 不得出现在导出内容中");
+    }
+
+    @Test
+    @DisplayName("轨迹导出：AUDITOR 无权限（403）")
+    @WithMockUser(username = "auditor", roles = "AUDITOR")
+    void exportEvalCaseRequiresAdmin() throws Exception {
+        Long runId = insertRunWithQuestion("普通问题");
+        mockMvc.perform(post("/admin/ai/runs/" + runId + "/export-eval-case")
+                        .param("domain", "OUT"))
+                .andExpect(status().isForbidden());
+    }
+
+    private Long insertRunWithQuestion(String question) {
+        AiAgentRun run = new AiAgentRun();
+        run.setUserId(900_201L);
+        run.setTraceId("0123456789abcdef");
+        run.setQuestion(question);
+        run.setSessionId("s-qa-export");
+        run.setStatus(AiAgentRun.STATUS_FAILED);
+        run.setStepCount(3);
+        run.setToolCalls(2);
+        run.setTotalMs(1200);
+        run.setDegraded(false);
+        run.setCreatedAt(LocalDateTime.of(2020, 2, 2, 12, 0, 0));
+        runMapper.insert(run);
+        return run.getId();
     }
 }

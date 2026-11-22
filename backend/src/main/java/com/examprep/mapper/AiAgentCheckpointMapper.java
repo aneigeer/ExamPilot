@@ -75,4 +75,27 @@ public interface AiAgentCheckpointMapper extends BaseMapper<AiAgentCheckpoint> {
     @Update("UPDATE ai_agent_checkpoint SET status = 'RECORDED' "
             + "WHERE run_id = #{runId} AND status = 'RESUMED'")
     int revertResumed(@Param("runId") Long runId);
+
+    /** 写入一条待人工审批挂起检查点（HITL） */
+    @Insert("INSERT INTO ai_agent_checkpoint (run_id, session_id, step_no, payload_json, status) "
+            + "VALUES (#{runId}, #{sessionId}, #{stepNo}, #{payloadJson}, 'WAITING_APPROVAL')")
+    int insertApprovalCheckpoint(@Param("runId") Long runId,
+                                 @Param("sessionId") String sessionId,
+                                 @Param("stepNo") Integer stepNo,
+                                 @Param("payloadJson") String payloadJson);
+
+    /** 查询某 run 最新一条待审批检查点 */
+    @Select("SELECT * FROM ai_agent_checkpoint WHERE run_id = #{runId} AND status = 'WAITING_APPROVAL' "
+            + "ORDER BY step_no DESC, id DESC LIMIT 1")
+    AiAgentCheckpoint findLatestWaitingApproval(@Param("runId") Long runId);
+
+    /** 原子流转审批状态（WAITING_APPROVAL -> APPROVED / REJECTED），返回 0 表示已被处理 */
+    @Update("UPDATE ai_agent_checkpoint SET status = #{newStatus} "
+            + "WHERE id = #{id} AND status = 'WAITING_APPROVAL'")
+    int markApprovalResolved(@Param("id") Long id, @Param("newStatus") String newStatus);
+
+    /** 启动恢复失败时回滚审批状态 */
+    @Update("UPDATE ai_agent_checkpoint SET status = 'WAITING_APPROVAL' "
+            + "WHERE id = #{id} AND status = #{fromStatus}")
+    int revertApprovalStatus(@Param("id") Long id, @Param("fromStatus") String fromStatus);
 }

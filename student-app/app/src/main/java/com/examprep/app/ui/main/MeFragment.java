@@ -1,12 +1,15 @@
 package com.examprep.app.ui.main;
 
 import android.content.Intent;
+import android.text.InputType;
+import android.widget.EditText;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -38,6 +41,9 @@ public class MeFragment extends Fragment {
         TokenStore store = TokenStore.get(requireContext());
         binding.tvNickname.setText(store.hasToken() ? store.userName() : "游客");
         binding.tvStudentNo.setText(store.hasToken() ? "学号 " + store.userNo() : "游客模式 · 登录后可刷题");
+
+        binding.tvServer.setText("服务器地址：" + ApiClient.getBaseUrl(requireContext()));
+        binding.tvServer.setOnClickListener(v -> showServerConfigDialog());
 
         binding.btnLogout.setOnClickListener(v -> {
             if (!store.hasToken()) {
@@ -129,6 +135,40 @@ public class MeFragment extends Fragment {
 
     private void open(Class<?> clazz) {
         startActivity(new Intent(requireContext(), clazz));
+    }
+
+    /** 「我的」内切换服务器：保存后清登录态，回到登录页重新认证 */
+    private void showServerConfigDialog() {
+        EditText input = new EditText(requireContext());
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setText(ApiClient.getBaseUrl(requireContext()));
+        input.setSelection(input.getText().length());
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad / 2, pad, pad / 2);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("服务器地址设置")
+                .setMessage("切换后需重新登录（地址须以 http:// 或 https:// 开头）")
+                .setView(input)
+                .setPositiveButton("保存并重新登录", (dialog, which) -> {
+                    String url = String.valueOf(input.getText()).trim();
+                    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                        toast("地址须以 http:// 或 https:// 开头");
+                        return;
+                    }
+                    ApiClient.setBaseUrl(requireContext(), url);
+                    TokenStore.get(requireContext()).clear();
+                    toast("已切换服务器：" + ApiClient.getBaseUrl(requireContext()));
+                    goLogin();
+                })
+                .setNeutralButton("恢复默认", (dialog, which) -> {
+                    ApiClient.setBaseUrl(requireContext(), null);
+                    TokenStore.get(requireContext()).clear();
+                    toast("已恢复默认地址：" + ApiClient.getBaseUrl(requireContext()));
+                    goLogin();
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void goLogin() {

@@ -119,9 +119,29 @@ public class AiStudyPlanService {
                 continue;
             }
             try {
-                String raw = client.complete(SYSTEM_PROMPT, userPrompt);
+                String raw = client.completeJson(SYSTEM_PROMPT, userPrompt);
                 AiStudyPlanVO parsed = parseLlmPlan(raw, client.name(), days, dailyTarget, subjectId,
                         wrongTotal, dueCount, baseWeak, validQuestionIds);
+                if (parsed == null) {
+                    // 1) 语法层修复（围栏 / 注释 / 尾逗号 / 括号失衡）
+                    parsed = parseLlmPlan(JsonOutputRepair.repair(raw), client.name(), days, dailyTarget,
+                            subjectId, wrongTotal, dueCount, baseWeak, validQuestionIds);
+                    if (parsed != null) {
+                        log.info("[AI学习计划] {} 首次输出经修复后解析成功", client.name());
+                    }
+                }
+                if (parsed == null) {
+                    // 2) 最多一次纠正重试，强调只输出 JSON 对象
+                    String correction = userPrompt
+                            + "\n\n【纠正要求】上一次输出不是合法 JSON（解析失败或缺少 dailySchedule）。"
+                            + "请严格按给定 JSON 结构输出，不要 Markdown 代码块、不要注释、不要多余文字。";
+                    String retryRaw = client.completeJson(SYSTEM_PROMPT, correction);
+                    parsed = parseLlmPlan(JsonOutputRepair.repair(retryRaw), client.name(), days, dailyTarget,
+                            subjectId, wrongTotal, dueCount, baseWeak, validQuestionIds);
+                    if (parsed != null) {
+                        log.info("[AI学习计划] {} 纠正重试后解析成功", client.name());
+                    }
+                }
                 if (parsed != null) {
                     log.info("[AI学习计划] 用户 {} 生成成功（{}，错题 {}，{} 天）",
                             userId, client.name(), wrongTotal, parsed.getDailySchedule().size());

@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from ..clients.java_bridge import JavaBridge, JavaBridgeError
+from .artifact_store import ArtifactStore
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ class AgentContext:
     history: List[Dict[str, Any]] = field(default_factory=list)
     #: Java 维护的滚动摘要
     memory_summary: str = ""
+    #: 本轮已获人工审批的高风险工具名列表
+    approved_tools: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -74,6 +77,10 @@ def _validate_arguments(name: str, args: Any) -> Dict[str, Any]:
     """
     if not isinstance(args, dict):
         raise ArgumentError("arguments 必须是对象" + _argument_hint(name))
+    if name == "read_artifact":
+        artifact_id = args.get("artifact_id")
+        if not isinstance(artifact_id, str) or not artifact_id.strip():
+            raise ArgumentError("artifact_id 必须是非空字符串" + _argument_hint(name))
     if name in ("search_knowledge", "search_wiki"):
         query = args.get("query")
         if not isinstance(query, str) or not query.strip():
@@ -98,6 +105,8 @@ def _validate_arguments(name: str, args: Any) -> Dict[str, Any]:
 TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "search_knowledge",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": "检索站内已审核的题目/资料/知识点，返回最相关的语料片段。任何需要事实依据的问题都应先调用它。",
         "required": ["query"],
         "example": '{"query": "C语言 int 占几个字节", "topK": 5}',
@@ -108,6 +117,8 @@ TOOL_SPECS: List[Dict[str, Any]] = [
     },
     {
         "name": "search_wiki",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": "检索已沉淀的 Wiki 主题页（跨文档综合的结构化专题，适合概念梳理、知识框架、专题总结类问题）。",
         "required": ["query"],
         "example": '{"query": "函数 专题", "topK": 3}',
@@ -118,6 +129,8 @@ TOOL_SPECS: List[Dict[str, Any]] = [
     },
     {
         "name": "get_wiki_page",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": (
             "按页面 ID 读取 Wiki 主题页正文与关联页。"
             "只接受 pageId（整数，取自 search_wiki 返回的 pageId）；"
@@ -131,21 +144,45 @@ TOOL_SPECS: List[Dict[str, Any]] = [
     },
     {
         "name": "get_weak_knowledge",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": "读取当前学生的薄弱知识点列表（含掌握度），用于制定针对性练习。",
         "arguments": {"limit": "int，可选 1-20，默认 5"},
     },
     {
         "name": "get_wrong_book",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": "读取当前学生最近未掌握的错题。",
         "arguments": {"limit": "int，可选 1-20，默认 5"},
     },
     {
         "name": "get_study_plan",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": "读取今日学习计划（任务、题量、完成度）。",
         "arguments": {},
     },
     {
+        "name": "read_artifact",
+        "risk_level": "READ",
+        "requires_approval": False,
+        "description": (
+            "按 artifact_id 分段读取被落盘的长工具输出（offset/limit 控制字符区间）。"
+            "artifact_id 只能取自工具结果里的提示，禁止编造。"
+        ),
+        "required": ["artifact_id"],
+        "example": '{"artifact_id": "0123456789abcdef", "offset": 0, "limit": 1200}',
+        "arguments": {
+            "artifact_id": "string，必填，16 位十六进制 ID",
+            "offset": "int，可选，起始字符，默认 0",
+            "limit": "int，可选 1-4000，默认 1200",
+        },
+    },
+    {
         "name": "get_question",
+        "risk_level": "READ",
+        "requires_approval": False,
         "description": (
             "按题目 ID 读取题干、选项与解析。"
             "questionId 只能取自 search_knowledge 或错题本返回的题目 ID，禁止编造。"
@@ -157,6 +194,16 @@ TOOL_SPECS: List[Dict[str, Any]] = [
         },
     },
 ]
+
+
+def risk_of(name: str) -> str:
+    """工具风险级别：READ / WRITE_LOW / WRITE_HIGH（未声明按 READ）。"""
+    return str(_spec_of(name).get("risk_level") or "READ")
+
+
+def requires_approval(name: str) -> bool:
+    """高风险写操作是否需要人工审批。"""
+    return bool(_spec_of(name).get("requires_approval"))
 
 
 def _spec_of(name: str) -> Dict[str, Any]:
@@ -205,6 +252,10 @@ class ToolRegistry:
             arguments = _validate_arguments(name, arguments)
         except ArgumentError as exc:
             return ToolResult(ok=False, summary=f"参数错误：{exc}")
+        approved = set(ctx.approved_tools) if (ctx is not None and ctx.approved_tools) else set()
+        if requires_approval(name) and name not in approved:
+            return ToolResult(ok=False,
+                              summary=f"工具 {name} 属于高风险写操作，需人工审批后执行")
         try:
             if name == "search_knowledge":
                 return await self._search(arguments, ctx)
@@ -218,6 +269,8 @@ class ToolRegistry:
                 return await self._wrong(arguments, ctx)
             if name == "get_study_plan":
                 return await self._plan(ctx)
+            if name == "read_artifact":
+                return self._read_artifact(arguments, ctx)
             if name == "get_question":
                 return await self._question(arguments)
             return ToolResult(ok=False, summary=f"未知工具：{name}")
@@ -302,6 +355,25 @@ class ToolRegistry:
             summary=f"Wiki 专题「{query}」命中 {len(hits)} 页，最高分 {best}",
             data=trimmed,
             contexts=contexts,
+        )
+
+    def _read_artifact(self, args: Dict[str, Any], ctx: AgentContext) -> ToolResult:
+        """只读、按 trace 归属校验的 artifact 分段读取。"""
+        result = ArtifactStore().read(
+            str(args.get("artifact_id") or ""),
+            ctx.trace_id,
+            int(args.get("offset") or 0),
+            int(args.get("limit") or 1200),
+        )
+        if not result.get("ok"):
+            return ToolResult(ok=False, summary="artifact 读取失败：" + str(result.get("error")))
+        return ToolResult(
+            ok=True,
+            summary=(
+                f"artifact {result['artifact_id']} 片段 "
+                f"[{result['offset']}, {result['offset'] + len(result['content'])}] / {result['total']}"
+            ),
+            data=result,
         )
 
     async def _get_wiki_page(self, args: Dict[str, Any]) -> ToolResult:

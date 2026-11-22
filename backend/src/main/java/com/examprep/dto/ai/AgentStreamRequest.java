@@ -28,4 +28,7 @@ public class AgentStreamRequest {
             example = "s-3f9a1c2b7d4e")
     @Size(max = 32, message = "会话 ID 过长（上限 32 字符）")
     private String sessionId;
+
+    @Schema(hidden = true)
+    private java.util.List<String> approvedTools;
 }

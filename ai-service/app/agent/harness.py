@@ -22,13 +22,17 @@ import asyncio
 import json
 import re
 import logging
+import secrets
 import time
 from dataclasses import replace
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from ..clients.java_bridge import JavaBridge, JavaBridgeError
+from ..clients.java_bridge import (JavaBridge, JavaBridgeError, llm_usage_snapshot,
+                                   reset_llm_usage)
+from ..observability.otel import span
 from ..config import SUBAGENT_MAX_QUESTIONS_LIMIT, AgentSettings
 from .events import (
+    EVENT_APPROVAL_REQUIRED,
     EVENT_BUDGET,
     EVENT_DONE,
     EVENT_FINAL,
@@ -55,7 +59,7 @@ from .subagent import (
     decompose,
     render_sub_answers,
 )
-from .tools import AgentContext, ToolRegistry, ToolResult
+from .tools import AgentContext, ToolRegistry, ToolResult, requires_approval, risk_of
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +91,7 @@ class AgentHarness:
     async def run(self, ctx: AgentContext) -> AsyncIterator[Dict[str, Any]]:
         """执行一次会话，按需路由到单 Agent 或 subagent 实验路径。"""
         started = time.perf_counter()
+        reset_llm_usage()
         policy = ContextPolicy(max_chars=self.settings.max_prompt_chars)
         yield event(EVENT_META, self._meta_payload(ctx, policy))
 
@@ -103,10 +108,22 @@ class AgentHarness:
             async with asyncio.timeout(
                 max(0.01, self.settings.session_timeout_seconds - 0.05)
             ):
+                approval_paused = False
                 async for item in self._agent_loop(ctx, policy, budget, attempt):
+                    if item.get("event") == EVENT_APPROVAL_REQUIRED:
+                        approval_paused = True
                     yield item
-                async for item in self._emit_final(ctx, attempt, attempt.observations, started):
-                    yield item
+                if approval_paused:
+                    yield event(
+                        EVENT_DONE,
+                        {
+                            "totalMs": int((time.perf_counter() - started) * 1000),
+                            "waitingApproval": True,
+                        },
+                    )
+                else:
+                    async for item in self._emit_final(ctx, attempt, attempt.observations, started):
+                        yield item
         except TimeoutError:
             logger.warning(
                 "[Agent] 会话超过 deadline %.1fs，提前截止",
@@ -138,6 +155,7 @@ class AgentHarness:
         async for item in self.run(ctx):
             events.append(item)
         final = next((e["data"] for e in events if e["event"] == EVENT_FINAL), {})
+        approval = next((e["data"] for e in events if e["event"] == EVENT_APPROVAL_REQUIRED), None)
         return {
             "events": events,
             "final": final,
@@ -147,6 +165,8 @@ class AgentHarness:
             "refused": final.get("refused", False),
             "step_count": final.get("step_count", 0),
             "tool_calls": final.get("tool_calls", 0),
+            "waiting_approval": approval is not None,
+            "approval": approval,
             # 受控实验观测字段（不进 HTTP 响应模型，仅供离线评估/调试读取）
             "subagent": bool(final.get("subagent", False)),
             "degraded_reason": str(final.get("degradedReason") or ""),
@@ -165,6 +185,7 @@ class AgentHarness:
             weak_knowledge_ids=ctx.weak_knowledge_ids,
             observations=[],
             policy=policy,
+            trace_id=ctx.trace_id,
         )
         payload: Dict[str, Any] = {
             "traceId": ctx.trace_id,
@@ -211,6 +232,8 @@ class AgentHarness:
             "tool_calls": attempt.tool_calls,
             "sources": final.get("sources") or [],
         }
+        # Token / 模型用量（由 Java 内部 LLM 代理返回的 usage 累加，缺字段时 estimated=true）
+        data.update(llm_usage_snapshot())
         if extra:
             data.update(extra)
         # 上游失败要能被 Java 侧识别为 FAILED（而不是业务拒答 REFUSED）：
@@ -277,6 +300,7 @@ class AgentHarness:
                 weak_knowledge_ids=ctx.weak_knowledge_ids,
                 observations=observations,
                 policy=policy,
+                trace_id=ctx.trace_id,
             )
             if bundle.dropped_observations or bundle.dropped_turns:
                 yield event(
@@ -286,6 +310,7 @@ class AgentHarness:
                         "droppedTurns": bundle.dropped_turns,
                         "remaining": len(observations) - bundle.dropped_observations,
                         "estimatedTokens": bundle.estimated_tokens,
+                        "offloadedArtifacts": bundle.offloaded_artifacts,
                         "budgetChars": policy.max_chars,
                     },
                 )
@@ -355,6 +380,23 @@ class AgentHarness:
                 continue
             seen_tool_calls[call_signature] = True
 
+            # ---------- 高风险写操作人工审批挂起（HITL） ----------
+            approved_set = set(ctx.approved_tools or ())
+            if requires_approval(decision.tool) and decision.tool not in approved_set:
+                approval_token = secrets.token_hex(12)
+                yield event(
+                    EVENT_APPROVAL_REQUIRED,
+                    {
+                        "step": step,
+                        "tool": decision.tool,
+                        "riskLevel": risk_of(decision.tool),
+                        "argKeys": sorted(call_args.keys()) if isinstance(call_args, dict) else [],
+                        "approvalToken": approval_token,
+                        "reason": f"工具「{decision.tool}」属于高风险写操作，需人工审批确认后继续",
+                    },
+                )
+                return
+
             # ---------- 工具调用（预算闸门：全局共享，跨子问题累计） ----------
             if not budget.try_consume():
                 yield event(
@@ -369,10 +411,11 @@ class AgentHarness:
             )
             tool_started = time.perf_counter()
             try:
-                result = await asyncio.wait_for(
-                    self.tools.execute(decision.tool, call_args, ctx),
-                    timeout=max(0.01, self.settings.tool_timeout_seconds),
-                )
+                with span("agent.tool", {"examprep.tool.name": decision.tool}):
+                    result = await asyncio.wait_for(
+                        self.tools.execute(decision.tool, call_args, ctx),
+                        timeout=max(0.01, self.settings.tool_timeout_seconds),
+                    )
             except asyncio.TimeoutError:
                 result = ToolResult(
                     ok=False,

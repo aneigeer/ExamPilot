@@ -364,6 +364,12 @@ class AgentSettings:
     #: 拆解出的子问题个数上限（硬上限 :data:`SUBAGENT_MAX_QUESTIONS_LIMIT`，越界启动时 clamp）。
     subagent_max_questions: int = 3
 
+    #: 可选 OpenTelemetry GenAI 导出（默认关闭；未安装 opentelemetry 时静默 NoOp）
+    otel_enabled: bool = False
+
+    #: OTLP HTTP 端点，例如 http://127.0.0.1:4318/v1/traces
+    otel_endpoint: str = ""
+
 
 @dataclass(frozen=True)
 class WikiSettings:
@@ -506,6 +512,8 @@ class Settings:
                 session_timeout_seconds=_get_float(env, "AGENT_SESSION_TIMEOUT_SECONDS", 120.0),
                 subagent_enabled=_get_bool(env, "AGENT_SUBAGENT_ENABLED", False),
                 subagent_max_questions=_get_int(env, "AGENT_SUBAGENT_MAX_QUESTIONS", 3),
+                otel_enabled=_get_bool(env, "OTEL_ENABLED", False),
+                otel_endpoint=_get(env, "OTEL_EXPORTER_OTLP_ENDPOINT", ""),
             ),
             jobs=JobsSettings(
                 worker_enabled=_get_bool(env, "JOB_WORKER_ENABLED", False),

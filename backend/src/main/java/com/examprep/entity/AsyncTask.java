@@ -45,6 +45,9 @@ public class AsyncTask {
     @Schema(description = "任务参数 JSON")
     private String payload;
 
+    /** 客户端幂等键：同键的 PENDING/RUNNING/SUCCESS 任务直接复用 */
+    private String idempotencyKey;
+
     @Schema(description = "任务结果 JSON")
     private String result;
 

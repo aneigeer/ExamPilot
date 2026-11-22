@@ -176,4 +176,35 @@ class AsyncJobServiceTest {
         assertTrue(service.complete(2L, result));
         verify(evalRunMapper).update(any(AiEvalRun.class), any());
     }
+
+    @Test
+    @DisplayName("幂等键命中 SUCCESS 任务 → 直接返回原任务，不重复入队")
+    void idempotencyKeyReusesExistingTask() {
+        AsyncTask existing = new AsyncTask();
+        existing.setId(77L);
+        existing.setStatus("SUCCESS");
+        existing.setIdempotencyKey("k-1");
+        when(taskMapper.selectByIdempotencyKey("k-1")).thenReturn(existing);
+
+        AsyncTask result = service.submit("EVAL_RETRIEVAL", Map.of(), 1L, "k-1");
+
+        assertEquals(77L, result.getId());
+        verify(taskMapper, never()).insert(any(AsyncTask.class));
+    }
+
+    @Test
+    @DisplayName("幂等键对应 FAILED 任务 → 仍允许重新入队")
+    void failedTaskDoesNotReuse() {
+        AsyncTask failed = new AsyncTask();
+        failed.setId(78L);
+        failed.setStatus("FAILED");
+        when(taskMapper.selectByIdempotencyKey("k-2")).thenReturn(failed);
+        when(taskMapper.selectActiveByType(anyString())).thenReturn(null);
+        stubInsert(79L);
+
+        AsyncTask result = service.submit("EVAL_RETRIEVAL", Map.of(), 1L, "k-2");
+
+        assertEquals(79L, result.getId());
+        verify(taskMapper).insert(any(AsyncTask.class));
+    }
 }

@@ -65,7 +65,7 @@ class WikiServiceTest {
         properties = new WikiProperties();
         asyncJobService = mock(AsyncJobService.class);
         fastApiClient = mock(FastApiClient.class);
-        service = new WikiService(pageMapper, revisionMapper, linkMapper, distillMapper,
+        service = new WikiService(pageMapper, mock(WikiGovernanceService.class), revisionMapper, linkMapper, distillMapper,
                 chunkMapper, properties, asyncJobService, fastApiClient, new ObjectMapper());
     }
 

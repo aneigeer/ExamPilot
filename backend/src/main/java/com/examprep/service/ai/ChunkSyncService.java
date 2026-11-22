@@ -43,6 +43,7 @@ import java.util.Set;
 public class ChunkSyncService {
 
     private final AiChunkMapper aiChunkMapper;
+    private final com.examprep.service.wiki.WikiGovernanceService wikiGovernance;
     private final ChunkExtractor chunkExtractor;
     private final AiProperties properties;
     private final FastApiClient fastApiClient;
@@ -163,6 +164,8 @@ public class ChunkSyncService {
             // ★ 清理 Qdrant 孤儿向量：payload.status 是入库快照（恒为 ACTIVE），
             //   检索过滤拦不住，不删就会挤占 top-K、把有效结果挤出去。
             deleteOrphanVectors(doomedIds, sourceType + "#" + sourceId);
+            wikiGovernance.markStaleByChunkIds(doomedIds,
+                    "来源 " + sourceType + "#" + sourceId + " 已下架或更新");
         }
         return rows;
     }

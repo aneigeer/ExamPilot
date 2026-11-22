@@ -55,6 +55,18 @@ public class WikiPage {
     @Schema(description = "PUBLISHED / OFFLINE")
     private String status;
 
+    /** 信任分级：VERIFIED / AUTO_DISTILLED / STALE_REVIEW / RETIRED */
+    private String trustTier;
+
+    /** 引用来源块的聚合 hash */
+    private String sourceHash;
+
+    /** 过期时间（为空表示不过期） */
+    private java.time.LocalDateTime expiresAt;
+
+    /** 标旧原因 */
+    private String staleReason;
+
     private Integer version;
 
     @Schema(description = "蒸馏模型标识")

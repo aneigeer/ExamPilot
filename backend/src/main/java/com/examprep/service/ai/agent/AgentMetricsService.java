@@ -135,6 +135,11 @@ public class AgentMetricsService {
         latency.setP95Ms(runMapper.selectP95(from, to));
         vo.setLatency(latency);
 
+        vo.setTotalTokens(asLong(get(summary, "totalTokens")));
+        vo.setAvgTokensPerRun(asNullableDouble(get(summary, "avgTokens")));
+        vo.setEstimatedCostCny(asBigDecimal(get(summary, "totalCost")));
+        vo.setTokenByModel(runMapper.selectTokenByModel(from, to));
+
         vo.setGenerators(generators(from, to));
         vo.setErrorTop5(errorTop5(from, to));
 
@@ -260,5 +265,22 @@ public class AgentMetricsService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static Double asNullableDouble(Object value) {
+        if (value instanceof Number n) {
+            return n.doubleValue();
+        }
+        return null;
+    }
+
+    private static java.math.BigDecimal asBigDecimal(Object value) {
+        if (value instanceof java.math.BigDecimal b) {
+            return b;
+        }
+        if (value instanceof Number n) {
+            return java.math.BigDecimal.valueOf(n.doubleValue());
+        }
+        return java.math.BigDecimal.ZERO;
     }
 }

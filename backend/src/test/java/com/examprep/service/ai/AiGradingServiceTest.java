@@ -242,4 +242,84 @@ class AiGradingServiceTest {
         assertEquals(0.0, r2.scoreRate());
         assertNull(service.parse("没有 JSON 的普通文本", "zhipu"));
     }
+
+    /** 按顺序返回多条回复，记录 completeJson 调用次数（验证「先 JSON 模式、失败再重试」） */
+    private static class SeqLlm implements LlmClient {
+        private final List<String> replies;
+        private int index;
+        private int jsonCalls;
+
+        SeqLlm(List<String> replies) {
+            this.replies = replies;
+        }
+
+        @Override
+        public boolean available() {
+            return true;
+        }
+
+        @Override
+        public String name() {
+            return "seq";
+        }
+
+        @Override
+        public LlmAnswer ask(String question, List<ChunkContext> contexts) {
+            throw new AiUnavailableException("桩不支持 ask");
+        }
+
+        @Override
+        public String complete(String systemPrompt, String userPrompt) {
+            return replies.get(Math.min(index++, replies.size() - 1));
+        }
+
+        @Override
+        public String completeJson(String systemPrompt, String userPrompt) {
+            jsonCalls++;
+            return complete(systemPrompt, userPrompt);
+        }
+    }
+
+    @Test
+    @DisplayName("⑨ 畸形 JSON（围栏 + 尾逗号 + 缺右括号）经修复后仍能判分")
+    void 畸形JSON修复后判分() {
+        String broken = """
+                ```json
+                {"level":"GOOD","scoreRate":0.72,
+                 "hitPoints":["malloc 用于动态分配","free 用于释放",],
+                 "missedPoints":["未说明配对使用",],
+                 "comment":"要点基本齐全，漏了释放配对"
+                """; // 故意缺少最后的 }
+        SeqLlm client = new SeqLlm(List.of(broken));
+        AiGradingService.GradeResult result = fixture(List.of(client), Map.of("reference", "malloc/free"))
+                .service().grade(42L, "malloc 申请，free 释放");
+
+        assertTrue(result.available(), "修复后应可用，实际：" + result.reason());
+        assertEquals("GOOD", result.level());
+        assertEquals(0.72, result.scoreRate());
+        assertEquals(1, client.jsonCalls, "首次即应使用 JSON 模式，不应进入重试");
+    }
+
+    @Test
+    @DisplayName("⑩ 首次完全无法解析 → 带纠正提示重试一次，第二次成功")
+    void 解析失败后重试一次() {
+        SeqLlm client = new SeqLlm(List.of("这道题答得还行，给个及格。", GOOD_JSON));
+        AiGradingService.GradeResult result = fixture(List.of(client), Map.of("reference", "malloc/free"))
+                .service().grade(42L, "malloc 申请，free 释放");
+
+        assertTrue(result.available(), "第二次应成功");
+        assertEquals(2, client.jsonCalls, "最多重试一次");
+        assertEquals("GOOD", result.level());
+    }
+
+    @Test
+    @DisplayName("⑪ 两次都无法解析 → 才如实降级，不会无限重试")
+    void 两次失败后降级() {
+        SeqLlm client = new SeqLlm(List.of("乱答一", "乱答二"));
+        AiGradingService.GradeResult result = fixture(List.of(client), Map.of("reference", "malloc/free"))
+                .service().grade(42L, "malloc 申请，free 释放");
+
+        assertFalse(result.available());
+        assertEquals(2, client.jsonCalls, "首次 + 1 次重试");
+    }
 }

@@ -1,0 +1,48 @@
+name: pure-unit-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 管理端静态页 SHA256 一致性
+        shell: bash
+        run: |
+          a=$(sha256sum admin-web/index.html | cut -d' ' -f1)
+          b=$(sha256sum backend/src/main/resources/static/admin/index.html | cut -d' ' -f1)
+          echo "admin=$a static=$b"
+          test "$a" = "$b"
+
+      - name: Python 纯单测（不依赖 MySQL/Qdrant）
+        working-directory: ai-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+          python -m pytest -q tests/test_context_manager.py tests/test_otel.py \
+            tests/test_skill_loader.py tests/test_agent_hitl.py tests/test_route.py \
+            tests/test_subagent.py tests/test_llm.py tests/test_agent.py
+
+      - name: Java 非 DB 单测（编译 + 指定测试）
+        working-directory: backend
+        run: |
+          mvn -B -q test-compile
+          mvn -B test -Dtest=AiGradingServiceTest,AiConfigConsistencyTest,LlmDualModeRoutingTest,QuestionCalibrationServiceTest

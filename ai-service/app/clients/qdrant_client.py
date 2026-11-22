@@ -302,11 +302,42 @@ class QdrantClientWrapper:
                     ),
                 )
                 logger.info("[Qdrant] 已创建集合 %s dim=%d", collection, self.settings.dim)
+            self._ensure_payload_indexes(client, collection)
         except Exception as exc:  # noqa: BLE001
             raise VectorSearchError(
                 f"向量集合操作失败（{collection}）：{type(exc).__name__}", detail=str(exc)
             ) from exc
         return collection
+
+    def _ensure_payload_indexes(self, client: Any, collection: str) -> None:
+        """服务端模式幂等创建 payload 索引；本地文件/内存模式跳过。
+
+        过滤检索（status/source_type/subject_id/knowledge_id）在无索引时会全量扫描，
+        数据量上万后延迟明显；索引创建是幂等的，重复调用不会报错。
+        """
+        try:
+            url = str(getattr(self.settings, "url", ""))
+        except Exception:  # noqa: BLE001
+            return
+        if _local_location(url) is not None:
+            return
+        try:
+            from qdrant_client import models as qmodels  # type: ignore[import-not-found]
+        except Exception:  # noqa: BLE001
+            return
+
+        indexes = {
+            "status": qmodels.PayloadSchemaType.KEYWORD,
+            "source_type": qmodels.PayloadSchemaType.KEYWORD,
+            "subject_id": qmodels.PayloadSchemaType.INTEGER,
+            "knowledge_id": qmodels.PayloadSchemaType.INTEGER,
+        }
+        for field, schema in indexes.items():
+            try:
+                client.create_payload_index(collection_name=collection,
+                                            field_name=field, field_schema=schema)
+            except Exception as exc:  # noqa: BLE001 - 已存在/权限不足都不应阻断启动
+                logger.debug("[Qdrant] payload 索引 %s 已存在或创建失败：%s", field, exc)
 
     # ------------------------------------------------------------------ Wiki 独立集合
 

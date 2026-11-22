@@ -31,6 +31,7 @@ public interface WikiPageMapper extends BaseMapper<WikiPage> {
     @Select("<script>"
             + "SELECT * FROM wiki_page WHERE 1 = 1 "
             + "<if test='status != null and status != \"\"'> AND status = #{status}</if> "
+            + "<if test='trustTier != null and trustTier != \"\"'> AND trust_tier = #{trustTier}</if> "
             + "<if test='keyword != null and keyword != \"\"'>"
             + " AND (title LIKE CONCAT('%', #{keyword}, '%') "
             + "      OR slug LIKE CONCAT('%', #{keyword}, '%'))</if> "
@@ -38,6 +39,7 @@ public interface WikiPageMapper extends BaseMapper<WikiPage> {
             + "</script>")
     IPage<WikiPage> selectAdmin(Page<WikiPage> page,
                                 @Param("status") String status,
+                                @Param("trustTier") String trustTier,
                                 @Param("keyword") String keyword);
 
     /**
@@ -49,6 +51,8 @@ public interface WikiPageMapper extends BaseMapper<WikiPage> {
     @Select("<script>"
             + "SELECT *, MATCH(title, summary, key_points) AGAINST(#{q} IN NATURAL LANGUAGE MODE) AS ft_score "
             + "FROM wiki_page WHERE status = 'PUBLISHED' "
+            + "AND COALESCE(trust_tier, 'VERIFIED') NOT IN ('STALE_REVIEW', 'RETIRED') "
+            + "AND (expires_at IS NULL OR expires_at > NOW()) "
             + "AND MATCH(title, summary, key_points) AGAINST(#{q} IN NATURAL LANGUAGE MODE) "
             + "<if test='subjectId != null'> AND subject_id = #{subjectId}</if> "
             + "ORDER BY ft_score DESC LIMIT #{limit}"

@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 public class AiAgentRun {
 
     public static final String STATUS_RUNNING = "RUNNING";
+    public static final String STATUS_WAITING_APPROVAL = "WAITING_APPROVAL";
     public static final String STATUS_SUCCESS = "SUCCESS";
     public static final String STATUS_REFUSED = "REFUSED";
     public static final String STATUS_FAILED = "FAILED";
@@ -43,6 +45,21 @@ public class AiAgentRun {
     private String answer;
 
     private String generator;
+
+    /** 实际使用的模型名（P2 可观测性） */
+    private String modelName;
+
+    /** 输入 Token */
+    private Integer promptTokens;
+
+    /** 输出 Token */
+    private Integer completionTokens;
+
+    /** 总 Token */
+    private Integer totalTokens;
+
+    /** 估算成本（元） */
+    private BigDecimal estimatedCostCny;
 
     private Integer stepCount;
 

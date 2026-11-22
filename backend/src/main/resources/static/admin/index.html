@@ -130,7 +130,37 @@
               <div class="stat-hint">{{ dashboardHint(k) }}</div>
             </div>
           </div>
-          <div class="dashboard-panels">
+          <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="stat-card">
+            <div class="stat-label">总 Token</div>
+            <div class="stat-num">{{ fmtCount(payload.totalTokens) }}</div>
+            <div class="stat-hint">窗口内 prompt + completion（缺 usage 时标记估算）</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">单次平均 Token</div>
+            <div class="stat-num">{{ payload.avgTokensPerRun ? Math.round(payload.avgTokensPerRun) : '—' }}</div>
+            <div class="stat-hint">仅统计 total_tokens &gt; 0 的轮次</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">估算成本（元）</div>
+            <div class="stat-num">{{ fmtCost(payload.estimatedCostCny) }}</div>
+            <div class="stat-hint">本地 Ollama 单价 0；云端按配置单价估算</div>
+          </div>
+        </div>
+
+        <el-card shadow="never" style="margin-bottom:14px">
+          <template #header>按模型 Token 分布</template>
+          <el-table :data="payload.tokenByModel || []" size="small" empty-text="窗口内暂无 Token 记录">
+            <el-table-column prop="model" label="模型" min-width="220"/>
+            <el-table-column prop="runs" label="运行数" width="100"/>
+            <el-table-column prop="tokens" label="Token" width="140"/>
+            <el-table-column label="估算成本（元）" width="160">
+              <template #default="s">{{ fmtCost(s.row.cost) }}</template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <div class="dashboard-panels">
             <el-card shadow="never"><template #header>资料类型分布</template>
               <div v-for="(v,k) in resourceTypes" :key="k" class="distribution-row">
                 <span>{{ k }}</span><div class="distribution-track"><i :style="{width: resourcePercent(v) + '%'}"></i></div><b>{{ v }}</b>
@@ -1069,9 +1099,10 @@
               <el-table-column prop="toolCalls" label="工具" width="70"/>
               <el-table-column prop="totalMs" label="耗时ms" width="90"/>
               <el-table-column prop="createdAt" label="时间" width="170"/>
-              <el-table-column label="操作" width="90">
+              <el-table-column label="操作" width="180">
                 <template #default="s">
                   <el-button text type="primary" @click="replayRun(s.row.id)">回放</el-button>
+                  <el-button text type="success" @click="openExportDialog(s.row)">加入回归集</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -1090,6 +1121,40 @@
                 </div>
               </div>
             </div>
+          </el-dialog>
+
+          <el-dialog v-model="agent.exportDialog" title="加入回归评测集" width="720px">
+            <el-form label-width="110px" size="small">
+              <el-form-item label="来源轨迹">#{{ agent.exportForm.runId }}</el-form-item>
+              <el-form-item label="目标数据集">
+                <el-select v-model="agent.exportForm.targetDataset" style="width:220px">
+                  <el-option label="拒答集 refusal" value="refusal"></el-option>
+                  <el-option label="Agent 任务集 agent" value="agent"></el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="领域">
+                <el-select v-model="agent.exportForm.domain" style="width:220px">
+                  <el-option label="域内 IN" value="IN"></el-option>
+                  <el-option label="域外 OUT" value="OUT"></el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="期望拒答">
+                <el-switch v-model="agent.exportForm.expectRefusal"></el-switch>
+              </el-form-item>
+            </el-form>
+            <div v-if="agent.exportPreview">
+              <div class="metrics-note">JSONL 预览（已脱敏，不含 userId/学号/手机号/邮箱）</div>
+              <pre style="background:#f6f7f9;padding:10px;border-radius:8px;white-space:pre-wrap">{{ agent.exportPreview.jsonl }}</pre>
+              <div class="metrics-note" v-if="agent.exportPreview.answerPreview">
+                答案预览：{{ agent.exportPreview.answerPreview }}
+              </div>
+            </div>
+            <template #footer>
+              <el-button @click="agent.exportDialog=false">取消</el-button>
+              <el-button type="primary" :loading="agent.exportLoading" @click="doExportEvalCase(true)">
+                写入候选集
+              </el-button>
+            </template>
           </el-dialog>
         </div>
 
@@ -1446,20 +1511,38 @@
               </el-tab-pane>
 
               <el-tab-pane label="已发布页面" name="pages">
+                <div style="margin-bottom:8px">
+                  <el-select v-model="wiki.trustFilter" size="small" style="width:190px"
+                             placeholder="全部信任级别" clearable @change="loadWikiPages">
+                    <el-option label="VERIFIED（已审核）" value="VERIFIED"></el-option>
+                    <el-option label="AUTO_DISTILLED（自动蒸馏）" value="AUTO_DISTILLED"></el-option>
+                    <el-option label="STALE_REVIEW（待复核）" value="STALE_REVIEW"></el-option>
+                    <el-option label="RETIRED（已退役）" value="RETIRED"></el-option>
+                  </el-select>
+                </div>
                 <el-table :data="wiki.pages" size="small" empty-text="暂无已发布页面">
                   <el-table-column prop="id" label="ID" width="64"/>
                   <el-table-column prop="title" label="主题" show-overflow-tooltip/>
                   <el-table-column prop="slug" label="Slug" width="120"/>
                   <el-table-column prop="subjectId" label="科目" width="70"/>
                   <el-table-column prop="version" label="版本" width="60"/>
+                  <el-table-column label="信任级别" width="120">
+                    <template #default="s">
+                      <el-tag size="small" effect="plain"
+                              :type="s.row.trustTier === 'RETIRED' ? 'info' : (s.row.trustTier === 'STALE_REVIEW' ? 'warning' : 'success')">
+                        {{ s.row.trustTier || 'VERIFIED' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
                   <el-table-column label="质量分" width="86">
                     <template #default="s">{{ s.row.qualityScore == null ? '-' : s.row.qualityScore }}</template>
                   </el-table-column>
                   <el-table-column prop="updatedAt" label="更新时间" width="160"/>
-                  <el-table-column label="操作" width="150">
+                  <el-table-column label="操作" width="270">
                     <template #default="s">
                       <el-button text type="primary" @click="openWikiPage(s.row.id)">查看</el-button>
-                      <el-button text type="danger" @click="offlineWikiPage(s.row.id)">下架</el-button>
+                      <el-button text type="warning" @click="redistillWikiPage(s.row.id)">重新蒸馏</el-button>
+                      <el-button text type="danger" @click="retireWikiPage(s.row.id)">退役</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -1669,6 +1752,11 @@ const MetricsPanel = {
       if (!isFinite(n)) return '—';
       return (n * 100).toFixed(1) + '%';
     },
+    /** 成本（元）：保留 6 位小数，0 显示 0.000000。 */
+    fmtCost(v) {
+      const n = Number(v);
+      return isFinite(n) ? n.toFixed(6) : '0.000000';
+    },
     /** 耗时（毫秒）：整数不带小数、非整数保留 1 位；null → 「—」。 */
     fmtMs(v) {
       if (v === null || v === undefined || v === '') return '—';
@@ -1869,7 +1957,10 @@ createApp({
       // 运行指标（只读）：随「AI 运行观测」页一起加载；data=null 表示尚未成功拉取过
       metrics: {days: 7, data: null, loading: false, error: ''},
       agent: {question: '', running: false, steps: [], page: 1, runs: [], runTotal: 0,
-        replayDialog: false, replay: null},
+        replayDialog: false, replay: null,
+        exportDialog: false, exportLoading: false, exportPreview: null,
+        exportForm: {runId: null, domain: 'OUT', expectRefusal: true,
+          targetDataset: 'refusal', append: false}},
       eval: {tab: 'retrieval', section: 'student', running: false, task: null, runs: [], total: 0, page: 1,
         detailDialog: false, detail: null,
         gate: null, gateLoading: false,
@@ -1880,7 +1971,7 @@ createApp({
         // 保留期清理：days 默认 90，仅 ADMIN，不可恢复
         purge: {days: 90, running: false, notice: '', noticeType: 'info'}},
       wiki: {tab: 'revisions', stats: {}, revisions: [], revTotal: 0, revPage: 1,
-        pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null,
+        pages: [], pageTotal: 0, pagePage: 1, scope: 'ALL', subjectId: null, trustFilter: '',
         running: false, task: null, graph: {nodes: [], edges: []},
         revisionDialog: false, revision: null, pageDialog: false, page: null},
 
@@ -2739,6 +2830,37 @@ createApp({
       this.metrics.days = Number(v) || 7;
       this.loadMetrics();
     },
+    async openExportDialog(row) {
+      this.agent.exportForm = {
+        runId: row.id,
+        domain: row.status === 'REFUSED' ? 'OUT' : 'IN',
+        expectRefusal: row.status === 'REFUSED',
+        targetDataset: 'refusal',
+        append: false
+      };
+      this.agent.exportPreview = null;
+      this.agent.exportDialog = true;
+      await this.doExportEvalCase(false);
+    },
+    async doExportEvalCase(append) {
+      const f = this.agent.exportForm;
+      if (!f.runId || this.agent.exportLoading) return;
+      this.agent.exportLoading = true;
+      try {
+        const qs = '?domain=' + encodeURIComponent(f.domain)
+          + '&expectRefusal=' + (f.expectRefusal ? 'true' : 'false')
+          + '&targetDataset=' + encodeURIComponent(f.targetDataset)
+          + '&append=' + (append ? 'true' : 'false');
+        const data = await api('POST', '/admin/ai/runs/' + f.runId + '/export-eval-case' + qs);
+        this.agent.exportPreview = data;
+        if (append && data.writtenPath) {
+          ElementPlus.ElMessage.success('已追加到 ' + data.writtenPath);
+        }
+      } finally {
+        this.agent.exportLoading = false;
+      }
+    },
+
     async replayRun(id) {
       this.agent.replay = await api('GET', '/admin/ai/agent/runs/' + id);
       this.agent.replayDialog = true;
@@ -3027,7 +3149,7 @@ createApp({
     },
     async loadWikiPages() {
       const data = await api('GET', '/admin/wiki/pages?page=' +
-        this.wiki.pagePage + '&size=20');
+        this.wiki.pagePage + '&size=20&trustTier=' + encodeURIComponent(this.wiki.trustFilter || ''));
       this.wiki.pages = data.list || [];
       this.wiki.pageTotal = data.total;
     },
@@ -3059,6 +3181,18 @@ createApp({
       this.wiki.page = await api('GET', '/wiki/pages/' + id);
       this.wiki.pageDialog = true;
     },
+    async retireWikiPage(id) {
+      await ElementPlus.ElMessageBox.confirm('退役后该页立即退出问答热层，直到重新审核发布，确定继续？', '退役 Wiki 页面');
+      await api('POST', '/admin/wiki/pages/' + id + '/retire?reason=' + encodeURIComponent('人工退役'));
+      ElementPlus.ElMessage.success('已退役');
+      await this.loadWikiPages();
+    },
+    async redistillWikiPage(id) {
+      await api('POST', '/admin/wiki/pages/' + id + '/redistill');
+      ElementPlus.ElMessage.success('已标记待重新蒸馏（热层已停用）');
+      await this.loadWikiPages();
+    },
+
     async offlineWikiPage(id) {
       await ElementPlus.ElMessageBox.confirm('下架后问答热层不再命中该页，确定继续？', '下架页面');
       await api('POST', '/admin/wiki/pages/' + id + '/offline');

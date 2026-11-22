@@ -1,2 +1,6 @@
 {"id": "SP-USER3", "userId": 3, "days": 7, "dailyTarget": 20, "note": "有 20 道未掌握错题的活跃学生"}
 {"id": "SP-USER9", "userId": 9, "days": 5, "dailyTarget": 15, "note": "少量错题的冷启动学生"}
+{"id": "SP-USER3-D3", "userId": 3, "days": 3, "dailyTarget": 10, "goalNote": "两周后考四级，重点突破阅读和听力"}
+{"id": "SP-USER9-D1", "userId": 9, "days": 1, "dailyTarget": 5, "goalNote": ""}
+{"id": "SP-USER3-D14", "userId": 3, "days": 14, "dailyTarget": 50, "goalNote": ""}
+{"id": "SP-USER9-D5", "userId": 9, "days": 5, "dailyTarget": 15, "goalNote": "每天只有 30 分钟，优先复习高频错题"}

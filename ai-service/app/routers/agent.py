@@ -201,6 +201,7 @@ def _context(request: AgentRequest) -> AgentContext:
             for turn in request.history
         ],
         memory_summary=request.memory_summary or "",
+        approved_tools=list(request.approved_tools or []),
     )
 
 

@@ -1,0 +1,329 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "TASK-2026-11-22-ENTERPRISE-PRODUCTION-READINESS",
+  "title": "从准企业级 AI Agent 架构升级至生产级企业应用执行规范",
+  "created_at": "2026-11-22",
+  "project_root": "d:/大学生多考试备考知识库与题库系统",
+  "objective": "在已 100% 验收通过的 P1–P6 AI Agent 架构（Java 431/431 + Python 415/415 + 5 层离线评测全绿 + HITL 完整审批恢复 + Docker Qdrant/Redis 实测通过）基础上，系统性补齐通往商业生产级企业应用的 6 个最后一公里模块：(1) 全栈生产 Docker Compose 编排与 Nginx SSE/TLS 生产配置；(2) 全量 97,251 向量切片迁移至服务端 Qdrant 与 MySQL/Qdrant 备份恢复演练；(3) 安全收口、用户/角色级 Token 预算配额闸门与既有 OperationLog 治理审计闭环；(4) Prometheus + Grafana + Jaeger 可观测性与 5 条 SLA 告警规则；(5) 真实并发压测与 Web 端浏览器 E2E 自动化回归；(6) 企业级 README、生产运维手册与发布前全量门禁验收。",
+  "baseline_context": {
+    "git_baseline": {
+      "branch": "main",
+      "head_commit": "120fddd",
+      "working_tree_note": "本地工作区含 P1–P6 企业级 Agent 架构深化全部改动（82 个未提交文件），已通过完整 ./ci.ps1 验收；执行前严禁执行 git reset --hard 或丢弃工作区改动。"
+    },
+    "verified_metrics_do_not_regress": {
+      "java_unit_tests": "431/431 PASS (0 failures, 0 errors, 0 skipped)",
+      "python_unit_tests": "415/415 PASS",
+      "admin_web_sha256": "admin-web/index.html 与 backend/src/main/resources/static/admin/index.html 必须严格一致",
+      "eval_refusal": "OOD refusal >= 90% (当前 95.0%, 19/20), IND false-reject <= 10% (当前 5.0%, 1/20)",
+      "eval_grading": "levelAgreement >= 70% (当前 70.0%), scoreMae <= 0.25 (当前 0.063), degradeRate = 0.0%",
+      "eval_study_plan": "jsonCompliance >= 95% (当前 100.0%), idZeroHallucinationRate = 100%, degradeRate = 0.0%"
+    },
+    "environment_notes": {
+      "java_home": "D:/bigplan/tools/jdk21",
+      "maven": "D:/bigplan/tools/maven/bin/mvn.cmd（离线/受限环境，严禁引入本地 ~/.m2 不存在的新依赖）",
+      "python_venv": ".venv-ai/Scripts/python.exe (Python 3.12.10)",
+      "docker_cli": "C:/Users/15241/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe（如未启动可提示或启动 Docker Desktop；已有容器 examprep-redis、examprep-qdrant）",
+      "database": "MySQL 8.0.46 (127.0.0.1:3306, database exam_prep)",
+      "ollama": "127.0.0.1:11434 (exam-prep-7b)"
+    },
+    "already_implemented_do_not_rebuild": [
+      "9 模块 AI Agent 架构（P1–P6 全部 PASS，详见 项目规划/任务_2026-11-21_Agent架构深化_验收报告.md）",
+      "ai-service/Dockerfile 与 backend/Dockerfile 已存在，可在其基础上完善而非推倒重写",
+      "nginx-https.conf.example 已存在，可在其基础上补齐 SSE 长连接与安全响应头",
+      "OperationLog 实体与 operation_log 表已存在，审计闭环必须复用扩展而非新建重复 audit_log 表",
+      "AgentHitlApprovalTest / CheckpointResumeTest / AsyncJobServiceTest / WikiGovernanceTest / AiConfigConsistencyTest 等全部既有单测"
+    ]
+  },
+  "global_constraints": [
+    "禁止破坏任何既有降级契约：Ollama 离线、API Key 为空、Qdrant/FastAPI 离线、Redis 离线、Prometheus/OTel 未部署时，系统与全量单测必须 100% 启动成功并优雅降级。",
+    "禁止向 backend/pom.xml 引入本地 ~/.m2 不存在的依赖（离线环境 Maven Central 可能返回 403）；新增任何依赖前必须先用 mvn -o 验证可离线解析，否则采用零外部依赖实现。",
+    "所有新增 SQL 迁移必须放 sql/ 目录，严格幂等（使用 IF NOT EXISTS / information_schema 判断），双跑 exit 0，并按顺序挂载到 docker-compose.yml（从 30 号起）。",
+    "严格保护 AiConfigConsistencyTest 护栏：application.yml 与 AiProperties.java 默认值保持一致（route.enabled=false，timeout-millis=8000）。",
+    "任何涉及 admin-web/index.html 的修改必须同步复制到 backend/src/main/resources/static/admin/index.html，保证 ci.ps1 [1/4] SHA256 一致。",
+    "PowerShell 脚本（*.ps1）必须使用 UTF-8 with BOM 编码，禁止使用 $pid / $pId 作为自定义变量名，并在调用 Start-Process 前收敛 Path/PATH/path 重复环境变量键。",
+    "安全底线：严禁在代码、日志、报告、Docker Compose 或示例中出现任何真实密码、JWT Secret、AI_INTERNAL_TOKEN 或 LLM_API_KEY；严禁擅自执行 git push 或修改 .git/config。",
+    "诚实汇报原则：所有指标、延迟、QPS、备份文件大小与测试通过数必须基于最终修改后的真实执行输出，未覆盖或外部环境受限项必须如实标注。"
+  ],
+  "phases": [
+    {
+      "phase_id": "P1-FULLSTACK-DOCKER-PROD",
+      "priority": "P1",
+      "title": "全栈生产 Docker Compose 编排与 Nginx SSE/TLS 加固",
+      "goal": "补齐当前 docker-compose.yml 缺失的 redis、qdrant、ai-service 服务，实现单条命令拉起完整生产拓扑（含向量检索、异步评测队列、SSE 代理与安全网络隔离）。",
+      "tasks": [
+        {
+          "id": "P1-1",
+          "summary": "升级 docker-compose.yml 为完整生产拓扑并补充 .env.prod.example",
+          "files": [
+            "docker-compose.yml",
+            "ai-service/Dockerfile",
+            ".env.prod.example"
+          ],
+          "requirements": [
+            "在 docker-compose.yml 中补齐 redis (redis:7-alpine, appendonly yes, healthcheck)、qdrant (qdrant/qdrant:v1.12.4, 持久化卷 qdrant-data, healthcheck)、ai-service (build ./ai-service, 连接 qdrant:6333 与 redis:6379, 注入 AI_INTERNAL_TOKEN、LLM_*、JOB_WORKER_ENABLED、EVAL_WORKER_ENABLED)。",
+            "保留既有安全约束：仅 nginx 对外暴露 80/443，backend / ai-service / mysql / redis / qdrant 严禁发布宿主机端口；保留固定子网 172.28.0.0/16 与 APP_RATE_LIMIT_TRUSTED_PROXIES 一致。",
+            "backend 服务补充注入 AI_SERVICE_URL=http://ai-service:8000、AI_INTERNAL_TOKEN、SPRING_DATA_REDIS_HOST=redis、AI_JOBS_ENABLED=${AI_JOBS_ENABLED:-true} 与健康检查 healthcheck。",
+            "新增 .env.prod.example（仅含占位符与生成命令注释，零真实密钥），明确列出所有必填环境变量（MYSQL_ROOT_PASSWORD、JWT_SECRET、AI_INTERNAL_TOKEN、LLM_PROVIDER、LLM_API_KEY 等）。",
+            "通过 docker compose --env-file .env.prod.example config 静态校验零错误。"
+          ]
+        },
+        {
+          "id": "P1-2",
+          "summary": "加固 Nginx 反向代理配置（SSE 流式穿透 + 安全响应头 + TLS 模板）",
+          "files": [
+            "nginx.conf",
+            "nginx-https.conf.example"
+          ],
+          "requirements": [
+            "为 /api/ai/agent/stream 等 SSE 路径增加专用 location：proxy_http_version 1.1、proxy_set_header Connection ''、proxy_buffering off、proxy_cache off、chunked_transfer_encoding on、proxy_read_timeout 300s，避免流式输出被缓冲截断。",
+            "补充基础安全响应头（X-Content-Type-Options: nosniff、X-Frame-Options: SAMEORIGIN、Referrer-Policy: strict-origin-when-cross-origin），并在 nginx-https.conf.example 中开启 HSTS 与 TLS 1.2/1.3 强加密套件。",
+            "确保透传 X-Forwarded-For / X-Real-IP / X-Forwarded-Proto 与 X-Trace-Id。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "docker compose config 校验通过（退出码 0），包含 mysql、redis、qdrant、ai-service、backend、nginx 六个服务且仅 nginx 发布外部端口。",
+        "Nginx 配置语法经 nginx -t（或 docker run nginx:alpine nginx -t）校验通过。",
+        "无任何真实密钥写入 docker-compose.yml 或 .env.prod.example。"
+      ]
+    },
+    {
+      "phase_id": "P2-QDRANT-MIGRATION-AND-BACKUP",
+      "priority": "P2",
+      "title": "全量 97,251 向量迁移至服务端 Qdrant + 生产备份恢复演练",
+      "goal": "消除本地文件模式 Qdrant 的单进程锁与秒级过滤延迟瓶颈，实现全量 97k 切片在服务端 Qdrant 可验证运行，并落地可重复的 MySQL + Qdrant 灾备脚本。",
+      "tasks": [
+        {
+          "id": "P2-1",
+          "summary": "编写幂等断点迁移脚本将本地 Qdrant 全量迁移至服务端 Qdrant 并压测",
+          "files": [
+            "scripts/migrate_qdrant_local_to_server.py",
+            "ai-service/tests/test_qdrant_migration.py"
+          ],
+          "requirements": [
+            "支持命令行参数 --local-path（默认 ai-service/data/qdrant）、--server-url（默认 http://127.0.0.1:6333）、--collection（默认 exam_chunks）、--batch-size（默认 500）、--verify-samples（默认 10）。",
+            "按 scroll 分页批量读取本地 Qdrant point（id + vector + payload）并 upsert 至服务端，支持幂等重跑；迁移完成后自动调用 _ensure_payload_indexes 创建 status/source_type/subject_id/knowledge_id 4 个索引。",
+            "自动执行一致性核验：对比两端 points_count；随机抽取 10 个向量对比服务端 vs 本地 top-5 命中重合度，并输出过滤检索 P50/P95 延迟统计报告（写入 runtime/qdrant_migration_report.md）。",
+            "若本机 Docker examprep-qdrant 可用则执行真实全量迁移与核验；不得删除原 ai-service/data/qdrant 本地数据，保留回退能力。"
+          ]
+        },
+        {
+          "id": "P2-2",
+          "summary": "编写生产级 MySQL + Qdrant 备份与恢复校验脚本",
+          "files": [
+            "scripts/backup_prod.ps1",
+            "scripts/restore_verify.ps1"
+          ],
+          "requirements": [
+            "backup_prod.ps1（UTF-8 BOM）：备份 MySQL exam_prep（mysqldump --single-transaction --routines --triggers，压缩为 .sql.gz）+ 调用 Qdrant Snapshot API 创建 exam_chunks 快照并下载；生成 manifest.json（时间、文件名、大小、SHA256）；支持 -RetainDays（默认 7）自动轮转清理旧备份；密码仅从环境变量或 secrets.local.yml 静默读取，绝不回显。",
+            "restore_verify.ps1（UTF-8 BOM）：校验 manifest.json 中每个备份文件的 SHA256 完整性，验证 MySQL 备份包可解压且含核心表 DDL（user/question/ai_chunk/wiki_page/ai_agent_run），并可选支持 -TestTempDb 导入临时校验库验证无语法错误后清理临时库。",
+            "在本地实跑一次完整 backup_prod.ps1 + restore_verify.ps1（输出至 runtime/backups/ 并在文档记录结果，避免提交入 git）。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "Docker Qdrant 服务端 exam_chunks 全量迁移后 points_count 与本地 97,251 一致，4 个 Payload 索引存在，带 status=ACTIVE 过滤检索 P50 < 80ms。",
+        "backup_prod.ps1 与 restore_verify.ps1 实跑 exit 0，manifest SHA256 校验 100% 通过。"
+      ]
+    },
+    {
+      "phase_id": "P3-SECURITY-QUOTA-AUDIT",
+      "priority": "P3",
+      "title": "安全收口、用户/角色级 Token 预算配额与治理审计闭环",
+      "goal": "防云端 API 账单失控（按用户/角色日配额限流）、消除本地明文口令残留、打通高危 AI 管理操作的可追溯审计日志。",
+      "tasks": [
+        {
+          "id": "P3-1",
+          "summary": "实现用户/角色级每日 AI Token 与请求配额闸门（AiQuotaService）",
+          "files": [
+            "sql/migration-ai-quota.sql",
+            "docker-compose.yml",
+            "backend/src/main/java/com/examprep/service/ai/AiProperties.java",
+            "backend/src/main/java/com/examprep/service/ai/agent/AiQuotaService.java",
+            "backend/src/main/java/com/examprep/service/ai/agent/AgentStreamService.java",
+            "backend/src/main/java/com/examprep/service/ai/AiQaService.java",
+            "backend/src/main/java/com/examprep/controller/AiOpsController.java",
+            "backend/src/test/java/com/examprep/service/ai/agent/AiQuotaServiceTest.java"
+          ],
+          "requirements": [
+            "新增幂等迁移 sql/migration-ai-quota.sql（挂载 docker-compose.yml 第 30 号）：创建 ai_quota_override 表（user_id UNIQUE, daily_token_limit, daily_request_limit, updated_by, updated_at），并基于 ai_agent_run / 内存或 Redis 计数统计当日用量。",
+            "在 AiProperties 与 application.yml 同步新增 app.ai.quota（保持 AiConfigConsistencyTest 通过）：enabled（默认 true）、student-daily-tokens（默认 200000）、student-daily-requests（默认 200）、admin-daily-tokens（默认 2000000）、admin-daily-requests（默认 2000）。",
+            "在 AiQaService 与 AgentStreamService 入口执行配额预检：超限时抛出 BizException(ResultCode.TOO_MANY_REQUESTS, ...) 返回 429 并明确提示当日剩余与次日重置时间；不破坏任何既有单测。",
+            "在 AiOpsController 新增管理接口：GET /api/admin/ai/quota/{userId} 查询当日用量与配额、PUT /api/admin/ai/quota/{userId} 调整单用户配额（仅 ADMIN）。",
+            "编写 AiQuotaServiceTest 覆盖：正常放行、请求数超限 429、Token 超限 429、单用户 override 生效、管理员高配额。"
+          ]
+        },
+        {
+          "id": "P3-2",
+          "summary": "复用既有 OperationLog 打通高危 AI 治理操作审计日志与导出",
+          "files": [
+            "backend/src/main/java/com/examprep/controller/AiAgentController.java",
+            "backend/src/main/java/com/examprep/controller/WikiAdminController.java",
+            "backend/src/main/java/com/examprep/controller/AiOpsController.java",
+            "backend/src/test/java/com/examprep/service/ai/agent/AiGovernanceAuditTest.java"
+          ],
+          "requirements": [
+            "复用现有 OperationLogMapper / OperationLogService（不新建重复表），为以下高危操作写入标准化审计记录（操作人、角色、模块、动作、目标ID、脱敏摘要、客户端IP、traceId、结果状态）：HITL 审批通过/拒绝、Wiki 退役/重新发布/蒸馏触发、离线评测触发、失败轨迹导出回归集、用户配额修改。",
+            "审计记录严禁包含用户原文问题、手机号、邮箱或密钥。",
+            "提供管理端分页查询与脱敏 JSON 导出接口（仅 ADMIN），并编写单元测试验证上述操作均准确落库。"
+          ]
+        },
+        {
+          "id": "P3-3",
+          "summary": "消除本地配置文件明文口令风险并加静态防回归单测",
+          "files": [
+            "backend/src/main/resources/application-local.yml",
+            "backend/src/test/java/com/examprep/config/SecretHygieneTest.java"
+          ],
+          "requirements": [
+            "检查 backend/src/main/resources/application-local.yml（gitignored 本地文件）：将数据库口令改为环境变量占位符（如 ${DB_PASSWORD:}，与 start.ps1 从 config/secrets.local.yml 静默注入衔接）或确保仓库已追踪文件零明文口令。",
+            "新增 SecretHygieneTest：扫描 backend/src/main/resources/*.yml 与 ai-service/.env.example，断言无硬编码真实密钥模式（sk-、AIza、明文 password 非占位符等）。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "migration-ai-quota.sql 本机双跑均 exit 0。",
+        "AiQuotaServiceTest、AiGovernanceAuditTest、SecretHygieneTest 与 AiConfigConsistencyTest 全部 100% 通过。"
+      ]
+    },
+    {
+      "phase_id": "P4-OBSERVABILITY-PROMETHEUS-ALERTS",
+      "priority": "P4",
+      "title": "生产级可观测性（Prometheus + Grafana + Jaeger + SLA 告警规则）",
+      "goal": "打通指标采集、可视化看板、链路追踪与告警规则，使线上异常在用户投诉前可被发现与定位。",
+      "tasks": [
+        {
+          "id": "P4-1",
+          "summary": "双端暴露 Prometheus 标准文本格式指标端点",
+          "files": [
+            "ai-service/app/routers/metrics.py",
+            "ai-service/app/main.py",
+            "ai-service/tests/test_metrics_prometheus.py",
+            "backend/pom.xml",
+            "backend/src/main/resources/application.yml",
+            "backend/src/main/java/com/examprep/controller/AiOpsController.java"
+          ],
+          "requirements": [
+            "Python 侧新增 GET /metrics（text/plain; version=0.0.4），零强制第三方依赖（优先复用进程内轻量计数器/直方图）：暴露 ai_http_requests_total（按 path/status）、ai_http_request_duration_seconds、ai_llm_tokens_total（prompt/completion）、ai_agent_tool_calls_total（按 tool/status）、ai_circuit_breaker_open。",
+            "Java 侧先用 mvn -o 验证 ~/.m2 是否可完全离线解析 io.micrometer:micrometer-registry-prometheus；若可离线解析则启用 /actuator/prometheus（保持 ADMIN 鉴权隔离，禁止匿名公开）；若离线缺传递依赖则严禁修改 pom.xml，改为在 AiOpsController 新增 ADMIN 鉴权的 GET /api/admin/ai/metrics/prometheus 标准文本格式端点（输出近 7 天/实时调用量、Token、成本、降级率、429 计数与 JVM 堆内存指标）。",
+            "编写单测验证双端指标文本符合 Prometheus exposition format 且不含 PII。"
+          ]
+        },
+        {
+          "id": "P4-2",
+          "summary": "交付一键可观测性编排包（Prometheus + Grafana + Jaeger + 5 条告警规则）",
+          "files": [
+            "deploy/observability/docker-compose.obs.yml",
+            "deploy/observability/prometheus.yml",
+            "deploy/observability/alert_rules.yml",
+            "deploy/observability/grafana/provisioning/datasources/prometheus.yml",
+            "deploy/observability/grafana/dashboards/examprep-ai-overview.json"
+          ],
+          "requirements": [
+            "docker-compose.obs.yml 定义 prometheus、grafana、jaeger (all-in-one, 暴露 OTLP 4317/4318 与 UI 16686)，通过外部或共享网络对接 examprep 服务，不影响主 docker-compose.yml 默认轻量化启动。",
+            "alert_rules.yml 包含至少 5 条可执行 PromQL 告警规则：(1) 后端/AI 服务宕机 (up == 0 > 1m)；(2) AI 请求 P95 延迟超阈值；(3) 结构化降级率/5xx 错误率异常升高；(4) 429 限流/配额拒绝激增；(5) Redis Stream 消费滞后告警。",
+            "grafana dashboard JSON 可直接导入，涵盖 QPS、P50/P95 延迟、Token 消耗与估算成本、工具成功率与降级率面板。",
+            "用 promtool（或 docker run prom/prometheus promtool check rules）校验 prometheus.yml 与 alert_rules.yml 语法 100% 通过。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "Python /metrics 与 Java Prometheus 指标端点单测 + 实跑返回 200 且格式合法。",
+        "prometheus.yml 与 alert_rules.yml 经 promtool 校验通过；Grafana JSON 合法可解析。"
+      ]
+    },
+    {
+      "phase_id": "P5-LOADTEST-AND-BROWSER-E2E",
+      "priority": "P5",
+      "title": "真实并发压测与 Web 端浏览器 E2E 自动化回归",
+      "goal": "用真实并发压测摸清系统吞吐/延迟/限流/SSE 并发边界，并用真实浏览器自动化回归消灭管理端与学生端前端交互盲区。",
+      "tasks": [
+        {
+          "id": "P5-1",
+          "summary": "编写可重复并发压测脚本并生成实测性能报告",
+          "files": [
+            "scripts/load_test.py",
+            "runtime/load_test_report.md"
+          ],
+          "requirements": [
+            "基于 .venv-ai 已有 httpx + asyncio 编写 scripts/load_test.py，支持 --base-url、--concurrency、--duration/--requests 参数，静默读取测试账号（不打印密码）。",
+            "覆盖 4 个核心压测场景：(1) 高频读接口（题库分页/知识点列表，并发 20）；(2) RAG 混合检索与问答（/api/ai/ask，并发 4~8，受本地 Ollama 串行特性约束如实记录）；(3) Agent SSE 并发连接与单用户并发槽保护（验证超并发返回 429 且连接断开后槽位准确释放）；(4) 限流与配额边界验证。",
+            "拉起真实本地服务执行一轮完整压测，将 QPS、P50/P95/P99、成功率、429 触发数与瓶颈分析写入 runtime/load_test_report.md。"
+          ]
+        },
+        {
+          "id": "P5-2",
+          "summary": "新增学生端与管理端关键路径浏览器 E2E 回归脚本",
+          "files": [
+            "scripts/e2e_web_smoke.py",
+            "runtime/e2e_web_report.md"
+          ],
+          "requirements": [
+            "检查本机是否可用 playwright 或本机 Edge/Chrome Headless + CDP（优先零新安装依赖或仅在可用时运行），编写 scripts/e2e_web_smoke.py 自动化覆盖：",
+            "  - 学生端 Web（/api/student/index.html）：页面加载无 console.error/pageerror、登录成功、发起一次问答展示引用来源；",
+            "  - 管理端 Web（/api/admin/index.html）：管理员登录、指标看板渲染（含 Token/成本卡片）、Wiki 信任分级筛选与退役/重新蒸馏按钮点击状态校验、Agent 轨迹列表「加入回归集」弹窗打开与关闭校验。",
+            "实跑并输出每个检查项的 PASS/FAIL 与控制台错误计数（必须为 0）至 runtime/e2e_web_report.md；若本机缺少无头浏览器驱动则如实记录并提供安装后一键复跑命令。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "runtime/load_test_report.md 包含 4 个场景的真实压测指标与瓶颈结论。",
+        "Web 端 E2E 核心交互回归通过，0 console.error / 0 pageerror。"
+      ]
+    },
+    {
+      "phase_id": "P6-ENTERPRISE-DOCS-AND-FINAL-GATE",
+      "priority": "P6",
+      "title": "企业级 README 升级、生产运维手册与最终全量门禁验收",
+      "goal": "沉淀可直接用于企业交付与 AI Agent 岗位求职展示的高质量文档，并通过全量 CI + 公开版脱敏复验。",
+      "tasks": [
+        {
+          "id": "P6-1",
+          "summary": "升级根目录 README.md 与新增生产部署与运维手册",
+          "files": [
+            "README.md",
+            "docs/生产部署与运维手册.md"
+          ],
+          "requirements": [
+            "README.md 包含：系统定位与 9 模块企业级 Agent 架构 Mermaid 图、核心特性矩阵、真实评测与压测数据汇总表（5 层评测门禁、Router/Subagent A/B、Qdrant 97k 服务端延迟、并发压测 QPS/P95、846+ 单测）、三种启动方式（本地 Ollama / 云端 API / 全栈 Docker Compose）、安全与降级设计说明。",
+            "docs/生产部署与运维手册.md 包含：完整环境变量清单、Nginx HTTPS 证书配置步骤、MySQL + Qdrant 定时备份与恢复 SOP、Prometheus/Grafana/Jaeger 接入与 5 条告警处置 Runbook、水平扩容路线（多副本无状态 backend/ai-service + 外置托管 MySQL/Redis/Qdrant）。"
+          ]
+        },
+        {
+          "id": "P6-2",
+          "summary": "执行最终全量门禁与公开版导出复验并出具验收报告",
+          "files": [
+            "项目规划/任务_2026-11-22_企业级生产就绪_验收报告.md"
+          ],
+          "requirements": [
+            "执行完整 ./ci.ps1（管理端 SHA256 + Java 全量单测 + Python 全量单测 + JAR 打包），确保 0 失败并记录最新测试总数与 JAR SHA256。",
+            "执行 ./scripts/export_public_repo.ps1 导出至临时目录，验证 0 敏感命中、0 超大文件，随后清理临时导出目录。",
+            "生成 项目规划/任务_2026-11-22_企业级生产就绪_验收报告.md，逐阶段给出 PASS/PARTIAL/FAIL、实测数据、产物 SHA256 与如实的风险/边界清单；最后确保本机临时测试进程已清理干净，不执行 git push。"
+          ]
+        }
+      ],
+      "acceptance_criteria": [
+        "./ci.ps1 全量通过（Java >= 445 测试 0 失败，Python >= 420 测试 0 失败，管理端 SHA256 一致，JAR 打包成功）。",
+        "export_public_repo.ps1 实跑 exit 0 且敏感信息扫描 0 命中。",
+        "项目规划/任务_2026-11-22_企业级生产就绪_验收报告.md 内容完整、数据全部来自实测。"
+      ]
+    }
+  ],
+  "execution_order_and_handoff": {
+    "recommended_sequence": [
+      "P1-FULLSTACK-DOCKER-PROD",
+      "P2-QDRANT-MIGRATION-AND-BACKUP",
+      "P3-SECURITY-QUOTA-AUDIT",
+      "P4-OBSERVABILITY-PROMETHEUS-ALERTS",
+      "P5-LOADTEST-AND-BROWSER-E2E",
+      "P6-ENTERPRISE-DOCS-AND-FINAL-GATE"
+    ],
+    "stop_and_report_rules": [
+      "每个阶段完成后立即运行该阶段对应单测或校验命令，通过后再进入下一阶段。",
+      "若遇 Docker Engine 未运行，可先尝试启动 Docker Desktop 或先完成纯代码/单测部分，并在最终验收报告中明确标注需要 Docker 运行的实测项。",
+      "严禁为了通过测试而放宽任何既有评测阈值、注释掉断言或弱化 AiConfigConsistencyTest。",
+      "严禁执行 git push 或在任何输出中打印真实密码/Token/API Key。"
+    ]
+  }
+}

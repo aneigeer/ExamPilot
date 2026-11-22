@@ -190,7 +190,7 @@ public class AgentInternalController {
      * <p>Key 只在 Java 侧；全部客户端不可用时返回 503，Python 自动切规则规划器。
      */
     @PostMapping("/agent/llm")
-    public Result<String> llm(@RequestBody Map<String, Object> body) {
+    public Result<Map<String, Object>> llm(@RequestBody Map<String, Object> body) {
         String systemPrompt = str(body.get("systemPrompt"));
         String userPrompt = str(body.get("userPrompt"));
         if (!StringUtils.hasText(systemPrompt) || !StringUtils.hasText(userPrompt)) {
@@ -201,9 +201,18 @@ public class AgentInternalController {
                 continue;
             }
             try {
-                String content = client.complete(systemPrompt, userPrompt);
-                if (StringUtils.hasText(content)) {
-                    return Result.success(content);
+                LlmClient.LlmCompletion completion =
+                        client.completeWithUsage(systemPrompt, userPrompt);
+                if (StringUtils.hasText(completion.content())) {
+                    LlmClient.LlmUsage usage = completion.usage();
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("content", completion.content());
+                    data.put("model", usage.model());
+                    data.put("promptTokens", usage.promptTokens());
+                    data.put("completionTokens", usage.completionTokens());
+                    data.put("totalTokens", usage.totalTokens());
+                    data.put("estimated", usage.estimated());
+                    return Result.success(data);
                 }
             } catch (Exception e) {
                 log.warn("[Agent] LLM 客户端 {} 不可用：{}", client.name(), e.getMessage());

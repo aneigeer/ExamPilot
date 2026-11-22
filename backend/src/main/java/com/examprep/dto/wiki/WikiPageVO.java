@@ -31,6 +31,13 @@ public class WikiPageVO {
 
     private Integer version;
 
+    /** 信任分级：VERIFIED / AUTO_DISTILLED / STALE_REVIEW / RETIRED */
+    private String trustTier;
+
+    private String staleReason;
+
+    private java.time.LocalDateTime expiresAt;
+
     private Double qualityScore;
 
     private LocalDateTime updatedAt;

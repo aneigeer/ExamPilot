@@ -73,6 +73,18 @@ public class AgentMetricsVO {
     @Schema(description = "降级率；分母为 0 时为 null", example = "0.1176")
     private Double degradedRate;
 
+    @Schema(description = "窗口内总 Token", example = "128000")
+    private long totalTokens;
+
+    @Schema(description = "单次平均 Token（无样本为 null）", example = "1024.5")
+    private Double avgTokensPerRun;
+
+    @Schema(description = "估算总成本（元）", example = "0.128000")
+    private java.math.BigDecimal estimatedCostCny;
+
+    @Schema(description = "按模型分布（model / runs / tokens / cost）")
+    private List<Map<String, Object>> tokenByModel;
+
     @Schema(description = "耗时统计")
     private Latency latency;
 

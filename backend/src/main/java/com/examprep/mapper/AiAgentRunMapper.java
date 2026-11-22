@@ -59,7 +59,10 @@ public interface AiAgentRunMapper extends BaseMapper<AiAgentRun> {
             + "  AS degradedDenominator, "
             + "SUM(CASE WHEN status <> 'RUNNING' AND total_ms > 0 THEN 1 ELSE 0 END) AS samples, "
             + "ROUND(AVG(CASE WHEN status <> 'RUNNING' AND total_ms > 0 THEN total_ms END)) AS avgMs, "
-            + "MAX(CASE WHEN status <> 'RUNNING' AND total_ms > 0 THEN total_ms END) AS maxMs "
+            + "MAX(CASE WHEN status <> 'RUNNING' AND total_ms > 0 THEN total_ms END) AS maxMs, "
+            + "COALESCE(SUM(total_tokens), 0) AS totalTokens, "
+            + "AVG(CASE WHEN total_tokens > 0 THEN total_tokens END) AS avgTokens, "
+            + "COALESCE(SUM(estimated_cost_cny), 0) AS totalCost "
             + "FROM ai_agent_run WHERE created_at >= #{from} AND created_at <= #{to}")
     Map<String, Object> selectSummary(@Param("from") LocalDateTime from,
                                      @Param("to") LocalDateTime to);
@@ -141,6 +144,16 @@ public interface AiAgentRunMapper extends BaseMapper<AiAgentRun> {
                                               @Param("to") LocalDateTime to);
 
     /**
+     * 查询指定用户在时间窗口内的 Agent 运行次数与累计 Token（用于每日配额闸门）。
+     */
+    @Select("SELECT COUNT(*) AS requestCount, COALESCE(SUM(total_tokens), 0) AS tokenSum "
+            + "FROM ai_agent_run WHERE user_id = #{userId} "
+            + "AND created_at >= #{from} AND created_at <= #{to}")
+    Map<String, Object> selectUserDailyUsage(@Param("userId") Long userId,
+                                             @Param("from") LocalDateTime from,
+                                             @Param("to") LocalDateTime to);
+
+    /**
      * 分批删除保留期之前的运行轨迹（数据最小化）。
      *
      * <p>为什么带 {@code LIMIT}：一次性删几十万行会长时间持锁，把在线写入（SSE 落终态）
@@ -159,6 +172,15 @@ public interface AiAgentRunMapper extends BaseMapper<AiAgentRun> {
      * @param cutoff 统计早于该时间的行
      * @return 行数
      */
+    /** 按模型聚合 Token 与成本（P2 可观测性看板） */
+    @Select("SELECT COALESCE(model_name, 'unknown') AS model, COUNT(*) AS runs, "
+            + "COALESCE(SUM(total_tokens), 0) AS tokens, "
+            + "COALESCE(SUM(estimated_cost_cny), 0) AS cost "
+            + "FROM ai_agent_run WHERE created_at >= #{from} AND created_at <= #{to} "
+            + "AND total_tokens > 0 GROUP BY model_name ORDER BY tokens DESC LIMIT 10")
+    List<Map<String, Object>> selectTokenByModel(@Param("from") LocalDateTime from,
+                                                 @Param("to") LocalDateTime to);
+
     @Select("SELECT COUNT(*) FROM ai_agent_run WHERE created_at < #{cutoff}")
     long countOlderThan(@Param("cutoff") LocalDateTime cutoff);
 }

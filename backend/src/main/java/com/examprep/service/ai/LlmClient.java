@@ -45,6 +45,59 @@ public interface LlmClient {
         throw new AiUnavailableException(name() + " 不支持非检索类生成（complete）");
     }
 
+    /**
+     * 结构化 JSON 生成（判分 / 学习计划等）
+     *
+     * <p>默认退化为 {@link #complete}，保证所有既有实现与 Mock 零破坏；
+     * 支持 OpenAI {@code response_format} 的实现可覆写以强制 JSON 输出。
+     *
+     * @param systemPrompt 系统提示词
+     * @param userPrompt   用户提示词
+     * @return 模型输出的原始文本（调用方负责解析与修复）
+     */
+    default String completeJson(String systemPrompt, String userPrompt) {
+        return complete(systemPrompt, userPrompt);
+    }
+
+    /**
+     * 单次生成的 Token 用量与模型名。
+     *
+     * <p>{@code estimated=true} 表示上游未返回 usage，由字符数保守估算回填，
+     * 管理端必须能区分「真实计量」与「估算」。
+     */
+    record LlmUsage(String model, int promptTokens, int completionTokens,
+                    int totalTokens, boolean estimated) {
+
+        /** 字符数估算（中文按 ~2 字符/token，英文按 ~4 字符/token 的保守折中） */
+        public static LlmUsage estimate(String model, String prompt, String output) {
+            int p = Math.max(1, (prompt == null ? 0 : prompt.length()) / 2);
+            int c = Math.max(1, (output == null ? 0 : output.length()) / 2);
+            return new LlmUsage(model, p, c, p + c, true);
+        }
+    }
+
+    /** 生成结果 + 用量 */
+    record LlmCompletion(String content, LlmUsage usage) {
+    }
+
+    /**
+     * 带用量的普通生成；默认按字符估算，兼容所有既有实现。
+     */
+    default LlmCompletion completeWithUsage(String systemPrompt, String userPrompt) {
+        String content = complete(systemPrompt, userPrompt);
+        return new LlmCompletion(content,
+                LlmUsage.estimate(name(), systemPrompt + userPrompt, content));
+    }
+
+    /**
+     * 带用量的 JSON 生成；默认按字符估算，兼容所有既有实现。
+     */
+    default LlmCompletion completeJsonWithUsage(String systemPrompt, String userPrompt) {
+        String content = completeJson(systemPrompt, userPrompt);
+        return new LlmCompletion(content,
+                LlmUsage.estimate(name(), systemPrompt + userPrompt, content));
+    }
+
     // ==================================================================
     // 引用解析工具（接口静态方法）
     //

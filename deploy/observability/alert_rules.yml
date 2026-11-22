@@ -1,0 +1,53 @@
+groups:
+  - name: examprep_ai_sla_alerts
+    interval: 30s
+    rules:
+      # 1. 核心服务宕机告警（Backend 或 AI 微服务失联超过 1 分钟）
+      - alert: ExamPrepServiceDown
+        expr: up{job=~"examprep-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "备考系统核心服务不可达 ({{ $labels.job }})"
+          description: "实例 {{ $labels.instance }} 已连续 1 分钟无法抓取指标，请立即检查进程与容器健康状态。"
+
+      # 2. AI Agent P95 响应延迟超阈值告警（> 25s）
+      - alert: ExamPrepAiHighP95Latency
+        expr: examprep_ai_latency_p95_ms > 25000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Agent P95 延迟超过 25s (当前 {{ $value }} ms)"
+          description: "近窗口 P95 延迟达到 {{ $value }} ms，请检查 Ollama/云端 LLM 上游响应与 Qdrant 服务端检索延迟。"
+
+      # 3. AI 降级率异常升高告警（降级率 > 15%）
+      - alert: ExamPrepAiDegradeRateHigh
+        expr: examprep_ai_degraded_rate > 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI 问答降级率过高 (当前 {{ $value }})"
+          description: "AI 降级回退比例超过 15%，请排查大模型连接、JSON 结构化输出或向量检索服务。"
+
+      # 4. 429 限流 / 配额拒绝激增告警
+      - alert: ExamPrepRateLimitBurst
+        expr: increase(ai_http_requests_total{status="429"}[5m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5 分钟内 429 限流/配额拒绝超过 20 次"
+          description: "检测到高频请求触发限流或每日 Token 配额上限，请核查是否存在异常刷接口行为。"
+
+      # 5. 上游大模型熔断器打开告警
+      - alert: ExamPrepCircuitBreakerOpen
+        expr: ai_circuit_breaker_open == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI 微服务上游熔断器处于打开状态"
+          description: "ai_circuit_breaker_open=1 已持续 1 分钟，当前请求正走降级链路，请检查 LLM API Key 或本地 Ollama 服务。"

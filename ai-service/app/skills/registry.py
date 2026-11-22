@@ -14,6 +14,7 @@ from typing import Dict
 
 from ..router.schemas import SkillName
 from .base import BASE_CONSTRAINTS, Skill
+from .loader import loader
 
 #: 课程问答：题库 + 知识点。最常用路径，作为其他未实现 skill 的降级目标。
 COURSE_QA = Skill(
@@ -165,8 +166,11 @@ SKILLS: Dict[SkillName, Skill] = {
 
 
 def get_skill(name: SkillName) -> Skill:
-    """取 skill 定义；未注册视为编码错误（新增 skill 必须同时进注册表）。"""
+    """取 skill 定义；命中所选技能时按需并入 SKILL.md 正文。
+
+    目录缺失或 frontmatter 非法时原样返回硬编码定义（无缝回退）。
+    """
     try:
-        return SKILLS[name]
+        return loader().decorate(SKILLS[name])
     except KeyError as exc:  # pragma: no cover - 防御性
         raise RuntimeError(f"skill 未注册：{name}") from exc

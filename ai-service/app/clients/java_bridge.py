@@ -12,14 +12,44 @@
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from typing import Any, Dict, Optional
 
 from ..config import AgentSettings
+from ..observability.otel import span
 from ..observability.trace import TRACE_ID_HEADER, get_trace_id
 
 logger = logging.getLogger(__name__)
 
 INTERNAL_TOKEN_HEADER = "X-Internal-Token"
+
+#: 单次 Agent Run 的 Token 累加器（ContextVar 隔离并发请求）
+_LLM_USAGE: ContextVar[Optional[Dict[str, Any]]] = ContextVar("llm_usage", default=None)
+
+
+def reset_llm_usage() -> None:
+    """开始新的 Agent Run 前清零。"""
+    _LLM_USAGE.set({"model": "", "promptTokens": 0, "completionTokens": 0,
+                    "totalTokens": 0, "estimated": False})
+
+
+def llm_usage_snapshot() -> Dict[str, Any]:
+    """读取当前 Run 的累计用量（无调用时返回全 0）。"""
+    return dict(_LLM_USAGE.get() or {"model": "", "promptTokens": 0,
+                                     "completionTokens": 0, "totalTokens": 0,
+                                     "estimated": False})
+
+
+def _record_usage(data: Dict[str, Any]) -> None:
+    usage = _LLM_USAGE.get()
+    if usage is None:
+        reset_llm_usage()
+        usage = _LLM_USAGE.get()
+    usage["model"] = str(data.get("model") or usage.get("model") or "")
+    usage["promptTokens"] += int(data.get("promptTokens") or 0)
+    usage["completionTokens"] += int(data.get("completionTokens") or 0)
+    usage["totalTokens"] += int(data.get("totalTokens") or 0)
+    usage["estimated"] = bool(usage.get("estimated")) or bool(data.get("estimated"))
 
 
 class JavaBridgeError(Exception):
@@ -150,14 +180,32 @@ class JavaBridge:
         return await self._post(path, payload, timeout)
 
     async def llm_complete(self, system_prompt: str, user_prompt: str) -> str:
-        data = await self._post(
-            "/internal/agent/llm",
-            {"systemPrompt": system_prompt, "userPrompt": user_prompt},
-            self.settings.llm_timeout_seconds,
-        )
-        if not isinstance(data, str) or not data.strip():
-            raise JavaBridgeError("Java LLM 代理返回空内容")
-        return data.strip()
+        with span("gen_ai.chat", {
+            "gen_ai.system": "ollama",
+            "gen_ai.operation.name": "chat",
+        }) as otel_span:
+            data = await self._post(
+                "/internal/agent/llm",
+                {"systemPrompt": system_prompt, "userPrompt": user_prompt},
+                self.settings.llm_timeout_seconds,
+            )
+            if isinstance(data, dict):
+                otel_span.set_attribute("gen_ai.usage.input_tokens",
+                                        int(data.get("promptTokens") or 0))
+                otel_span.set_attribute("gen_ai.usage.output_tokens",
+                                        int(data.get("completionTokens") or 0))
+                otel_span.set_attribute("gen_ai.response.model",
+                                        str(data.get("model") or ""))
+            if isinstance(data, dict):
+                _record_usage(data)
+                content = data.get("content")
+                if not isinstance(content, str) or not content.strip():
+                    raise JavaBridgeError("Java LLM 代理返回空内容")
+                return content.strip()
+            # 兼容旧版 Java 只返回字符串
+            if not isinstance(data, str) or not data.strip():
+                raise JavaBridgeError("Java LLM 代理返回空内容")
+            return data.strip()
 
     # ------------------------------------------------------------------ Wiki 蒸馏
 

@@ -53,7 +53,8 @@ class CheckpointResumeTest {
         checkpointMapper = mock(AiAgentCheckpointMapper.class);
         runMapper = mock(AiAgentRunMapper.class);
         streamService = mock(AgentStreamService.class);
-        service = new AgentCheckpointService(checkpointMapper, runMapper, streamService);
+        service = new AgentCheckpointService(checkpointMapper, runMapper, streamService,
+                new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     private AiAgentRun run(String status) {

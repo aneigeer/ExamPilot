@@ -21,6 +21,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from .artifact_store import ArtifactStore
+
 _CJK = re.compile(r"[\u4e00-\u9fff]")
 _WS = re.compile(r"\s+")
 
@@ -56,6 +58,8 @@ class ContextPolicy:
     max_history_turns: int = 4
     #: 为输出要求 / 固定骨架预留的字符
     reserve_chars: int = 500
+    artifact_threshold_chars: int = 600
+    artifact_preview_chars: int = 240
 
 
 @dataclass
@@ -67,6 +71,7 @@ class ContextBundle:
     dropped_observations: int = 0
     dropped_turns: int = 0
     history_turns: int = 0
+    offloaded_artifacts: int = 0
     sections: Dict[str, int] = field(default_factory=dict)
 
 
@@ -94,6 +99,39 @@ def _history_block(history: Sequence[Dict[str, Any]], summary: Optional[str],
     return "\n".join(lines), len(rendered), dropped
 
 
+_ID_PATTERN = re.compile(r'"(?:chunkId|questionId|pageId)"\s*:\s*(\d+)')
+
+
+def _structured_summary(observations: Sequence[Dict[str, Any]],
+                        history: Sequence[Dict[str, Any]],
+                        dropped_observations: int) -> str:
+    """压缩后保留结构化三段块，避免关键事实随截断丢失。"""
+    conclusions: List[str] = []
+    evidence: List[str] = []
+    for index, item in enumerate(observations):
+        if index >= len(observations) - 3:
+            summary = _clip(item.get("summary"), 80)
+            if summary and summary not in conclusions:
+                conclusions.append(summary)
+        try:
+            raw = json.dumps(item.get("data"), ensure_ascii=False)
+        except (TypeError, ValueError):
+            raw = ""
+        for match in _ID_PATTERN.findall(raw)[:4]:
+            token = f"id={match}"
+            if token not in evidence and len(evidence) < 8:
+                evidence.append(token)
+    next_step = "基于上述证据继续回答当前问题；信息不足时明确说明「未找到相关资料」"
+    if history:
+        next_step += "（承接上一轮：" + _clip(history[-1].get("question"), 60) + "）"
+    return (
+        "【已确认结论】" + ("；".join(conclusions) or "暂无")
+        + "\n【关键证据引用】" + ("、".join(evidence) or "无可用 ID")
+        + "\n【下一步待办】" + next_step
+        + f"（本轮压缩：观察 {dropped_observations} 条）"
+    )
+
+
 def build_context(
     question: str,
     history: Sequence[Dict[str, Any]],
@@ -101,22 +139,17 @@ def build_context(
     weak_knowledge_ids: Sequence[int],
     observations: Sequence[Dict[str, Any]],
     policy: Optional[ContextPolicy] = None,
+    trace_id: str = "",
 ) -> ContextBundle:
     """按优先级组装规划上下文。
 
-    Args:
-        question: 当前问题。
-        history: 最近轮次，时间正序；每项 ``{question, answer}``。
-        memory_summary: Java 维护的滚动摘要。
-        weak_knowledge_ids: 薄弱知识点 ID（没有则为空）。
-        observations: 本轮已执行工具，时间正序；每项含 tool/ok/summary/data。
-        policy: 预算配置。
-
-    Returns:
-        :class:`ContextBundle`。
+    在原有「问题 → 画像 → 记忆 → 观察 → 输出要求」基础上：
+    - 超长工具输出落盘为 artifact，只留预览 + artifact_id；
+    - 发生裁剪时追加三段式摘要（结论 / 证据 ID / 下一步）。
     """
     cfg = policy or ContextPolicy()
     sections: Dict[str, int] = {}
+    store = ArtifactStore()
 
     question_block = f"【学生问题】{question.strip()}"
     sections["question"] = len(question_block)
@@ -142,9 +175,9 @@ def build_context(
     )
     sections["history"] = len(history_block)
 
-    # 工具观察：新结果优先；每条 summary + 压缩后的 data
     observation_blocks: List[str] = []
     dropped_observations = 0
+    offloaded = 0
     for item in reversed(list(observations)):
         tool = str(item.get("tool") or "?")
         ok = "ok" if item.get("ok") else "failed"
@@ -156,23 +189,31 @@ def build_context(
                 data_text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
             except (TypeError, ValueError):
                 data_text = str(data)
-            data_text = _clip(data_text, cfg.observation_data_chars)
+            if len(data_text) > cfg.artifact_threshold_chars:
+                artifact_id, total = store.save(data, trace_id)
+                offloaded += 1
+                data_text = (
+                    data_text[:cfg.artifact_preview_chars]
+                    + f"…（完整 {total} 字符，artifact_id={artifact_id}；"
+                    + "可调用 read_artifact 分段读取）"
+                )
+            else:
+                data_text = _clip(data_text, cfg.observation_data_chars)
         block = f"- {tool} → {ok}：{summary}"
         if data_text:
             block += f"\n  data：{data_text}"
         observation_blocks.append(block)
 
-    # 预留 120 字符给「已执行步骤」标题与换行
     obs_budget = max(200, remaining - len(history_block) - 120)
     kept: List[str] = []
     used = 0
-    for block in observation_blocks:  # 已是新→旧
+    for block in observation_blocks:
         if used + len(block) + 1 > obs_budget:
             dropped_observations += 1
             continue
         kept.append(block)
         used += len(block) + 1
-    kept.reverse()  # 输出回时间正序
+    kept.reverse()
     observation_text = "\n".join(kept)
 
     parts = [question_block]
@@ -180,6 +221,8 @@ def build_context(
         parts.append(profile_block)
     if history_block:
         parts.append("【会话记忆】\n" + history_block)
+    if dropped_observations or dropped_turns:
+        parts.append(_structured_summary(observations, history, dropped_observations))
     if observation_text:
         parts.append("【已执行步骤】\n" + observation_text)
     parts.append(instruction)
@@ -192,5 +235,6 @@ def build_context(
         dropped_observations=dropped_observations,
         dropped_turns=dropped_turns,
         history_turns=turns,
+        offloaded_artifacts=offloaded,
         sections=sections,
     )

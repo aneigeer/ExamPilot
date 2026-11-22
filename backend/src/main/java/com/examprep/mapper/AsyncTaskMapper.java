@@ -41,4 +41,8 @@ public interface AsyncTaskMapper extends BaseMapper<AsyncTask> {
     @Update("UPDATE async_task SET status = 'FAILED', error = #{error}, finished_at = NOW() "
             + "WHERE id = #{id} AND status NOT IN ('SUCCESS','FAILED','CANCELLED')")
     int markFailed(@Param("id") Long id, @Param("error") String error);
+
+    /** 按幂等键查最近一条任务（唯一索引保证最多一条） */
+    @org.apache.ibatis.annotations.Select("SELECT * FROM async_task WHERE idempotency_key = #{key} LIMIT 1")
+    AsyncTask selectByIdempotencyKey(@org.apache.ibatis.annotations.Param("key") String key);
 }

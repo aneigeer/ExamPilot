@@ -43,8 +43,9 @@ COPY ai-service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir pytest
 
-# 再拷代码
+# 再拷代码（含 eval 评估模块供 Redis Stream eval_worker 调用）
 COPY ai-service/app ./app
+COPY ai-service/eval ./eval
 COPY ai-service/models ./models
 COPY ai-service/pytest.ini ./pytest.ini
 COPY ai-service/tests ./tests

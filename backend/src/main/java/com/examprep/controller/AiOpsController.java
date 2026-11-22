@@ -69,6 +69,27 @@ public class AiOpsController {
     private final AgentMemoryService memoryService;
     private final AgentCheckpointService checkpointService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.examprep.service.ai.agent.AiQuotaService quotaService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.examprep.service.OperationLogService operationLogService;
+
+    public void setQuotaService(com.examprep.service.ai.agent.AiQuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
+
+    public void setOperationLogService(com.examprep.service.OperationLogService operationLogService) {
+        this.operationLogService = operationLogService;
+    }
+
+    private void audit(String action, String targetType, Long targetId, String detail) {
+        if (operationLogService != null) {
+            operationLogService.record("AI_GOVERNANCE", action, targetType, targetId,
+                    detail + ",traceId=" + TraceContext.of(null));
+        }
+    }
+
     // ==================================================================
     // 评估对比（只读）
     // ==================================================================
@@ -253,14 +274,18 @@ public class AiOpsController {
     @PostMapping("/admin/ai/eval/retrieval")
     public Result<AsyncTask> runRetrievalEval() {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(asyncJobService.submit("EVAL_RETRIEVAL", Map.of(), userId));
+        AsyncTask task = asyncJobService.submit("EVAL_RETRIEVAL", Map.of(), userId);
+        audit("EVAL_TRIGGER", "ASYNC_TASK", task.getId(), "type=EVAL_RETRIEVAL");
+        return Result.success(task);
     }
 
     @Operation(summary = "提交 Agent 侧评估（合成任务集 → 规则判定）")
     @PostMapping("/admin/ai/eval/agent")
     public Result<AsyncTask> runAgentEval() {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(asyncJobService.submit("EVAL_AGENT", Map.of(), userId));
+        AsyncTask task = asyncJobService.submit("EVAL_AGENT", Map.of(), userId);
+        audit("EVAL_TRIGGER", "ASYNC_TASK", task.getId(), "type=EVAL_AGENT");
+        return Result.success(task);
     }
 
     @Operation(summary = "提交拒答评测（域外拒答率 / 域内误拒率）",
@@ -268,7 +293,9 @@ public class AiOpsController {
     @PostMapping("/admin/ai/eval/refusal")
     public Result<AsyncTask> runRefusalEval() {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(asyncJobService.submit("EVAL_REFUSAL", Map.of(), userId));
+        AsyncTask task = asyncJobService.submit("EVAL_REFUSAL", Map.of(), userId);
+        audit("EVAL_TRIGGER", "ASYNC_TASK", task.getId(), "type=EVAL_REFUSAL");
+        return Result.success(task);
     }
 
     @Operation(summary = "提交判分评测（等级一致率 / 得分率 MAE）",
@@ -276,7 +303,9 @@ public class AiOpsController {
     @PostMapping("/admin/ai/eval/grading")
     public Result<AsyncTask> runGradingEval() {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(asyncJobService.submit("EVAL_GRADING", Map.of(), userId));
+        AsyncTask task = asyncJobService.submit("EVAL_GRADING", Map.of(), userId);
+        audit("EVAL_TRIGGER", "ASYNC_TASK", task.getId(), "type=EVAL_GRADING");
+        return Result.success(task);
     }
 
     @Operation(summary = "提交学习计划评测（JSON 合规率 / 题号零幻觉 / 降级率）",
@@ -284,7 +313,9 @@ public class AiOpsController {
     @PostMapping("/admin/ai/eval/study-plan")
     public Result<AsyncTask> runStudyPlanEval() {
         Long userId = SecurityUtils.requireUserId();
-        return Result.success(asyncJobService.submit("EVAL_STUDY_PLAN", Map.of(), userId));
+        AsyncTask task = asyncJobService.submit("EVAL_STUDY_PLAN", Map.of(), userId);
+        audit("EVAL_TRIGGER", "ASYNC_TASK", task.getId(), "type=EVAL_STUDY_PLAN");
+        return Result.success(task);
     }
 
     @Operation(summary = "发布门禁汇总",
@@ -332,9 +363,124 @@ public class AiOpsController {
         return Result.success(agentRunService.list(page, size, null));
     }
 
+    @Operation(summary = "轨迹加入回归评测集",
+            description = """
+                    **访问级别：ROLE:ADMIN**。把一条线上轨迹转成标准评测用例：
+                    只保留问题文本与来源 ID，自动脱敏手机号/邮箱/身份证，不含 userId/学号。
+                    `append=true` 时追加到 `runtime/eval_candidates.jsonl`。
+                    """)
+    @PostMapping("/admin/ai/runs/{id}/export-eval-case")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Map<String, Object>> exportEvalCase(
+            @PathVariable Long id,
+            @Parameter(description = "IN / OUT") @RequestParam(defaultValue = "OUT") String domain,
+            @Parameter(description = "是否期望拒答") @RequestParam(required = false) Boolean expectRefusal,
+            @Parameter(description = "refusal / agent") @RequestParam(defaultValue = "refusal") String targetDataset,
+            @Parameter(description = "是否追加写入候选文件") @RequestParam(defaultValue = "false") boolean append) {
+        Map<String, Object> res = agentRunService.exportEvalCase(id, domain, expectRefusal, targetDataset, append);
+        audit("EVAL_CASE_EXPORT", "AI_AGENT_RUN", id,
+                "domain=" + domain + ",dataset=" + targetDataset + ",append=" + append);
+        return Result.success("用例已生成", res);
+    }
+
     @Operation(summary = "Agent 会话轨迹回放")
     @GetMapping("/admin/ai/agent/runs/{id}")
     public Result<AgentRunVO> agentRun(@PathVariable Long id) {
         return Result.success(agentRunService.get(id));
+    }
+
+    // ==================================================================
+    // 每日配额治理、合规审计与 Prometheus 指标导出
+    // ==================================================================
+
+    @Operation(summary = "查询指定用户今日 AI 配额与用量（ADMIN）")
+    @GetMapping("/admin/ai/quota/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Map<String, Object>> getUserQuota(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "STUDENT") String role) {
+        if (quotaService == null) {
+            throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE, "配额服务未初始化");
+        }
+        return Result.success(quotaService.snapshot(userId, role).toMap());
+    }
+
+    @Operation(summary = "调整指定用户每日 AI 配额覆盖（ADMIN）")
+    @org.springframework.web.bind.annotation.PutMapping("/admin/ai/quota/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Map<String, Object>> updateUserQuota(
+            @PathVariable Long userId,
+            @RequestBody Map<String, Object> body) {
+        if (quotaService == null) {
+            throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE, "配额服务未初始化");
+        }
+        Long operatorId = SecurityUtils.requireUserId();
+        Integer tokenLimit = body.get("dailyTokenLimit") instanceof Number n ? n.intValue() : null;
+        Integer reqLimit = body.get("dailyRequestLimit") instanceof Number n ? n.intValue() : null;
+        String remark = body.get("remark") == null ? null : String.valueOf(body.get("remark"));
+        var snap = quotaService.updateOverride(userId, tokenLimit, reqLimit, remark, operatorId);
+        audit("QUOTA_UPDATE", "USER", userId,
+                "dailyTokenLimit=" + snap.dailyTokenLimit() + ",dailyRequestLimit=" + snap.dailyRequestLimit());
+        return Result.success("配额已更新", snap.toMap());
+    }
+
+    @Operation(summary = "查询 AI 治理审计日志（ADMIN）")
+    @GetMapping("/admin/ai/audit-logs")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<PageResult<com.examprep.entity.OperationLog>> auditLogs(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "20") long size,
+            @RequestParam(defaultValue = "AI_GOVERNANCE") String module,
+            @RequestParam(required = false) Long userId) {
+        if (operationLogService == null) {
+            return Result.success(PageResult.of(page, size, 0L, List.of()));
+        }
+        return Result.success(operationLogService.page(page, size, module, userId));
+    }
+
+    @Operation(summary = "Prometheus 文本格式指标导出（ADMIN）")
+    @GetMapping(value = "/admin/ai/metrics/prometheus", produces = "text/plain; version=0.0.4; charset=utf-8")
+    @PreAuthorize("hasRole('ADMIN')")
+    public String prometheusMetrics(@RequestParam(defaultValue = "7") int days) {
+        AgentMetricsVO m = agentMetricsService.metrics(days);
+        Map<String, Long> sc = m.getStatusCounts() != null ? m.getStatusCounts() : Map.of();
+        long p95Ms = (m.getLatency() != null && m.getLatency().getP95Ms() != null)
+                ? m.getLatency().getP95Ms() : 0L;
+        Runtime rt = Runtime.getRuntime();
+        long heapUsed = rt.totalMemory() - rt.freeMemory();
+        long heapMax = rt.maxMemory();
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("# HELP examprep_ai_runs_total Total AI agent runs in window\n");
+        sb.append("# TYPE examprep_ai_runs_total gauge\n");
+        sb.append("examprep_ai_runs_total{window_days=\"").append(m.getDays()).append("\"} ")
+          .append(m.getTotal()).append("\n");
+        sb.append("# HELP examprep_ai_runs_by_status AI agent runs grouped by status\n");
+        sb.append("# TYPE examprep_ai_runs_by_status gauge\n");
+        sb.append("examprep_ai_runs_by_status{status=\"RUNNING\"} ").append(sc.getOrDefault("RUNNING", m.getRunning())).append("\n");
+        sb.append("examprep_ai_runs_by_status{status=\"SUCCESS\"} ").append(sc.getOrDefault("SUCCESS", 0L)).append("\n");
+        sb.append("examprep_ai_runs_by_status{status=\"REFUSED\"} ").append(sc.getOrDefault("REFUSED", 0L)).append("\n");
+        sb.append("examprep_ai_runs_by_status{status=\"FAILED\"} ").append(sc.getOrDefault("FAILED", 0L)).append("\n");
+        sb.append("examprep_ai_runs_by_status{status=\"CANCELLED\"} ").append(sc.getOrDefault("CANCELLED", 0L)).append("\n");
+        sb.append("# HELP examprep_ai_degraded_rate Degraded fallback ratio in window\n");
+        sb.append("# TYPE examprep_ai_degraded_rate gauge\n");
+        sb.append("examprep_ai_degraded_rate ")
+          .append(m.getDegradedRate() == null ? 0.0 : m.getDegradedRate()).append("\n");
+        sb.append("# HELP examprep_ai_latency_p95_ms P95 latency in milliseconds\n");
+        sb.append("# TYPE examprep_ai_latency_p95_ms gauge\n");
+        sb.append("examprep_ai_latency_p95_ms ").append(p95Ms).append("\n");
+        sb.append("# HELP examprep_ai_tokens_total Total LLM tokens in window\n");
+        sb.append("# TYPE examprep_ai_tokens_total gauge\n");
+        sb.append("examprep_ai_tokens_total ").append(m.getTotalTokens()).append("\n");
+        sb.append("# HELP examprep_ai_estimated_cost_cny Estimated LLM cost in CNY\n");
+        sb.append("# TYPE examprep_ai_estimated_cost_cny gauge\n");
+        sb.append("examprep_ai_estimated_cost_cny ")
+          .append(m.getEstimatedCostCny() == null ? java.math.BigDecimal.ZERO : m.getEstimatedCostCny()).append("\n");
+        sb.append("# HELP examprep_jvm_heap_used_bytes JVM heap memory used in bytes\n");
+        sb.append("# TYPE examprep_jvm_heap_used_bytes gauge\n");
+        sb.append("examprep_jvm_heap_used_bytes ").append(heapUsed).append("\n");
+        sb.append("# HELP examprep_jvm_heap_max_bytes JVM max heap memory in bytes\n");
+        sb.append("# TYPE examprep_jvm_heap_max_bytes gauge\n");
+        sb.append("examprep_jvm_heap_max_bytes ").append(heapMax).append("\n");
+        return sb.toString();
     }
 }

@@ -39,6 +39,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 某些宿主会注入 Path / PATH / path 多个大小写变体；
+# Windows PowerShell 5.1 的 Start-Process 构建环境字典时会因重复键直接抛异常。
+# 这里统一收敛为一个 Path，避免一键启动在干净机器上偶发失败。
+$pathValue = [Environment]::GetEnvironmentVariable('Path', 'Process')
+foreach ($key in @('Path', 'PATH', 'path')) {
+    [Environment]::SetEnvironmentVariable($key, $null, 'Process')
+}
+if ($pathValue) { [Environment]::SetEnvironmentVariable('Path', $pathValue, 'Process') }
 $root = $PSScriptRoot
 $runtimeDir = Join-Path $root 'runtime'
 if (-not (Test-Path $runtimeDir)) { New-Item -ItemType Directory -Path $runtimeDir | Out-Null }

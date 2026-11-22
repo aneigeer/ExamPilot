@@ -1,12 +1,96 @@
-# 大学生多考试备考知识库与题库系统
+# 大学生多考试备考知识库与题库系统（Enterprise AI Agent Edition）
 
-> 面向高校学生的**资料治理 + 智能备考**平台。Android 学生端 + Web 管理端 + Spring Boot 后端三端架构，覆盖「资料上传—审核—预览—下载—举报—下架」治理闭环与「刷题—判分—错题—模考」学习闭环，内置**中南林业科技大学真实教学计划数据**。
->
-> **AI 导学**为独立 FastAPI 微服务：本地 **Qwen2.5-7B（Ollama，GPU 推理 52 tok/s，无需联网与 API Key）** + bge-small-zh 向量检索 + **Router/Skill 架构**（9 个技能，三闸门判定）+ 抽取式五层降级。语料 **13,306 块（ACTIVE 12,647）**（题库块 3,057（ACTIVE 2,398）+ 课件 10,214 + 知识点/资料 35），课件来自 497 份文档（含 6 章操作系统 PPT 一页一块、12 篇纯图片课件的 OCR 结果），回答**强制带 `[n]` 引用并回传页码**。
->
-> **AI 模拟面试**：按主题从真实面试语料出题 → 逐题作答 → 要点级评分（命中/遗漏/参考答案）→ 同题追问 → 生成复盘报告；出题只用检索到的资料改写，不凭空编题。
->
-> 软件工程课程设计 / 毕业设计。不商用、不上架。
+> 面向高校学生的**资料治理 + 企业级 AI Agent 智能备考**平台。采用 **Android 学生端 + Web 学生端/管理端 + Spring Boot 3.5.3 (JDK 21) + FastAPI AI 微服务 + Qdrant 向量库 + Redis Stream 异步队列** 架构，完整落地现代 **9 模块企业级 AI Agent 架构**，并支持**本地 Ollama 7B（零 API 成本）与云端 OpenAI / 百炼 / 智谱 / DeepSeek API 双模一键切换**。
+
+---
+
+## 零、企业级 9 模块 AI Agent 架构与实测指标总览（2026-11-22 实测）
+
+```mermaid
+flowchart TB
+    subgraph Client["多端入口 & 反向代理"]
+        APP["Android 学生端 / Web 学生端"]
+        ADM["Web 管理端 (指标 / Wiki 治理 / 评测门禁 / 配额审计)"]
+        NGX["Nginx 网关 (80/443, SSE proxy_buffering off)"]
+    end
+
+    subgraph Java["Spring Boot 3.5.3 业务与治理中台 (:8080)"]
+        QUOTA["每日 Token/请求配额闸门 (AiQuotaService, 429 防刷)"]
+        STREAM["AgentStreamService (并发信号量 + 检查点落库 + HITL 挂起)"]
+        CHK["AgentCheckpointService (中断恢复 + HITL 常量时间 Token 幂等审批)"]
+        WIKI["LLM Wiki 热层与信任分级 (VERIFIED / STALE_REVIEW / RETIRED)"]
+        HYB["HybridRetriever (Qdrant 向量 + MySQL ngram + 五因子重排 + 三道拒答闸门)"]
+        AUDIT["合规审计与 Prometheus 导出 (OperationLog + /admin/ai/metrics/prometheus)"]
+    end
+
+    subgraph Python["FastAPI AI 微服务 (:8000)"]
+        HARNESS["1. Agent Runtime 执行循环 (显式状态机 + Step/Tool 预算)"]
+        CTX["2. Context Engine v2 (>600 字落盘 Artifact + read_artifact + 三段式压缩)"]
+        SKILL["5/7. Router & SKILL.md 渐进加载 + MCP 工具协议 + 风险分级"]
+        SUB["8. Verifier & 受控 Subagent 拆解/汇总 + 引用编号机械校验"]
+        OTEL["9. TraceId 全链路透传 + OTel GenAI Span + /metrics"]
+    end
+
+    subgraph Infra["存储、向量与异步队列"]
+        MYSQL[("MySQL 8.0 (30 份幂等迁移)<br/>业务表 + ai_agent_run + ai_eval_run")]
+        QDRANT[("Qdrant Server (:6333)<br/>97,252 切片 + 4 类 Payload 索引")]
+        REDIS[("Redis 7 Stream (:6379)<br/>exam:jobs / exam:eval / exam:wiki")]
+    end
+
+    APP & ADM --> NGX --> QUOTA --> STREAM & WIKI & HYB
+    STREAM <-->|"SSE + X-Internal-Token"| HARNESS
+    CHK --> STREAM
+    HARNESS --> CTX & SKILL & SUB & OTEL
+    HYB & HARNESS --> QDRANT
+    STREAM & WIKI & HYB & AUDIT --> MYSQL
+    Java <-->|"异步任务 + 幂等键"| REDIS <--> Python
+```
+
+### 1. 九大 Agent 核心模块落地矩阵
+
+| # | 模块 | 核心工程实现 | 验证与单测证据 |
+|---:|---|---|---|
+| 1 | **Agent Runtime 执行循环** | 显式目标/步骤/工具/Token 预算状态机；异常中断保存检查点；`AsyncTask` 幂等键防重投 | `CheckpointResumeTest` (10/10)、`AsyncJobServiceTest` (11/11) |
+| 2 | **Context Engine v2** | `>600` 字符工具观察自动落盘 `ArtifactStore`（24h TTL）；`read_artifact` 归属校验防路径穿越；超预算追加【已确认结论/关键证据/下一步待办】三段式压缩 | `test_context_manager` + `test_agent_budget` + `test_agent` (37 通过) |
+| 3 | **RAG 混合检索层** | Qdrant 服务端 **97,252** 向量切片（`status/source_type/subject_id/knowledge_id` 四索引）+ MySQL ngram 全文检索 + RRF/五因子重排 + 三道反幻觉拒答闸门 | 服务端过滤检索 **P50 = 14.36 ms**（较本地文件模式 752.33 ms **提速 52.4×**） |
+| 4 | **LLM Wiki 知识治理层** | 对齐 Google OKF v0.3：`VERIFIED / AUTO_DISTILLED / STALE_REVIEW / RETIRED` 四级信任；聚合来源块 `SHA-256` 自动标旧；过期与退役热层硬拦截 | `WikiGovernanceTest` + `WikiServiceTest` + `WikiQueryServiceTest` (14 通过) |
+| 5 | **Decision 路由层** | `bge-small-zh` 句向量意图分类 + 置信度与间隔双阈值校准；`AiRouteClient` 300ms 超时永不抛异常回退默认路由 | `test_route` (9/9) + 实跑 A/B 报告 `runtime/ab_router_subagent_report.md` |
+| 6 | **Memory 与多级状态** | 用户画像按 `userId` 隔离、短期会话上下文、长期事实记忆（LTM）、执行进度写 `ai_agent_checkpoint`、共享知识写 `wiki_page` | `AgentMemoryService` + 跨用户会话复用 403 拦截 |
+| 7 | **Tools / SKILL.md / HITL** | 声明式 `SKILL.md` 目录索引 + 按需正文注入；MCP 协议暴露；高风险写工具触发 `WAITING_APPROVAL` 挂起 + `POST /api/ai/agent/runs/{id}/approve` 常量时间 Token 原子幂等审批恢复 | `test_agent_hitl` (3/3) + `AgentHitlApprovalTest` (3/3) + `test_mcp_server` (25/25) |
+| 8 | **Verifier 与 Subagent** | `AnswerPostProcessor` 引用编号越界剥离与零降级 `JsonOutputRepair`；受控 `Subagent` 共享全局工具/步数预算，复合题召回来源数 **+127%** | `test_subagent` (34/34) + `test_source_guard` (15/15) |
+| 9 | **Tracing / Evals / Quota** | 16 位 hex `X-Trace-Id` 全链路贯通；真实 Token 与成本落库；双端 Prometheus `/metrics` + 5 条 SLA 告警；5 层离线评测门禁 + 线上失败轨迹一键脱敏回流回归集；每日 Token/请求配额 429 防刷 + `OperationLog` 治理审计 | 全栈 **Java 442/442 + Python 417/417 = 859 条单测 100% 通过** |
+
+### 2. 核心实测基准数据（全部可复现）
+
+| 评测 / 压测维度 | 实测结果 | 门槛 / 对比基准 | 报告 / 脚本位置 |
+|---|---|---|---|
+| **离线评测：拒答层 (`REFUSAL`)** | 域外拒答率 **95.0% (19/20)**，域内误拒率 **5.0% (1/20)** | `>= 90%` / `<= 10%`（**PASS**） | `ai-service/eval/refusal_eval.py` |
+| **离线评测：主观题判分层 (`GRADING`)** | 等级一致率 **70.0%**，得分率 MAE **0.063**，JSON 降级率 **0.0%** | `>= 70%` / `<= 0.25` / `0%`（**PASS**） | `ai-service/eval/grading_eval.py` |
+| **离线评测：学习计划层 (`STUDY_PLAN`)** | JSON 合规率 **100%**，错题 ID 零幻觉率 **100%**，降级率 **0.0%** | `>= 95%` / `100%` / `<= 50%`（**PASS**） | `ai-service/eval/study_plan_eval.py` |
+| **离线评测：检索层 / Agent 层** | Recall@5 **93.1%**（MRR **0.703**）；Agent 通过率 **98.3%**（工具成功率 **100%**） | 门禁全绿（**PASS**） | `GET /api/admin/ai/eval/gate-summary` |
+| **Qdrant 97,252 切片服务端迁移压测** | 服务端过滤检索 **P50 = 14.36 ms，P95 = 30.51 ms**（Top-5 重合率 86.0%） | 本地文件模式 P50 = 752.33 ms（**提速 52.4×**） | `runtime/qdrant_migration_report.md` |
+| **Router / Subagent 实跑 A/B** | Subagent 平均来源数 **0.88 → 2.0 (+127%)**，P50 `12.3s → 15.8s`，Token `+32.1%` | 数据驱动保持默认关闭、按需开启 | `runtime/ab_router_subagent_report.md` |
+| **Web 无头浏览器 E2E 回归** | 学生端 + 管理端 **9/9 检查项 PASS**，`console.error = 0`，`pageerror = 0` | Edge Headless 真实 DOM 渲染 + 业务闭环 | `runtime/e2e_web_report.md` |
+
+### 3. 三种一键启动方式
+
+```powershell
+# 方式 A：本地 Ollama 模式（默认，零 API 费用）
+.\start.ps1 -Mode local -Model exam-prep-7b
+
+# 方式 B：云端 API 模式（支持 OpenAI / DeepSeek / 阿里云百炼 DashScope / 智谱 GLM）
+.\start.ps1 -Mode api -Provider dashscope -ApiKey "<YOUR_API_KEY>" -Model "qwen-plus"
+.\start.ps1 -Mode api -Provider openai -BaseUrl "https://api.deepseek.com/v1" -ApiKey "<YOUR_API_KEY>" -Model "deepseek-chat"
+
+# 方式 C：全栈生产 Docker Compose 部署（MySQL + Redis + Qdrant + AI-Service + Backend + Nginx）
+cp .env.prod.example .env.prod   # 填入强口令与 JWT_SECRET / AI_INTERNAL_TOKEN
+docker compose --env-file .env.prod -p examprep up -d --build
+
+# 一键运行全量 CI 门禁（管理端 SHA256 + Java 全量单测 + Python 全量单测 + JAR 打包）
+.\ci.ps1
+```
+
+> 完整生产运维、HTTPS 证书、MySQL+Qdrant 定时备份恢复、Prometheus/Grafana/Jaeger 监控与 5 条 SLA 告警处置 SOP 请参阅 [`docs/生产部署与运维手册.md`](docs/生产部署与运维手册.md)。
 
 ---
 

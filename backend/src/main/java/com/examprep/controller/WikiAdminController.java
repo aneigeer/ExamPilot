@@ -33,6 +33,20 @@ public class WikiAdminController {
 
     private final WikiService wikiService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.examprep.service.OperationLogService operationLogService;
+
+    public void setOperationLogService(com.examprep.service.OperationLogService operationLogService) {
+        this.operationLogService = operationLogService;
+    }
+
+    private void audit(String action, String targetType, Long targetId, String detail) {
+        if (operationLogService != null) {
+            operationLogService.record("AI_GOVERNANCE", action, targetType, targetId,
+                    detail + ",traceId=" + com.examprep.common.TraceContext.of(null));
+        }
+    }
+
     @Operation(summary = "Wiki 概览", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。")
     @GetMapping("/stats")
     public Result<Map<String, Object>> stats() {
@@ -45,8 +59,10 @@ public class WikiAdminController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "20") long size,
             @Parameter(description = "PUBLISHED / OFFLINE，不传全部") @RequestParam(required = false) String status,
+            @Parameter(description = "VERIFIED / AUTO_DISTILLED / STALE_REVIEW / RETIRED")
+            @RequestParam(required = false) String trustTier,
             @RequestParam(required = false) String keyword) {
-        return Result.success(wikiService.adminPages(page, size, status, keyword));
+        return Result.success(wikiService.adminPages(page, size, status, trustTier, keyword));
     }
 
     @Operation(summary = "待审 / 历史草稿列表", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。")
@@ -71,7 +87,9 @@ public class WikiAdminController {
             @RequestBody(required = false) Map<String, Object> body) {
         Long reviewerId = SecurityUtils.currentUserIdOrNull();
         String note = body == null ? null : String.valueOf(body.getOrDefault("note", ""));
-        return Result.success("已发布", wikiService.approve(id, reviewerId, note));
+        Map<String, Object> data = wikiService.approve(id, reviewerId, note);
+        audit("WIKI_APPROVE", "WIKI_REVISION", id, "reviewerId=" + reviewerId);
+        return Result.success("已发布", data);
     }
 
     @Operation(summary = "驳回草稿", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。")
@@ -81,13 +99,37 @@ public class WikiAdminController {
             @RequestBody(required = false) Map<String, Object> body) {
         Long reviewerId = SecurityUtils.currentUserIdOrNull();
         String note = body == null ? null : String.valueOf(body.getOrDefault("note", ""));
-        return Result.success("已驳回", wikiService.reject(id, reviewerId, note));
+        Map<String, Object> data = wikiService.reject(id, reviewerId, note);
+        audit("WIKI_REJECT", "WIKI_REVISION", id, "reviewerId=" + reviewerId);
+        return Result.success("已驳回", data);
     }
 
     @Operation(summary = "下架页面", description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。同时删除向量点。")
     @PostMapping("/pages/{id}/offline")
     public Result<Map<String, Object>> offline(@PathVariable Long id) {
-        return Result.success("已下架", wikiService.offline(id));
+        Map<String, Object> data = wikiService.offline(id);
+        audit("WIKI_OFFLINE", "WIKI_PAGE", id, "status=OFFLINE");
+        return Result.success("已下架", data);
+    }
+
+    @Operation(summary = "标记退役",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。立即退出热层，直到重新审核发布。")
+    @PostMapping("/pages/{id}/retire")
+    public Result<Map<String, Object>> retire(@PathVariable Long id,
+                                              @RequestParam(required = false) String reason) {
+        String effectiveReason = reason == null ? "人工退役" : reason;
+        Map<String, Object> data = wikiService.retire(id, effectiveReason);
+        audit("WIKI_RETIRE", "WIKI_PAGE", id, "reason=" + effectiveReason);
+        return Result.success("已退役", data);
+    }
+
+    @Operation(summary = "标记待重新蒸馏",
+            description = "**访问级别：ROLE:AUDITOR / ROLE:ADMIN**。把页面置为 STALE_REVIEW 并触发一次蒸馏。")
+    @PostMapping("/pages/{id}/redistill")
+    public Result<Map<String, Object>> redistill(@PathVariable Long id) {
+        Map<String, Object> data = wikiService.retireStale(id, "人工要求重新蒸馏");
+        audit("WIKI_REDISTILL", "WIKI_PAGE", id, "trustTier=STALE_REVIEW");
+        return Result.success("已标记待重新蒸馏", data);
     }
 
     @Operation(summary = "触发一次蒸馏", description = """
@@ -102,6 +144,7 @@ public class WikiAdminController {
             @Parameter(description = "scope=SUBJECT 时必填") @RequestParam(required = false) Long subjectId) {
         Long userId = SecurityUtils.currentUserIdOrNull();
         var task = wikiService.enqueueDistill(scope, subjectId, userId);
+        audit("WIKI_DISTILL_ENQUEUE", "ASYNC_TASK", task.getId(), "scope=" + scope + ",subjectId=" + subjectId);
         return Result.success("已入队", Map.of(
                 "taskId", task.getId(),
                 "type", task.getType(),

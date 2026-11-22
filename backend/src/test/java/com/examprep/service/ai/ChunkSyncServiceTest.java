@@ -21,6 +21,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.examprep.service.wiki.WikiGovernanceService;
 
 /**
  * 孤儿向量清理测试
@@ -48,7 +49,7 @@ class ChunkSyncServiceTest {
         props.getFastapi().setEnabled(fastapiEnabled);
         props.getVector().setEnabled(fastapiEnabled);
         ChunkSyncService service = new ChunkSyncService(
-                mapper, mock(ChunkExtractor.class), props, client);
+                mapper, mock(WikiGovernanceService.class), mock(ChunkExtractor.class), props, client);
         return new Fixture(service, mapper, client, props);
     }
 

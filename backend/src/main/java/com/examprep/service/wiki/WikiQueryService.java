@@ -42,6 +42,7 @@ public class WikiQueryService {
     private final FastApiClient fastApiClient;
     private final WikiProperties properties;
     private final WikiService wikiService;
+    private final WikiGovernanceService governance;
     private final ObjectMapper objectMapper;
 
     /**
@@ -166,7 +167,7 @@ public class WikiQueryService {
                 break;
             }
             WikiPage page = pageMapper.selectById(entry.getKey());
-            if (page == null || !page.isPublished()) {
+            if (page == null || !governance.servingAllowed(page)) {
                 continue;
             }
             Candidate candidate = entry.getValue();

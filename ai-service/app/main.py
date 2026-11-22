@@ -46,6 +46,7 @@ from .routers import llm as llm_router
 from .routers import ocr as ocr_router
 from .routers import search as search_router
 from .routers import interview as interview_router
+from .routers import metrics as metrics_router
 from .routers import route as route_router
 from .routers import wiki as wiki_router
 from .schemas import ErrorResponse
@@ -172,6 +173,7 @@ def create_app() -> FastAPI:
     app.include_router(wiki_router.router)
     app.include_router(interview_router.router)
     app.include_router(route_router.router)
+    app.include_router(metrics_router.router)
 
     # —— 全局异常处理器
     register_exception_handlers(app)
@@ -231,7 +233,9 @@ async def trace_id_middleware(
     request.state.trace_id = trace_id
     started = time.perf_counter()
     response = await call_next(request)
-    cost_ms = int((time.perf_counter() - started) * 1000)
+    elapsed = time.perf_counter() - started
+    cost_ms = int(elapsed * 1000)
+    metrics_router.record_http_request(request.url.path, response.status_code, elapsed)
     response.headers[TRACE_ID_HEADER] = trace_id
     response.headers["X-Cost-Ms"] = str(cost_ms)
     # 不在此 reset：SSE 的响应体在 call_next 返回之后才被消费，

@@ -1,0 +1,69 @@
+{
+  "uid": "examprep-ai-overview",
+  "title": "大学生多考试备考系统 · AI Agent 可观测总览",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "7天 Agent 总运行次数",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "examprep_ai_runs_total", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Agent P95 延迟 (ms)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "examprep_ai_latency_p95_ms", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "累计消耗 Token",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "examprep_ai_tokens_total", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "估算成本 (CNY) / 降级率",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "examprep_ai_estimated_cost_cny", "refId": "A" },
+        { "expr": "examprep_ai_degraded_rate", "refId": "B" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "AI 微服务 HTTP 请求速率 (按路径与状态码)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "rate(ai_http_requests_total[1m])", "refId": "A" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Agent 工具调用分布与 JVM 堆内存",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "ai_agent_tool_calls_total", "refId": "A" },
+        { "expr": "examprep_jvm_heap_used_bytes", "refId": "B" }
+      ]
+    }
+  ]
+}

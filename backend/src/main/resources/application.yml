@@ -193,6 +193,14 @@ app:
       wiki-stream: exam:wiki
       group: expert-workers
 
+    # ========== 每日 Token 与请求配额闸门 ==========
+    quota:
+      enabled: ${AI_QUOTA_ENABLED:true}
+      student-daily-tokens: ${AI_QUOTA_STUDENT_DAILY_TOKENS:200000}
+      student-daily-requests: ${AI_QUOTA_STUDENT_DAILY_REQUESTS:200}
+      admin-daily-tokens: ${AI_QUOTA_ADMIN_DAILY_TOKENS:2000000}
+      admin-daily-requests: ${AI_QUOTA_ADMIN_DAILY_REQUESTS:2000}
+
     llm:
       # 双模切换（本地 Ollama / 在线 API）：
       #   ollama    （默认，本地零费用，无需 API Key）
@@ -207,6 +215,9 @@ app:
       # ---------- 本地模型 Ollama（默认零费用，无需 Key）----------
       ollama-base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434/v1}
       ollama-model: ${OLLAMA_MODEL:qwen2.5-3b-instruct-q8_0-baseline}
+      # 云端成本估算单价（元/千 Token）；本地 Ollama 保持 0
+      input-price-per-k: 0.0
+      output-price-per-k: 0.0
       ollama-timeout-millis: ${OLLAMA_TIMEOUT_MS:90000}
 
       # ---------- 在线 API（OpenAI 兼容 / 百炼 / 智谱，默认留空不启用）----------

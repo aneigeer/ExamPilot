@@ -586,6 +586,11 @@ class AgentRequest(BaseModel):
     history: List[AgentTurn] = Field(
         default_factory=list, description="最近 N 轮问答（时间正序）"
     )
+    approved_tools: List[str] = Field(
+        default_factory=list,
+        alias="approvedTools",
+        description="已通过人工审批的高风险工具白名单（仅 Java 侧审批恢复时透传）",
+    )
     memory_summary: Optional[str] = Field(
         default=None, alias="memorySummary", description="Java 维护的滚动摘要"
     )

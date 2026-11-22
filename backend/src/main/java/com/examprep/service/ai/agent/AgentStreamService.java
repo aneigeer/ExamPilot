@@ -76,6 +76,14 @@ public class AgentStreamService {
     /** 步骤检查点（中断恢复用）；落库失败只 WARN，绝不影响会话 */
     private final com.examprep.mapper.AiAgentCheckpointMapper checkpointMapper;
 
+    /** 可选配额闸门（非构造器强依赖，保持既有单测零破坏） */
+    private AiQuotaService quotaService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setQuotaService(AiQuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
+
     /** 哪些事件需要落检查点（final/done/meta 不需要：恢复只关心"走到第几步、干了什么"） */
     private static final java.util.Set<String> CHECKPOINT_EVENTS =
             java.util.Set.of("thought", "tool_call", "tool_result");
@@ -133,6 +141,9 @@ public class AgentStreamService {
         if (!cfg.isEnabled()) {
             throw new BizException(ResultCode.AI_SERVICE_UNAVAILABLE,
                     "Agent 能力未启用（app.ai.agent.enabled=false）");
+        }
+        if (quotaService != null && userId != null) {
+            quotaService.checkAndRecord(userId, com.examprep.security.SecurityUtils.currentRole(), false);
         }
         // ① 全局信号量：失败直接 429，不碰 DB
         if (!semaphore.tryAcquire()) {
@@ -243,6 +254,9 @@ public class AgentStreamService {
             String error = state.error;
             if (state.finalSent.get()) {
                 status = state.refused ? AiAgentRun.STATUS_REFUSED : AiAgentRun.STATUS_SUCCESS;
+            } else if (state.waitingApproval.get()) {
+                status = AiAgentRun.STATUS_WAITING_APPROVAL;
+                error = null;
             } else if (state.timeoutFlag.get()) {
                 status = AiAgentRun.STATUS_FAILED;
                 error = "timeout";
@@ -266,6 +280,8 @@ public class AgentStreamService {
                 runService.finish(run.getId(), status, state.answer, state.generator,
                         state.stepCount, state.toolCalls, totalMs, state.degraded,
                         stepsJson, error);
+                runService.updateUsage(run.getId(), state.modelName, state.promptTokens,
+                        state.completionTokens, state.totalTokens);
                 // 只有真正产生了回答的轮次才进入会话记忆；取消/超时不写入，避免污染下一轮
                 if (state.finalSent.get() && (AiAgentRun.STATUS_SUCCESS.equals(status)
                         || AiAgentRun.STATUS_REFUSED.equals(status))) {
@@ -304,6 +320,9 @@ public class AgentStreamService {
         // 分层记忆：滚动摘要 + 最近 6 轮问答 + 学生长期记忆，由 Python Context Manager 做预算与压缩
         body.put("memorySummary", sessionService.summary(run.getSessionId(), run.getUserId()));
         body.put("history", sessionService.history(run.getSessionId(), run.getUserId(), 6));
+        if (request.getApprovedTools() != null && !request.getApprovedTools().isEmpty()) {
+            body.put("approvedTools", request.getApprovedTools());
+        }
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(10))
@@ -381,6 +400,7 @@ public class AgentStreamService {
         recordCheckpoint(state, name, item.get("data"));
 
         boolean isFinal = "final".equals(name);
+        boolean isApproval = "approval_required".equals(name);
         JsonNode finalNode = null;
         if (isFinal) {
             try {
@@ -390,6 +410,9 @@ public class AgentStreamService {
                 state.errorFlag.set(true);
                 state.error = "final_parse_error";
             }
+        } else if (isApproval) {
+            recordApprovalCheckpoint(state, item.get("data"));
+            state.waitingApproval.set(true);
         }
 
         try {
@@ -403,6 +426,10 @@ public class AgentStreamService {
                 state.refused = finalNode.path("refused").asBoolean(false);
                 state.stepCount = finalNode.path("step_count").asInt(0);
                 state.toolCalls = finalNode.path("tool_calls").asInt(0);
+                state.modelName = finalNode.path("model").asText(null);
+                state.promptTokens = finalNode.path("promptTokens").asInt(0);
+                state.completionTokens = finalNode.path("completionTokens").asInt(0);
+                state.totalTokens = finalNode.path("totalTokens").asInt(0);
                 state.finalSent.set(true);
             }
         } catch (IOException | IllegalStateException e) {
@@ -570,6 +597,34 @@ public class AgentStreamService {
         }
     }
 
+    /** 落一条待人工审批挂起检查点（只存工具名、风险级、参数键名与一次性令牌，不存原文） */
+    private void recordApprovalCheckpoint(RelayState state, Object data) {
+        if (state.runId == null) {
+            return;
+        }
+        int step = state.checkpointStep.incrementAndGet();
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("event", "approval_required");
+        try {
+            JsonNode node = data instanceof JsonNode jsonNode
+                    ? jsonNode : objectMapper.valueToTree(data);
+            if (node != null && node.isObject()) {
+                summary.put("tool", node.path("tool").asText(""));
+                summary.put("riskLevel", node.path("riskLevel").asText("WRITE_HIGH"));
+                summary.put("approvalToken", node.path("approvalToken").asText(""));
+                if (node.has("argKeys") && node.get("argKeys").isArray()) {
+                    List<String> keys = new ArrayList<>();
+                    node.get("argKeys").forEach(k -> keys.add(k.asText()));
+                    summary.put("argKeys", keys);
+                }
+            }
+            checkpointMapper.insertApprovalCheckpoint(state.runId, state.sessionId, step,
+                    objectMapper.writeValueAsString(summary));
+        } catch (Exception e) {
+            log.warn("[Agent] 审批检查点落库失败 run={} step={}：{}", state.runId, step, e.getMessage());
+        }
+    }
+
     private static final class RelayState {
         /** 检查点写入需要知道属于哪个 run（不改 dispatch 签名，避免大范围改动） */
         volatile Long runId;
@@ -577,11 +632,16 @@ public class AgentStreamService {
         final java.util.concurrent.atomic.AtomicInteger checkpointStep =
                 new java.util.concurrent.atomic.AtomicInteger(0);
         final AtomicBoolean finalSent = new AtomicBoolean(false);
+        final AtomicBoolean waitingApproval = new AtomicBoolean(false);
         final AtomicBoolean timeoutFlag = new AtomicBoolean(false);
         final AtomicBoolean errorFlag = new AtomicBoolean(false);
         final AtomicBoolean clientGone = new AtomicBoolean(false);
         volatile String answer;
         volatile String generator;
+        volatile String modelName;
+        volatile int promptTokens;
+        volatile int completionTokens;
+        volatile int totalTokens;
         volatile String error;
         volatile boolean degraded;
         volatile boolean refused;

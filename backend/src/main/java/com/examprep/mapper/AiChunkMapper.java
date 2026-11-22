@@ -408,4 +408,11 @@ public interface AiChunkMapper extends BaseMapper<AiChunk> {
             """)
     List<Long> selectIdsByContentAnchor(@Param("anchor") String anchor,
                                         @Param("limit") int limit);
+
+    /** 按 ID 批量取 content_hash（Wiki 治理聚合用） */
+    @org.apache.ibatis.annotations.Select("<script>SELECT id, content_hash AS contentHash FROM ai_chunk "
+            + "WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>"
+            + "</script>")
+    java.util.List<java.util.Map<String, Object>> selectHashesByIds(
+            @org.apache.ibatis.annotations.Param("ids") java.util.Collection<Long> ids);
 }
