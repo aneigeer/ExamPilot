@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>备考助手 · 学生端</title>
+<title>ExamPilot · 学生端</title>
 <link rel="stylesheet" href="../admin/vendor/element-plus.css">
 <style>
   :root{
@@ -303,8 +303,8 @@
   <!-- ============ 登录 ============ -->
   <div class="login-wrap" v-if="!token">
     <div class="login-card">
-      <div class="brand-badge">备</div>
-      <h1>大学生备考助手</h1>
+      <div class="brand-badge" style="font-size:16px;letter-spacing:.5px">EP</div>
+      <h1>ExamPilot</h1>
       <p class="lead">登录后可刷题、看错题、查统计、问 AI</p>
       <label class="field">
         <span>学号</span>
@@ -326,7 +326,7 @@
   <template v-else>
     <header class="topbar">
       <div class="topbar-inner">
-        <div class="brand"><span class="dot"></span>备考助手</div>
+        <div class="brand"><span class="dot"></span>ExamPilot</div>
         <div class="userbox">
           <span class="nick">{{ (user && user.nickname) || '同学' }}</span>
           <span class="sid">{{ user && user.maskedStudentNo }}</span>
@@ -1243,7 +1243,7 @@
         </div>
       </section>
 
-      <div class="foot">备考助手 · 学生端演示页 · 数据实时来自后端</div>
+      <div class="foot">ExamPilot · 学生端 · 数据实时来自后端</div>
     </main>
   </template>
 </div>

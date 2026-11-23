@@ -69,7 +69,7 @@ TOOLS: List[Dict[str, Any]] = [
     {
         "name": "search_knowledge",
         "description": (
-            "在备考知识库中检索与问题最相关的资料片段（只读）。"
+            "在 ExamPilot 知识库中检索与问题最相关的资料片段（只读）。"
             "返回命中片段的标题/正文摘要/来源引用，不含答案。"
         ),
         "inputSchema": {

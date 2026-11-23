@@ -547,7 +547,7 @@ app:
 
 #### ⑧ SMALLTALK / CLARIFY / REFUSE —— **不用 prompt，模板直出**
 ```
-SMALLTALK:  "我是你的备考助手，可以问我知识点、讲解题目、看错题或定计划。"
+SMALLTALK:  "我是你的 ExamPilot，可以问我知识点、讲解题目、看错题或定计划。"
 CLARIFY:    "你是想了解「{{candidate1}}」还是「{{candidate2}}」？"（附 2-3 个候选按钮）
 REFUSE:     "未找到相关资料。"（sources=[]，refused=true）
 ```

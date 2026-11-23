@@ -18,7 +18,7 @@ import java.awt.image.BufferedImage;
 @Service
 public class WatermarkService {
 
-    private static final String PLATFORM = "备考知识库";
+    private static final String PLATFORM = "ExamPilot";
 
     /**
      * 在原图上叠加 45° 平铺水印

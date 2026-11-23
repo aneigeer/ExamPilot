@@ -87,7 +87,7 @@ if (Test-Path $dc) {
 
 # ---------- 7. 学生端安装包 ----------
 Section '学生端安装包'
-$apk = Get-ChildItem $root -Filter '备考知识库学生端-*.apk' -ErrorAction SilentlyContinue |
+$apk = Get-ChildItem $root -Filter 'ExamPilot学生端-*.apk' -ErrorAction SilentlyContinue |
        Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($apk) { Ok ("已存在：" + $apk.Name + "（" + [math]::Round($apk.Length/1MB,2) + " MB，" + $apk.LastWriteTime.ToString('yyyy-MM-dd HH:mm') + "）") }
 else { Bad '根目录未找到学生端 APK，请执行 gradle assembleDebug/assembleRelease' }

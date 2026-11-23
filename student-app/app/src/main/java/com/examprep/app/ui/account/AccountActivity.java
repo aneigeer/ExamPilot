@@ -136,7 +136,7 @@ public class AccountActivity extends AppCompatActivity {
         Intent send = new Intent(Intent.ACTION_SEND);
         send.setType("application/json");
         send.putExtra(Intent.EXTRA_STREAM, uri);
-        send.putExtra(Intent.EXTRA_SUBJECT, "备考知识库 · 个人数据导出");
+        send.putExtra(Intent.EXTRA_SUBJECT, "ExamPilot · 个人数据导出");
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(send, "保存或分享导出文件"));
     }

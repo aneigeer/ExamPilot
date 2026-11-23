@@ -1,4 +1,4 @@
-# 大学生多考试备考知识库与题库系统（Enterprise AI Agent Edition）
+# ExamPilot（大学生多考试备考知识库与题库系统 · Enterprise AI Agent Edition）
 
 > 面向高校学生的**资料治理 + 企业级 AI Agent 智能备考**平台。采用 **Android 学生端 + Web 学生端/管理端 + Spring Boot 3.5.3 (JDK 21) + FastAPI AI 微服务 + Qdrant 向量库 + Redis Stream 异步队列** 架构，完整落地现代 **9 模块企业级 AI Agent 架构**，并支持**本地 Ollama 7B（零 API 成本）与云端 OpenAI / 百炼 / 智谱 / DeepSeek API 双模一键切换**。
 
@@ -100,7 +100,7 @@ docker compose --env-file .env.prod -p examprep up -d --build
 |---|---|---|
 | 后端 | ✅ 完成 | Spring Boot 3.5.3 + JDK 21，**196 个对外接口（全量 210 个 operation，含 14 个 internal）/ 33 个 Controller**，单测 **339 个全绿**（2026-11-02 全量 `mvn -B test`；今日仅局部 7/7 `GlobalExceptionHandlerTest`，2026-11-08 15:11） |
 | 数据库 | ✅ 完成 | MySQL 8，**56 张表**（schema.sql 基线 34 + 迁移 20 + 无脚本建表 2），schema + data + 增量迁移均可重复执行 |
-| Android 学生端 | ✅ 完成 | Java + XML 原生，**36 个页面（32 Activity + 4 Fragment）**，`release/备考知识库学生端-v1.9.1-真机版.apk` 可直接安装（正式签名） |
+| Android 学生端 | ✅ 完成 | Java + XML 原生，**36 个页面（32 Activity + 4 Fragment）**，`release/ExamPilot学生端-v1.9.1-真机版.apk` 可直接安装（正式签名） |
 | Web 管理端 | ✅ 完成 | Vue3 + Element Plus 单页（CDN 本地化），由后端同源托管，零构建零跨域 |
 | **AI 导学** | ✅ 完成 | **本地大模型**：Qwen2.5-7B（q3_k_m）经 Ollama 部署，**GPU 推理 52 tok/s**、显存 4.0 GB、热态首字 0.03–0.2 s、`keep_alive` 防卸载；**不依赖云端 API 与网络**；<br>**Router/Skill 架构**：bge 句向量意图分类（**平均 4–20 ms**，不是让大模型判断意图），**9 个技能** + 三闸门（相似度 / 间隔 / 检索验证），事实类问题**检索无命中即拒答**；<br>**检索隔离**：课程题（QUESTION/KNOWLEDGE）与课件（COURSEWARE）按 `source_type` 硬分流，互不挤占 top-K；<br>**质量（实测）**：生产链路拒答 **9/10 = 90%**、Recall@5 **11/12 = 91.7%**；纯词法降级档 8/10、83.3%（两档分开守，不混口径）；<br>**降级**：本地模型不可用时 **0.095 s** 落到抽取式，接口不中断 |
 | **AI 问答页（App）** | ✅ 完成 | 首页「问 AI」→ `/api/ai/ask`：回答正文 + `[n]` 上标引用 + 来源卡片（题目/课件/Wiki/资料，可跳转）；`refused` 明示「资料里没有」；`degraded` 按 `generator` 分支提示（模型答案裁来源 ≠ 本地抽取）；单次实测 44s，客户端读超时 90s |
@@ -371,7 +371,7 @@ mysql -u root -p < sql/migration-wiki.sql                 # LLM Wiki：主题页
 
 ### 4. 学生端
 
-- 真机：安装 `release/备考知识库学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
+- 真机：安装 `release/ExamPilot学生端-v1.5-真机版.apk`（包内 `BASE_URL` 已指向打包时的局域网 IP）
   > APK 属构建产物，`.gitignore` 已忽略（`*.apk` / `release/`），不入库；需从源码 `student-app/` 重新打包
 - 模拟器：把 `student-app/app/build.gradle` 的 `BASE_URL` 改回 `http://10.0.2.2:8080/api/` 后 `gradle assembleDebug`
 - 换网络后需重打包（IP 变化），构建命令：`cd student-app && gradle assembleDebug`

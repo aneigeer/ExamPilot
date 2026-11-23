@@ -29,7 +29,7 @@ _WORD = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]+")
 _RELATIONS = {"RELATED", "SIBLING", "PREREQUISITE"}
 
 SYSTEM_PROMPT = (
-    "你是大学生备考知识库的 Wiki 编辑。把给定的原始资料块提炼成一个结构化主题页草稿。\n"
+    "你是 ExamPilot（大学生多考试备考平台）的 Wiki 编辑。把给定的原始资料块提炼成一个结构化主题页草稿。\n"
     "硬性规则：\n"
     "1. 只依据【原始资料】写作，资料中没有的内容绝不补充；不确定就写「资料未提及」。\n"
     "2. 只输出一个 JSON 对象，不要 Markdown 代码块，不要任何解释文字。\n"

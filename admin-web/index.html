@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>备考知识库 · 后台管理端</title>
+<title>ExamPilot · 后台管理端</title>
 <link rel="stylesheet" href="vendor/element-plus.css">
 <script src="vendor/vue.global.prod.js"></script>
 <script src="vendor/element-plus.full.min.js"></script>
@@ -68,7 +68,7 @@
 
   <!-- ============ 登录 ============ -->
   <div v-if="!token" class="login-box">
-    <div class="login-title">备考知识库 · 后台管理端</div>
+    <div class="login-title">ExamPilot · 后台管理端</div>
     <el-form @submit.prevent="login">
       <el-form-item><el-input v-model="loginForm.studentNo" placeholder="账号（admin / auditor）" size="large"/></el-form-item>
       <el-form-item><el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" show-password/></el-form-item>
@@ -79,7 +79,7 @@
   <!-- ============ 主布局 ============ -->
   <el-container v-else style="height:100vh">
     <el-aside width="210px" class="aside">
-      <div class="logo">📚 备考知识库管理端</div>
+      <div class="logo">📚 ExamPilot 管理端</div>
       <el-menu :default-active="view" background-color="#001529" text-color="#a6adb4"
                active-text-color="#ffffff" style="border-right:none"
                @select="v => { view = v; loadView(); }">
@@ -105,7 +105,7 @@
 
     <el-container>
       <el-header class="head" height="56px">
-        <span style="color:#7a8190;font-size:14px">大学生多考试备考知识库与题库系统 · 管理端</span>
+        <span style="color:#7a8190;font-size:14px">ExamPilot · 管理端</span>
         <span>
           <el-tag type="info" effect="plain" style="margin-right:10px">{{ whoami }}</el-tag>
           <el-button text type="danger" @click="logout">退出</el-button>

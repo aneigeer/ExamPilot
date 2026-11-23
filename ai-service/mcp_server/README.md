@@ -1,6 +1,6 @@
 # 只读 MCP Server（`mcp_server`）
 
-把「备考知识库」以 **MCP（Model Context Protocol）** 工具的形式开放给外部 Agent 客户端
+把「ExamPilot 知识库」以 **MCP（Model Context Protocol）** 工具的形式开放给外部 Agent 客户端
 （Claude Desktop 等）。**只读、三工具、独立进程**，不接入主 FastAPI 服务。
 
 - 协议：MCP `2024-11-05`，JSON-RPC 2.0，**stdio 传输**（每行一个 JSON 报文）

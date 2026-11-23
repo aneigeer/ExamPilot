@@ -22,7 +22,7 @@ public class OpenApiConfig {
     public OpenAPI examPrepOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("大学生多考试备考知识库与题库系统 · API")
+                        .title("ExamPilot · 大学生多考试备考知识库与题库系统 API")
                         .version("v1.0.0")
                         .description("""
                                 ## 访问级别说明（每个接口都已标注）

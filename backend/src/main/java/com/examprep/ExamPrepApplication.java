@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * 大学生多考试备考知识库与题库系统 —— 后端启动类
+ * ExamPilot —— 大学生多考试备考知识库与题库系统后端启动类
  *
  * <p>{@link EnableScheduling} 用于资料热度分的周期重算（推荐排序物化列的刷新）。
  *

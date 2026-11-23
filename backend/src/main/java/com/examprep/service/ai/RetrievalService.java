@@ -216,7 +216,7 @@ public class RetrievalService {
     }
 
     /**
-     * 能力边界判定：问题是否落在「备考知识库」的承诺范围之外
+     * 能力边界判定：问题是否落在「ExamPilot」的承诺范围之外
      *
      * <p>命中 {@code app.ai.retrieval.out-of-scope-keywords} 任一即视为越界。
      * 这类问题（天气、汇率、快递、菜谱…）在语料里可能凑出很高的词重叠

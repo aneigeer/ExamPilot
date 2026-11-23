@@ -67,7 +67,7 @@ __all__ = ["TRACE_ID_HEADER", "app", "create_app"]
 LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(trace_id)s] [%(name)s] %(message)s"
 
 DESCRIPTION = """
-**大学生多考试备考知识库与题库系统 —— AI 微服务**
+**ExamPilot —— 大学生多考试备考知识库与题库系统 · AI 微服务**
 
 本服务只负责四件事：
 
@@ -138,7 +138,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
 
     app = FastAPI(
-        title="备考知识库 AI 微服务",
+        title="ExamPilot AI 微服务",
         version=settings.version,
         description=DESCRIPTION,
         docs_url="/docs",
